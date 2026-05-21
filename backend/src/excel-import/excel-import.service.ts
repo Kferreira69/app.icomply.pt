@@ -108,7 +108,8 @@ export class ExcelImportService {
 
       const ExcelJS = await import('exceljs');
       const wb = new ExcelJS.default.Workbook();
-      await wb.xlsx.load(buffer as unknown as Buffer);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await wb.xlsx.load(buffer as any);
       const ws = wb.worksheets[0];
 
       const rows: any[] = [];
