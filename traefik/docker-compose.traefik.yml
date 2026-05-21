@@ -33,7 +33,7 @@ volumes:
 
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3
     container_name: traefik
     restart: unless-stopped
     networks:
@@ -43,6 +43,8 @@ services:
       - "443:443"         # HTTPS
       # Dashboard (comment out in production or restrict with IP whitelist)
       # - "8080:8080"
+    environment:
+      - DOCKER_API_VERSION=1.44
     command:
       # -- API & Dashboard --
       - "--api.dashboard=true"
