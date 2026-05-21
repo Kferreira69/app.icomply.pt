@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { authApi } from '@/lib/api';
@@ -7,7 +8,7 @@ import { useState } from 'react';
 import { Loader2, UserCheck, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
-export default function AcceptInvitePage() {
+function AcceptInviteForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token') || '';
@@ -106,5 +107,13 @@ export default function AcceptInvitePage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
+      <AcceptInviteForm />
+    </Suspense>
   );
 }
