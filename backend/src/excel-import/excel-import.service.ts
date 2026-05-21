@@ -108,7 +108,7 @@ export class ExcelImportService {
 
       const ExcelJS = await import('exceljs');
       const wb = new ExcelJS.default.Workbook();
-      await wb.xlsx.load(buffer);
+      await wb.xlsx.load(buffer as unknown as Buffer);
       const ws = wb.worksheets[0];
 
       const rows: any[] = [];
