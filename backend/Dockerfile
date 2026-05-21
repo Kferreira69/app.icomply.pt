@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install deps first (layer-cache friendly)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source
 COPY . .
@@ -22,7 +22,7 @@ ENV NODE_ENV=production
 
 # Only production deps
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Compiled app
 COPY --from=builder /app/dist ./dist
