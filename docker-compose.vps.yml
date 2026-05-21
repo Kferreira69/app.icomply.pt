@@ -88,11 +88,9 @@ services:
 
   # ── Backend (NestJS) ────────────────────────────────────────
   backend:
-    image: ghcr.io/contemporaryconstellation/icomply-backend:${IMAGE_TAG:-latest}
-    # OR build locally on VPS:
-    # build:
-    #   context: ./backend
-    #   dockerfile: Dockerfile
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: icomply_backend
     restart: unless-stopped
     networks:
@@ -142,13 +140,11 @@ services:
 
   # ── Frontend (Next.js) ──────────────────────────────────────
   frontend:
-    # To build locally on VPS (comment out 'image' line and uncomment 'build'):
-    image: ghcr.io/contemporaryconstellation/icomply-frontend:${IMAGE_TAG:-latest}
-    # build:
-    #   context: ./frontend
-    #   dockerfile: Dockerfile
-    #   args:
-    #     NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api/v1
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api/v1
     container_name: icomply_frontend
     restart: unless-stopped
     networks:
