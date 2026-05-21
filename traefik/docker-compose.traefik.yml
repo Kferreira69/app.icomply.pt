@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Traefik — Shared Reverse Proxy for the VPS
+#
+# Deploy ONCE on the VPS. Shared between:
+#   - ai.contemporaryconstellation.pt  (existing project)
+#   - iComply app                       (new project)
+#   - Any future projects
+#
+# FIRST-TIME SETUP:
+#   1. Create the shared network:
+#        docker network create traefik-public
+#   2. Create the acme.json file (Let's Encrypt certificates):
+#        touch traefik/acme.json && chmod 600 traefik/acme.json
+#   3. Set your email in TRAEFIK_ACME_EMAIL below (or via .env)
+#   4. Start Traefik:
+#        docker-compose -f traefik/docker-compose.traefik.yml up -d
+#
+# ADDING A NEW PROJECT to this Traefik:
+#   - Add the project's network to traefik's networks list (see below)
+#   - OR use the traefik-public external network in the project (recommended)
+#   - Add Traefik labels to the project's service containers
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: '3.9'
+
+networks:
+  traefik-public:
+    external: true
+
+volumes:
+  traefik-certs:
+    name: traefik-certs
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    ports:
+      - "80:80"           # HTTP  (redirects to HTTPS)
+      - "443:443"         # HTTPS
+      # Dashboard (comment out in production or restrict with IP whitelist)
+      # - "8080:8080"
+    command:
+      # -- API & Dashboard --
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      # -- Providers --
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-public"
+      # -- Entrypoints --
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # -- TLS / Let's Encrypt --
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/certs/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # -- Logging --
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik-certs:/certs"
+    labels:
+      - "traefik.enable=true"
+      # Global HTTP → HTTPS redirect middleware (referenced by all services)
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      # Traefik dashboard (protect with BasicAuth in production)
+      # - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.yourdomain.pt`)"
+      # - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      # - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      # - "traefik.http.routers.traefik-dashboard.service=api@internal"

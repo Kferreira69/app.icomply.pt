@@ -1,0 +1,194 @@
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { useAuthStore } from '@/store/auth-store';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+export const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
+});
+
+// ── Request interceptor: attach JWT ─────────────────────────
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (typeof window !== 'undefined') {
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+// ── Response interceptor: handle 401 / token refresh ────────
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const original = error.config as any;
+
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
+      const { refreshToken, setTokens, logout } = useAuthStore.getState();
+
+      if (refreshToken) {
+        try {
+          const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
+          const { accessToken } = res.data;
+          setTokens(accessToken, refreshToken);
+          original.headers.Authorization = `Bearer ${accessToken}`;
+          return api(original);
+        } catch {
+          logout();
+          if (typeof window !== 'undefined') window.location.href = '/login';
+        }
+      } else {
+        logout();
+        if (typeof window !== 'undefined') window.location.href = '/login';
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+// ── Typed API helpers ────────────────────────────────────────
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    api.post('/auth/login', { email, password }),
+  me: () => api.get('/auth/me'),
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    api.post('/auth/reset-password', data),
+  acceptInvite: (data: { token: string; password: string; firstName?: string; lastName?: string }) =>
+    api.post('/auth/accept-invite', data),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.patch('/auth/change-password', { currentPassword, newPassword }),
+};
+
+export const orgApi = {
+  getCurrent: () => api.get('/organizations/my'),
+  myOrg: () => api.get('/organizations/my'),
+  dashboard: () => api.get('/organizations/my/dashboard'),
+  update: (data: any) => api.patch('/organizations/my', data),
+};
+
+export const usersApi = {
+  list: (params?: any) => api.get('/users', { params }),
+  get: (id: string) => api.get(`/users/${id}`),
+  invite: (data: any) => api.post('/users', data),
+  update: (id: string, data: any) => api.patch(`/users/${id}`, data),
+  suspend: (id: string) => api.patch(`/users/${id}/suspend`),
+  resendInvite: (id: string) => api.post(`/users/${id}/resend-invite`),
+};
+
+export const frameworksApi = {
+  list: () => api.get('/frameworks'),
+  get: (id: string) => api.get(`/frameworks/${id}`),
+  controls: (id: string) => api.get(`/frameworks/${id}/controls`),
+  templates: (id: string) => api.get(`/frameworks/${id}/templates`),
+};
+
+export const diagnosticsApi = {
+  questions: () => api.get('/diagnostics/questions'),
+  startRun: (data?: any) => api.post('/diagnostics/runs', data || {}),
+  listRuns: () => api.get('/diagnostics/runs'),
+  getRun: (id: string) => api.get(`/diagnostics/runs/${id}`),
+  submitAnswers: (runId: string, data: any) =>
+    api.post(`/diagnostics/runs/${runId}/answers`, data),
+};
+
+export const projectsApi = {
+  list: (params?: any) => api.get('/projects', { params }),
+  get: (id: string) => api.get(`/projects/${id}`),
+  getOne: (id: string) => api.get(`/projects/${id}`),
+  stats: (id: string) => api.get(`/projects/${id}/stats`),
+  create: (data: any) => api.post('/projects', data),
+  update: (id: string, data: any) => api.patch(`/projects/${id}`, data),
+};
+
+export const tasksApi = {
+  list: (params?: any) => api.get('/tasks', { params }),
+  get: (id: string) => api.get(`/tasks/${id}`),
+  create: (data: any) => api.post('/tasks', data),
+  update: (id: string, data: any) => api.patch(`/tasks/${id}`, data),
+  addComment: (id: string, content: string) =>
+    api.post(`/tasks/${id}/comments`, { content }),
+  bulkUpdateStatus: (ids: string[], status: string) =>
+    api.patch('/tasks/bulk/status', { ids, status }),
+};
+
+export const risksApi = {
+  list: (params?: any) => api.get('/risks', { params }),
+  get: (id: string) => api.get(`/risks/${id}`),
+  heatmap: () => api.get('/risks/heatmap'),
+  create: (data: any) => api.post('/risks', data),
+  update: (id: string, data: any) => api.patch(`/risks/${id}`, data),
+};
+
+export const evidenceApi = {
+  list: (params?: any) => api.get('/evidence', { params }),
+  get: (id: string) => api.get(`/evidence/${id}`),
+  gapAnalysis: (frameworkId: string) =>
+    api.get('/evidence/gap-analysis', { params: { frameworkId } }),
+  upload: (formData: FormData) =>
+    api.post('/evidence/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/evidence/${id}/status`, { status }),
+};
+
+export const auditsApi = {
+  list: (params?: any) => api.get('/audits', { params }),
+  get: (id: string) => api.get(`/audits/${id}`),
+  getOne: (id: string) => api.get(`/audits/${id}`),
+  create: (data: any) => api.post('/audits', data),
+  update: (id: string, data: any) => api.patch(`/audits/${id}`, data),
+  updateStatus: (id: string, data: any) => api.patch(`/audits/${id}/status`, data),
+  createFinding: (auditId: string, data: any) =>
+    api.post(`/audits/${auditId}/findings`, data),
+  updateFinding: (auditId: string, findingId: string, data: any) =>
+    api.patch(`/audits/${auditId}/findings/${findingId}`, data),
+};
+
+export const capaApi = {
+  list: (params?: any) => api.get('/capa', { params }),
+  get: (id: string) => api.get(`/capa/${id}`),
+  create: (data: any) => api.post('/capa', data),
+  update: (id: string, data: any) => api.patch(`/capa/${id}`, data),
+};
+
+export const reportsApi = {
+  list: () => api.get('/reports'),
+  summary: (projectId?: string) =>
+    api.get('/reports/summary', { params: { projectId } }),
+  generate: (data: any) => api.post('/reports/generate', data),
+};
+
+export const excelImportApi = {
+  upload: (file: File, type: string, projectId?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    if (projectId) formData.append('projectId', projectId);
+    return api.post('/excel-import/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  uploadForm: (formData: FormData) =>
+    api.post('/excel-import/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  list: (params?: any) => api.get('/excel-import/history', { params }),
+  history: () => api.get('/excel-import/history'),
+  status: (id: string) => api.get(`/excel-import/${id}`),
+  downloadTemplate: (type: string) =>
+    api.get('/excel-import/template', { params: { type }, responseType: 'blob' }),
+  template: (type: string) =>
+    api.get('/excel-import/template', { params: { type }, responseType: 'blob' }),
+};
+
+export const auditLogsApi = {
+  list: (params?: any) => api.get('/audit-logs', { params }),
+};

@@ -1,0 +1,35 @@
+; iComply — Cloudflare DNS Zone Import
+; Domínio: icomply.pt
+; VPS IP: 141.227.188.110
+; Formato: BIND zone file (compatível com importação Cloudflare)
+;
+; INSTRUÇÕES:
+;   1. Cloudflare → icomply.pt → DNS → Import DNS Records
+;   2. Faz upload deste ficheiro
+;   3. Após importar, verifica que os registos abaixo ficaram todos com
+;      Proxy status = "DNS only" (nuvem cinzenta)
+;   4. Só DEPOIS do primeiro certificado Let's Encrypt ser emitido
+;      podes activar o proxy (nuvem laranja) nos registos app e api
+;      se quiseres usar o CDN/WAF da Cloudflare.
+;
+; NOTA: TTL 300 = 5 minutos (adequado durante setup)
+; Depois de estável podes subir para 3600.
+
+$TTL 300
+
+; ── Produção (utilizadores finais) ──────────────────────────────
+app                   IN  A  141.227.188.110
+api                   IN  A  141.227.188.110
+
+; ── Staging ─────────────────────────────────────────────────────
+staging               IN  A  141.227.188.110
+api.staging           IN  A  141.227.188.110
+
+; ── Operações / Infra (acesso restrito) ─────────────────────────
+files                 IN  A  141.227.188.110
+traefik               IN  A  141.227.188.110
+status                IN  A  141.227.188.110
+
+; ── Dev / CI (criar quando necessário) ──────────────────────────
+dev                   IN  A  141.227.188.110
+api.dev               IN  A  141.227.188.110
