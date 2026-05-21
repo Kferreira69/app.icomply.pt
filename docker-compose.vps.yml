@@ -163,12 +163,12 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
       # Router — domain.pt
-      - "traefik.http.routers.icomply-frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.icomply-frontend.rule=Host(`app.${DOMAIN}`)"
       - "traefik.http.routers.icomply-frontend.entrypoints=websecure"
       - "traefik.http.routers.icomply-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.icomply-frontend.service=icomply-frontend"
       - "traefik.http.services.icomply-frontend.loadbalancer.server.port=3000"
       # HTTP → HTTPS redirect
-      - "traefik.http.routers.icomply-frontend-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.icomply-frontend-http.rule=Host(`app.${DOMAIN}`)"
       - "traefik.http.routers.icomply-frontend-http.entrypoints=web"
       - "traefik.http.routers.icomply-frontend-http.middlewares=redirect-to-https"
