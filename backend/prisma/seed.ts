@@ -512,7 +512,7 @@ async function main() {
       id: 'demo-project-001',
       name: 'Implementação GDPR 2025',
       description: 'Projeto de adequação ao Regulamento Geral de Proteção de Dados',
-      status: 'IN_PROGRESS' as any,
+      status: 'ACTIVE' as any,
       frameworkId: gdpr.id,
       organizationId: org.id,
       targetDate: new Date('2025-12-31'),
