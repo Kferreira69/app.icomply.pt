@@ -89,6 +89,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: icomply-backend-staging:latest
     container_name: icomply_staging_backend
     restart: unless-stopped
     networks:
@@ -141,6 +142,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://api.${STAGING_DOMAIN}/api/v1
+    image: icomply-frontend-staging:latest
     container_name: icomply_staging_frontend
     restart: unless-stopped
     networks:
