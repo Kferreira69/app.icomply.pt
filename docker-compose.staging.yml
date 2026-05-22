@@ -12,11 +12,16 @@
 #   https://api.staging.icomply.pt   → NestJS backend
 #
 # Completely isolated from production:
+#   - Explicit project name (icomply-staging) — prevents Docker Compose from
+#     mixing staging and production containers (both live in /opt/icomply)
 #   - Separate container names (icomply_staging_*)
+#   - Separate image names (icomply-*-staging:latest)
 #   - Separate internal network (icomply-staging-internal)
 #   - Separate volumes (icomply_staging_*)
 #   - Separate Traefik router names (icomply-staging-*)
 # ─────────────────────────────────────────────────────────────────────────────
+
+name: icomply-staging
 
 networks:
   traefik-public:
