@@ -51,7 +51,7 @@
     "uuid": "^9.0.0"
   },
   "prisma": {
-    "seed": "ts-node --transpile-only --skip-project --compiler-options {\"module\":\"CommonJS\",\"esModuleInterop\":true,\"skipLibCheck\":true} prisma/seed.ts"
+    "seed": "ts-node --transpile-only --skip-project --compiler-options {\"module\":\"CommonJS\",\"esModuleInterop\":true,\"skipLibCheck\":true,\"ignoreDeprecations\":\"6.0\"} prisma/seed.ts"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",

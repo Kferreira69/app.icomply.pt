@@ -34,6 +34,13 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
+# ts-node + typescript — needed to run prisma/seed.ts on demand
+COPY --from=builder /app/node_modules/ts-node ./node_modules/ts-node
+COPY --from=builder /app/node_modules/typescript ./node_modules/typescript
+COPY --from=builder /app/node_modules/@tsconfig ./node_modules/@tsconfig
+COPY --from=builder /app/node_modules/acorn ./node_modules/acorn
+COPY --from=builder /app/node_modules/yn ./node_modules/yn
+
 # Schema + migrations (needed for prisma migrate deploy)
 COPY --from=builder /app/prisma ./prisma
 
