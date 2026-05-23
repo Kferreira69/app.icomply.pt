@@ -21,7 +21,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "seed": "ts-node --transpile-only --skip-project --compiler-options {\"module\":\"CommonJS\",\"esModuleInterop\":true,\"skipLibCheck\":true,\"ignoreDeprecations\":\"6.0\"} prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
