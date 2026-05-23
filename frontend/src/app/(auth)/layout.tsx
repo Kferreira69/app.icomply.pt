@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {children}
         </div>
         <p className="text-center text-blue-200 text-xs mt-6">
-          © 2026 iComply · Contemporary Constellation · All rights reserved
+          © 2026 iComply · All rights reserved
         </p>
       </div>
     </div>
