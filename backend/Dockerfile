@@ -41,7 +41,7 @@ COPY --from=builder /app/node_modules/@tsconfig ./node_modules/@tsconfig
 COPY --from=builder /app/node_modules/acorn ./node_modules/acorn
 COPY --from=builder /app/node_modules/yn ./node_modules/yn
 # Create symlink so `ts-node` is on PATH (npm scripts add node_modules/.bin to PATH)
-RUN ln -sf /app/node_modules/ts-node/bin/ts-node /app/node_modules/.bin/ts-node
+RUN ln -sf /app/node_modules/ts-node/dist/bin.js /app/node_modules/.bin/ts-node
 
 # Schema + migrations (needed for prisma migrate deploy)
 COPY --from=builder /app/prisma ./prisma
