@@ -3,6 +3,9 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as path from 'path';
+import * as express from 'express';
+import * as fs from 'fs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -107,6 +110,14 @@ async function bootstrap() {
       swaggerOptions: { persistAuthorization: true },
     });
   }
+
+  // ── Local file uploads serving (fallback when S3 not configured) ─
+  const uploadDir = configService.get<string>(
+    'LOCAL_UPLOAD_DIR',
+    path.join(process.cwd(), 'uploads'),
+  );
+  fs.mkdirSync(uploadDir, { recursive: true });
+  app.use('/api/v1/uploads', express.static(uploadDir));
 
   await app.listen(port);
 

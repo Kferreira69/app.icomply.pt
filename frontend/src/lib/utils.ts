@@ -91,3 +91,13 @@ export function truncate(str: string, length = 60): string {
 export function getInitials(firstName: string, lastName: string): string {
   return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
 }
+
+/**
+ * Strips empty strings, null and undefined from form data before sending to API.
+ * Prevents class-validator failures on optional date/UUID fields when left blank.
+ */
+export function cleanFormData<T extends Record<string, any>>(data: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== '' && v !== null && v !== undefined),
+  ) as Partial<T>;
+}
