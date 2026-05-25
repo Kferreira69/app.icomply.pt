@@ -14,8 +14,6 @@
 #   https://storage.${DOMAIN} → MinIO console (optional, internal only recommended)
 # ─────────────────────────────────────────────────────────────────────────────
 
-version: '3.9'
-
 # ── Networks ──────────────────────────────────────────────────
 # traefik-public: shared with other projects on the VPS (Traefik sees it)
 # icomply-internal: private — only iComply services talk to each other here

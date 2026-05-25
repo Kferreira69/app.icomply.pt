@@ -35,6 +35,7 @@
     "@nestjs/swagger": "^7.3.0",
     "@nestjs/throttler": "^5.1.1",
     "@prisma/client": "^5.9.1",
+    "helmet": "^8.0.0",
     "aws-sdk": "^2.1549.0",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
