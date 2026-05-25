@@ -7,6 +7,7 @@ import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight,
+  BookOpen, ShieldCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -21,6 +22,8 @@ const navItems = [
   { href: '/audits', label: 'Auditorias', icon: Shield },
   { href: '/capa', label: 'CAPA', icon: AlertCircle },
   { href: '/reports', label: 'Relatórios', icon: BarChart2 },
+  { href: '/policies', label: 'Políticas', icon: BookOpen },
+  { href: '/gdpr', label: 'GDPR / ROPA', icon: ShieldCheck },
   { href: '/excel-import', label: 'Importar Excel', icon: Upload },
 ];
 

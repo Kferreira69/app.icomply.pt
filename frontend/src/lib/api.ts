@@ -201,3 +201,47 @@ export const notificationsApi = {
   markAllAsRead: () => api.patch('/notifications/read-all'),
   remove: (id: string) => api.delete(`/notifications/${id}`),
 };
+
+export const policiesApi = {
+  list: (params?: { status?: string; category?: string }) => api.get('/policies', { params }),
+  get: (id: string) => api.get(`/policies/${id}`),
+  stats: () => api.get('/policies/stats'),
+  create: (data: any) => api.post('/policies', data),
+  update: (id: string, data: any) => api.patch(`/policies/${id}`, data),
+  remove: (id: string) => api.delete(`/policies/${id}`),
+  submitForReview: (id: string) => api.post(`/policies/${id}/submit`),
+  approve: (id: string) => api.post(`/policies/${id}/approve`),
+  archive: (id: string) => api.post(`/policies/${id}/archive`),
+  revertToDraft: (id: string) => api.post(`/policies/${id}/revert`),
+  acknowledge: (id: string) => api.post(`/policies/${id}/acknowledge`),
+  acknowledgmentStatus: (id: string) => api.get(`/policies/${id}/acknowledgment-status`),
+};
+
+export const gdprApi = {
+  dashboard: () => api.get('/gdpr/dashboard'),
+  // ROPA / Processing Activities
+  activities: {
+    list: (params?: { status?: string }) => api.get('/gdpr/activities', { params }),
+    get: (id: string) => api.get(`/gdpr/activities/${id}`),
+    create: (data: any) => api.post('/gdpr/activities', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/activities/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/activities/${id}`),
+    ropaReport: () => api.get('/gdpr/activities/ropa-report'),
+  },
+  // DPIAs
+  dpias: {
+    list: (params?: { status?: string }) => api.get('/gdpr/dpias', { params }),
+    get: (id: string) => api.get(`/gdpr/dpias/${id}`),
+    create: (data: any) => api.post('/gdpr/dpias', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/dpias/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/dpias/${id}`),
+  },
+  // Breach Notifications
+  breaches: {
+    list: () => api.get('/gdpr/breaches'),
+    get: (id: string) => api.get(`/gdpr/breaches/${id}`),
+    create: (data: any) => api.post('/gdpr/breaches', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/breaches/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/breaches/${id}`),
+  },
+};

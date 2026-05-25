@@ -3,16 +3,23 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi, projectsApi } from '@/lib/api';
-import { Plus, Search, Filter, CheckSquare, Loader2, Calendar, Pencil } from 'lucide-react';
+import { Plus, Search, CheckSquare, Loader2, Calendar, Pencil, LayoutGrid, List } from 'lucide-react';
 import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
+import { KanbanBoard } from '@/components/tasks/kanban-board';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
 const STATUS_LABELS: Record<string, string> = {
   TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão', DONE: 'Concluído', CANCELLED: 'Cancelado',
 };
 
-function TaskRow({ task, onStatusChange, onEdit }: { task: any; onStatusChange: (id: string, status: string) => void; onEdit: (task: any) => void }) {
+// ── List row ──────────────────────────────────────────────────
+
+function TaskRow({ task, onStatusChange, onEdit }: {
+  task: any;
+  onStatusChange: (id: string, status: string) => void;
+  onEdit: (task: any) => void;
+}) {
   return (
     <tr className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', isOverdue(task.dueDate) && task.status !== 'DONE' && 'bg-red-50/30')}>
       <td className="px-4 py-3">
@@ -53,7 +60,9 @@ function TaskRow({ task, onStatusChange, onEdit }: { task: any; onStatusChange: 
       </td>
       <td className="px-4 py-3 text-xs text-gray-400">
         <div className="flex items-center gap-2">
-          {task._count?.evidences > 0 && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{task._count.evidences} ev.</span>}
+          {task._count?.evidences > 0 && (
+            <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{task._count.evidences} ev.</span>
+          )}
           <button onClick={() => onEdit(task)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title="Editar">
             <Pencil className="w-3.5 h-3.5" />
           </button>
@@ -63,9 +72,11 @@ function TaskRow({ task, onStatusChange, onEdit }: { task: any; onStatusChange: 
   );
 }
 
+// ── Edit modal ────────────────────────────────────────────────
+
 function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+  const { register, handleSubmit } = useForm({
     defaultValues: {
       title: task.title,
       description: task.description || '',
@@ -90,7 +101,7 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-            <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+            <textarea {...register('description')} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -105,9 +116,7 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
             </div>
           </div>
           {updateMutation.isError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              Erro ao guardar. Tente novamente.
-            </p>
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">Erro ao guardar. Tente novamente.</p>
           )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
@@ -122,16 +131,19 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────
+
 export default function TasksPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showNew, setShowNew] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ['tasks', { status: statusFilter }],
-    queryFn: () => tasksApi.list({ status: statusFilter || undefined, limit: 100 }).then(r => r.data),
+    queryFn: () => tasksApi.list({ status: statusFilter || undefined, limit: 200 }).then(r => r.data),
   });
 
   const { data: projects } = useQuery({
@@ -140,8 +152,7 @@ export default function TasksPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      tasksApi.update(id, { status }),
+    mutationFn: ({ id, status }: { id: string; status: string }) => tasksApi.update(id, { status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   });
 
@@ -150,7 +161,7 @@ export default function TasksPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setShowNew(false); },
   });
 
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+  const { register, handleSubmit, reset } = useForm();
 
   const tasks = (data?.data || []).filter((t: any) =>
     !search || t.title.toLowerCase().includes(search.toLowerCase()),
@@ -160,37 +171,96 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative flex-1 max-w-xs">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="relative max-w-xs w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar tarefas..." className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Pesquisar tarefas..."
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
+            />
           </div>
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
-          >
-            <option value="">Todos os estados</option>
-            {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-          </select>
+          {/* Status filter (hidden in kanban — kanban shows all) */}
+          {view === 'list' && (
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
+            >
+              <option value="">Todos os estados</option>
+              {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+            </select>
+          )}
         </div>
+
         <div className="flex items-center gap-2">
           {overdueCount > 0 && (
-            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
               {overdueCount} em atraso
             </span>
           )}
-          <button onClick={() => setShowNew(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
+
+          {/* View toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setView('list')}
+              className={cn('p-1.5 rounded-md transition-all', view === 'list' ? 'bg-white shadow text-primary' : 'text-gray-400 hover:text-gray-600')}
+              title="Vista Lista"
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setView('kanban')}
+              className={cn('p-1.5 rounded-md transition-all', view === 'kanban' ? 'bg-white shadow text-primary' : 'text-gray-400 hover:text-gray-600')}
+              title="Vista Kanban"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
+
+          <button
+            onClick={() => { reset(); setShowNew(true); }}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
+          >
             <Plus className="w-4 h-4" /> Nova Tarefa
           </button>
         </div>
       </div>
 
+      {/* Stats bar */}
+      <div className="grid grid-cols-5 gap-3">
+        {STATUSES.map(s => {
+          const count = (data?.data || []).filter((t: any) => t.status === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => { setStatusFilter(s === statusFilter ? '' : s); setView('list'); }}
+              className={cn(
+                'bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center transition-all hover:border-primary/30',
+                statusFilter === s && 'border-primary bg-primary/5',
+              )}
+            >
+              <p className="text-xl font-bold text-gray-900">{count}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{STATUS_LABELS[s]}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Content */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-48">
+        <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
+      ) : view === 'kanban' ? (
+        <KanbanBoard
+          tasks={tasks}
+          onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
+          onEdit={setEditingTask}
+        />
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full">
@@ -214,7 +284,7 @@ export default function TasksPage() {
                   key={t.id}
                   task={t}
                   onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
-                  onEdit={(task) => setEditingTask(task)}
+                  onEdit={setEditingTask}
                 />
               ))}
             </tbody>
@@ -225,9 +295,10 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* New Task Modal */}
+      {/* Edit modal */}
       {editingTask && <EditTaskModal task={editingTask} onClose={() => setEditingTask(null)} />}
 
+      {/* Create modal */}
       {showNew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">

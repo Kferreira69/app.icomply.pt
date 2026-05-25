@@ -22,6 +22,8 @@ import { StorageModule } from './common/storage/storage.module';
 import { MailModule } from './common/mail/mail.module';
 import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PoliciesModule } from './policies/policies.module';
+import { GdprModule } from './gdpr/gdpr.module';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     CapaModule,
     ReportsModule,
     ExcelImportModule,
+    PoliciesModule,
+    GdprModule,
   ],
 })
 export class AppModule {}

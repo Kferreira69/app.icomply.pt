@@ -181,6 +181,69 @@ enum ImportStatus {
   FAILED
 }
 
+enum PolicyStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum PolicyCategory {
+  INFORMATION_SECURITY
+  DATA_PROTECTION
+  BUSINESS_CONTINUITY
+  HUMAN_RESOURCES
+  PHYSICAL_SECURITY
+  ACCESS_CONTROL
+  INCIDENT_MANAGEMENT
+  SUPPLIER_MANAGEMENT
+  COMPLIANCE
+  OPERATIONAL
+  OTHER
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTERESTS
+}
+
+enum ProcessingActivityStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REVIEW
+}
+
+enum DpiaStatus {
+  DRAFT
+  IN_REVIEW
+  COMPLETED
+}
+
+enum DpiaOutcome {
+  LOW_RISK
+  MEDIUM_RISK
+  HIGH_RISK_PROCEED
+  HIGH_RISK_CONSULT_DPA
+}
+
+enum BreachSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BreachStatus {
+  IDENTIFIED
+  ASSESSING
+  NOTIFYING
+  CLOSED
+}
+
 // ─── Organizations (Tenants) ──────────────────────────────────
 
 model Organization {
@@ -210,6 +273,10 @@ model Organization {
   excelImports      ExcelImport[]
   audits            Audit[]
   notifications     Notification[]
+  policies          Policy[]
+  dataProcessingActivities DataProcessingActivity[]
+  dpias             Dpia[]
+  breachNotifications BreachNotification[]
 
   @@map("organizations")
 }
@@ -246,6 +313,13 @@ model User {
   createdCapas     Capa[]       @relation("CapaCreator")
   notifications    Notification[]
   auditParticipations AuditParticipant[]
+  ownedPolicies    Policy[]     @relation("PolicyOwner")
+  approvedPolicies Policy[]     @relation("PolicyApprover")
+  policyVersions   PolicyVersion[]
+  policyAcknowledgments PolicyAcknowledgment[]
+  controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
+  ownedDpias       Dpia[]       @relation("DpiaOwner")
+  ownedBreaches    BreachNotification[] @relation("BreachNotificationOwner")
 
   @@map("users")
 }
@@ -267,6 +341,7 @@ model Framework {
   templates    Template[]
   projects     Project[]
   diagnosticQuestions DiagnosticQuestion[]
+  policies     Policy[]
 
   @@map("frameworks")
 }
@@ -731,4 +806,156 @@ model Notification {
   @@index([userId, read, createdAt])
   @@index([organizationId, createdAt])
   @@map("notifications")
+}
+
+// ─── Policies ─────────────────────────────────────────────────
+
+model Policy {
+  id             String         @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  content        String         @db.Text
+  version        String         @default("1.0")
+  status         PolicyStatus   @default(DRAFT)
+  category       PolicyCategory @default(OTHER)
+  frameworkId    String?
+  ownerId        String
+  approverId     String?
+  approvedAt     DateTime?
+  effectiveDate  DateTime?
+  reviewDate     DateTime?
+  expiresAt      DateTime?
+  tags           String[]       @default([])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization    Organization           @relation(fields: [organizationId], references: [id])
+  owner           User                   @relation("PolicyOwner", fields: [ownerId], references: [id])
+  approver        User?                  @relation("PolicyApprover", fields: [approverId], references: [id])
+  framework       Framework?             @relation(fields: [frameworkId], references: [id])
+  versions        PolicyVersion[]
+  acknowledgments PolicyAcknowledgment[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("policies")
+}
+
+model PolicyVersion {
+  id          String   @id @default(uuid())
+  policyId    String
+  version     String
+  content     String   @db.Text
+  changeNote  String?
+  changedById String
+  createdAt   DateTime @default(now())
+
+  policy    Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id])
+
+  @@map("policy_versions")
+}
+
+model PolicyAcknowledgment {
+  id             String   @id @default(uuid())
+  policyId       String
+  userId         String
+  policyVersion  String?
+  acknowledgedAt DateTime @default(now())
+  ipAddress      String?
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([policyId, userId])
+  @@map("policy_acknowledgments")
+}
+
+// ─── GDPR / Data Protection ────────────────────────────────────
+
+model DataProcessingActivity {
+  id                     String                   @id @default(uuid())
+  organizationId         String
+  name                   String
+  purpose                String
+  legalBasis             LegalBasis
+  dataCategories         String[]                 @default([])
+  dataSubjects           String[]                 @default([])
+  recipients             String[]                 @default([])
+  internationalTransfers Boolean                  @default(false)
+  transferCountries      String[]                 @default([])
+  transferSafeguards     String?
+  retentionPeriod        String
+  retentionJustification String?
+  technicalMeasures      String[]                 @default([])
+  organizationalMeasures String[]                 @default([])
+  dpoConsulted           Boolean                  @default(false)
+  processorName          String?
+  processorCountry       String?
+  status                 ProcessingActivityStatus @default(ACTIVE)
+  controllerId           String
+  reviewDate             DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  controller   User         @relation("ProcessingActivityController", fields: [controllerId], references: [id])
+  dpias        Dpia[]
+
+  @@index([organizationId, status])
+  @@map("data_processing_activities")
+}
+
+model Dpia {
+  id                              String       @id @default(uuid())
+  organizationId                  String
+  activityId                      String?
+  title                           String
+  description                     String
+  necessityTest                   String?
+  proportionalityTest             String?
+  riskAssessment                  String?
+  mitigationMeasures              String?
+  dpoConsultation                 String?
+  supervisoryAuthorityConsulted   Boolean      @default(false)
+  outcome                         DpiaOutcome?
+  status                          DpiaStatus   @default(DRAFT)
+  ownerId                         String
+  reviewedAt                      DateTime?
+  createdAt                       DateTime     @default(now())
+  updatedAt                       DateTime     @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  activity     DataProcessingActivity?  @relation(fields: [activityId], references: [id])
+  owner        User                     @relation("DpiaOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("dpias")
+}
+
+model BreachNotification {
+  id                             String         @id @default(uuid())
+  organizationId                 String
+  title                          String
+  description                    String
+  discoveredAt                   DateTime
+  affectedDataSubjects           Int?
+  affectedDataCategories         String[]       @default([])
+  severity                       BreachSeverity @default(MEDIUM)
+  status                         BreachStatus   @default(IDENTIFIED)
+  supervisoryAuthorityNotifiedAt DateTime?
+  supervisoryAuthorityReference  String?
+  dataSubjectsNotifiedAt         DateTime?
+  containmentMeasures            String?
+  rootCause                      String?
+  ownerId                        String
+  createdAt                      DateTime       @default(now())
+  updatedAt                      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User         @relation("BreachNotificationOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("breach_notifications")
 }
