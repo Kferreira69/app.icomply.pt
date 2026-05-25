@@ -105,13 +105,17 @@ export class NotificationsService {
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async handleDeadlineAlerts() {
     this.logger.log('Running deadline alerts cron...');
-    await Promise.all([
-      this.checkTasksDueSoon(),
-      this.checkTasksOverdue(),
-      this.checkCapaDueSoon(),
-      this.checkCapaOverdue(),
-      this.checkEvidenceExpiring(),
-    ]);
+    try {
+      await Promise.all([
+        this.checkTasksDueSoon(),
+        this.checkTasksOverdue(),
+        this.checkCapaDueSoon(),
+        this.checkCapaOverdue(),
+        this.checkEvidenceExpiring(),
+      ]);
+    } catch (err) {
+      this.logger.error('Deadline alerts cron failed', err);
+    }
     this.logger.log('Deadline alerts cron complete.');
   }
 
@@ -129,28 +133,32 @@ export class NotificationsService {
         status: { notIn: ['DONE', 'CANCELLED'] },
         assigneeId: { not: null },
       },
-      include: { assignee: true, project: true },
+      include: {
+        assignee: { select: { id: true, organizationId: true } },
+        project: { select: { id: true, name: true, organizationId: true } },
+      },
     });
 
     for (const task of tasks) {
-      if (!task.assigneeId) continue;
-      // Avoid duplicate notifications (check if one was sent today)
+      if (!task.assigneeId || !task.project) continue;
+      const orgId = task.project.organizationId;
+
       const existing = await this.prisma.notification.findFirst({
         where: {
           userId: task.assigneeId,
           entityId: task.id,
-          type: 'TASK_DUE_SOON',
+          type: NotificationType.TASK_DUE_SOON,
           createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       });
       if (existing) continue;
 
       await this.create({
-        organizationId: task.organizationId,
+        organizationId: orgId,
         userId: task.assigneeId,
         type: NotificationType.TASK_DUE_SOON,
         title: 'Tarefa com prazo próximo',
-        message: `A tarefa "${task.title}" do projecto "${task.project?.name}" vence em 3 dias.`,
+        message: `A tarefa "${task.title}" do projecto "${task.project.name}" vence em 3 dias.`,
         entityType: 'Task',
         entityId: task.id,
         sendEmail: false,
@@ -169,27 +177,32 @@ export class NotificationsService {
         status: { notIn: ['DONE', 'CANCELLED'] },
         assigneeId: { not: null },
       },
-      include: { assignee: true, project: true },
+      include: {
+        assignee: { select: { id: true, organizationId: true } },
+        project: { select: { id: true, name: true, organizationId: true } },
+      },
     });
 
     for (const task of tasks) {
-      if (!task.assigneeId) continue;
+      if (!task.assigneeId || !task.project) continue;
+      const orgId = task.project.organizationId;
+
       const existing = await this.prisma.notification.findFirst({
         where: {
           userId: task.assigneeId,
           entityId: task.id,
-          type: 'TASK_OVERDUE',
+          type: NotificationType.TASK_OVERDUE,
           createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       });
       if (existing) continue;
 
       await this.create({
-        organizationId: task.organizationId,
+        organizationId: orgId,
         userId: task.assigneeId,
         type: NotificationType.TASK_OVERDUE,
         title: 'Tarefa em atraso',
-        message: `A tarefa "${task.title}" do projecto "${task.project?.name}" está em atraso.`,
+        message: `A tarefa "${task.title}" do projecto "${task.project.name}" está em atraso.`,
         entityType: 'Task',
         entityId: task.id,
         sendEmail: true,
@@ -207,27 +220,32 @@ export class NotificationsService {
 
     const capas = await this.prisma.capa.findMany({
       where: {
-        targetDate: { gte: tomorrow, lte: in7Days },
+        dueDate: { gte: tomorrow, lte: in7Days },   // field is dueDate, not targetDate
         status: { notIn: ['CLOSED'] },
         assigneeId: { not: null },
       },
-      include: { assignee: true },
+      include: {
+        assignee: { select: { id: true } },
+        createdBy: { select: { organizationId: true } },
+      },
     });
 
     for (const capa of capas) {
-      if (!capa.assigneeId) continue;
+      if (!capa.assigneeId || !capa.createdBy) continue;
+      const orgId = capa.createdBy.organizationId;
+
       const existing = await this.prisma.notification.findFirst({
         where: {
           userId: capa.assigneeId,
           entityId: capa.id,
-          type: 'CAPA_DUE_SOON',
+          type: NotificationType.CAPA_DUE_SOON,
           createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       });
       if (existing) continue;
 
       await this.create({
-        organizationId: capa.organizationId,
+        organizationId: orgId,
         userId: capa.assigneeId,
         type: NotificationType.CAPA_DUE_SOON,
         title: 'CAPA com prazo próximo',
@@ -245,27 +263,32 @@ export class NotificationsService {
     const now = new Date();
     const capas = await this.prisma.capa.findMany({
       where: {
-        targetDate: { lt: now },
+        dueDate: { lt: now },                        // field is dueDate, not targetDate
         status: { notIn: ['CLOSED'] },
         assigneeId: { not: null },
       },
-      include: { assignee: true },
+      include: {
+        assignee: { select: { id: true } },
+        createdBy: { select: { organizationId: true } },
+      },
     });
 
     for (const capa of capas) {
-      if (!capa.assigneeId) continue;
+      if (!capa.assigneeId || !capa.createdBy) continue;
+      const orgId = capa.createdBy.organizationId;
+
       const existing = await this.prisma.notification.findFirst({
         where: {
           userId: capa.assigneeId,
           entityId: capa.id,
-          type: 'CAPA_OVERDUE',
+          type: NotificationType.CAPA_OVERDUE,
           createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       });
       if (existing) continue;
 
       await this.create({
-        organizationId: capa.organizationId,
+        organizationId: orgId,
         userId: capa.assigneeId,
         type: NotificationType.CAPA_OVERDUE,
         title: 'CAPA em atraso',
@@ -289,25 +312,28 @@ export class NotificationsService {
       where: {
         expiresAt: { gte: tomorrow, lte: in30Days },
         status: { not: 'REJECTED' },
-        uploadedById: { not: null },
       },
-      include: { uploadedBy: true },
+      include: {
+        uploadedBy: { select: { id: true, organizationId: true } },
+      },
     });
 
     for (const ev of evidences) {
       if (!ev.uploadedById) continue;
+      const orgId = ev.uploadedBy.organizationId;
+
       const existing = await this.prisma.notification.findFirst({
         where: {
           userId: ev.uploadedById,
           entityId: ev.id,
-          type: 'EVIDENCE_EXPIRING',
+          type: NotificationType.EVIDENCE_EXPIRING,
           createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       });
       if (existing) continue;
 
       await this.create({
-        organizationId: ev.organizationId,
+        organizationId: orgId,
         userId: ev.uploadedById,
         type: NotificationType.EVIDENCE_EXPIRING,
         title: 'Evidência a expirar',

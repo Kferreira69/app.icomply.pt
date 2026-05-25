@@ -4,7 +4,6 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import * as path from 'path';
-import * as express from 'express';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
 
@@ -117,7 +116,9 @@ async function bootstrap() {
     path.join(process.cwd(), 'uploads'),
   );
   fs.mkdirSync(uploadDir, { recursive: true });
-  app.use('/api/v1/uploads', express.static(uploadDir));
+  // Use express static via the underlying http adapter (express is bundled with @nestjs/platform-express)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  app.use('/api/v1/uploads', require('express').static(uploadDir));
 
   await app.listen(port);
 
