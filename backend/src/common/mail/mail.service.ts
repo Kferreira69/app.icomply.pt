@@ -28,7 +28,7 @@ export class MailService {
   }
 
   private get from(): string {
-    return this.config.get<string>('SMTP_FROM', 'iComply <noreply@icomply.pt>');
+    return this.config.get<string>('SMTP_FROM', 'iComply <noreply@app.icomply.pt>');
   }
 
   private get appUrl(): string {
