@@ -18,6 +18,7 @@ import { ReportsModule } from './reports/reports.module';
 import { ExcelImportModule } from './excel-import/excel-import.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { StorageModule } from './common/storage/storage.module';
+import { MailModule } from './common/mail/mail.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -38,6 +39,7 @@ import { HealthModule } from './health/health.module';
     // ── Infrastructure ──────────────────────────────────────
     PrismaModule,
     StorageModule,
+    MailModule,
     AuditLogsModule,
     HealthModule,
 

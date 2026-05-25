@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { MailService } from '../common/mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '@prisma/client';
@@ -13,7 +14,10 @@ import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+  ) {}
 
   async create(dto: CreateUserDto, organizationId: string, creatorRole: UserRole) {
     // Role escalation protection
@@ -30,7 +34,7 @@ export class UsersService {
     const inviteToken = uuid();
     const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000); // 7 days
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
         firstName: dto.firstName,
@@ -41,8 +45,18 @@ export class UsersService {
         inviteExpiresAt,
         status: 'INVITED',
       },
-      select: this.safeSelect(),
+      include: { organization: true },
     });
+
+    await this.mail.sendInvite(
+      user.email,
+      inviteToken,
+      dto.firstName || user.email,
+      user.organization.name,
+    );
+
+    const { organization, ...safeUser } = user as any;
+    return safeUser;
   }
 
   async findAll(organizationId: string, page = 1, limit = 20, search?: string) {
