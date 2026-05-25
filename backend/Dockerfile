@@ -39,6 +39,9 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Schema + migrations (needed for prisma migrate deploy)
 COPY --from=builder /app/prisma ./prisma
 
+# Seed tsconfig (needed for npm run seed)
+COPY --from=builder /app/tsconfig.seed.json ./tsconfig.seed.json
+
 # Entrypoint (runs migrations then starts server)
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
