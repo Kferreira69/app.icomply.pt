@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { TaskStatus, TaskPriority } from '@prisma/client';
+import { TaskStatus, TaskPriority, NotificationType } from '@prisma/client';
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(dto: CreateTaskDto, createdById: string, organizationId: string) {
     // Verify project belongs to organization
@@ -15,13 +19,29 @@ export class TasksService {
     });
     if (!project) throw new NotFoundException('Project not found');
 
-    return this.prisma.task.create({
+    const task = await this.prisma.task.create({
       data: { ...dto, createdById },
       include: {
         assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
         project: { select: { id: true, name: true } },
       },
     });
+
+    // Notify assignee (if different from creator)
+    if (task.assigneeId && task.assigneeId !== createdById) {
+      await this.notifications.create({
+        organizationId,
+        userId: task.assigneeId,
+        type: NotificationType.TASK_ASSIGNED,
+        title: 'Nova tarefa atribuída',
+        message: `Foi-lhe atribuída a tarefa "${task.title}" no projecto "${task.project?.name}".`,
+        entityType: 'Task',
+        entityId: task.id,
+        sendEmail: false,
+      });
+    }
+
+    return task;
   }
 
   async findAll(
