@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, frameworksApi } from '@/lib/api';
 import { Plus, Search, FolderOpen, Calendar, BarChart2, Loader2 } from 'lucide-react';
-import { cn, formatDate, getStatusColor } from '@/lib/utils';
+import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 
@@ -83,7 +83,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Novo Projeto de Conformidade</h3>
-        <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit(d => createMutation.mutate(cleanFormData(d)))} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Projeto *</label>
             <input {...register('name', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="ex: Implementação ISO 27001 2026" />
@@ -111,6 +111,11 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
               <input {...register('targetDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
+          {createMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Erro ao criar projeto. Verifique os campos e tente novamente.
+            </p>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={isSubmitting || createMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">

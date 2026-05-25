@@ -1,5 +1,9 @@
 import { IsString, IsOptional, IsUUID, IsDateString } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+const emptyToUndefined = ({ value }: { value: any }) =>
+  value === '' || value === null ? undefined : value;
 
 export class CreateCapaDto {
   @ApiProperty()
@@ -12,11 +16,13 @@ export class CreateCapaDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsUUID()
   findingId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsUUID()
   assigneeId?: string;
 
@@ -37,6 +43,7 @@ export class CreateCapaDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsDateString()
   dueDate?: string;
 }

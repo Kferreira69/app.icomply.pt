@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi, projectsApi } from '@/lib/api';
 import { Plus, Search, Filter, CheckSquare, Loader2, Calendar } from 'lucide-react';
-import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue } from '@/lib/utils';
+import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
@@ -81,7 +81,7 @@ export default function TasksPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => tasksApi.create(data),
+    mutationFn: (data: any) => tasksApi.create(cleanFormData(data)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setShowNew(false); },
   });
 
@@ -192,6 +192,11 @@ export default function TasksPage() {
                   <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
                 </div>
               </div>
+              {createMutation.isError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  Erro ao criar tarefa. Verifique os campos e tente novamente.
+                </p>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
                 <button type="submit" disabled={createMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">

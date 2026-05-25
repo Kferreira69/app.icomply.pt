@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { auditsApi, projectsApi } from '@/lib/api';
 import { Plus, Search, ClipboardList, Loader2, Calendar, ChevronRight } from 'lucide-react';
-import { cn, formatDate, getStatusColor } from '@/lib/utils';
+import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
 
@@ -33,7 +33,7 @@ function NewAuditModal({ onClose }: { onClose: () => void }) {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => auditsApi.create(data),
+    mutationFn: (data: any) => auditsApi.create(cleanFormData(data)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['audits'] }); onClose(); },
   });
 
@@ -92,6 +92,11 @@ function NewAuditModal({ onClose }: { onClose: () => void }) {
               placeholder="Descreva o âmbito da auditoria..."
             />
           </div>
+          {createMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Erro ao criar auditoria. Verifique os campos e tente novamente.
+            </p>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
             <button

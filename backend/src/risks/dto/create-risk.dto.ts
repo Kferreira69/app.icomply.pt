@@ -1,6 +1,10 @@
 import { IsString, IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RiskLikelihood, RiskImpact, RiskStatus } from '@prisma/client';
+
+const emptyToUndefined = ({ value }: { value: any }) =>
+  value === '' || value === null ? undefined : value;
 
 export class CreateRiskDto {
   @ApiProperty()
@@ -27,11 +31,13 @@ export class CreateRiskDto {
 
   @ApiPropertyOptional({ enum: RiskStatus })
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsEnum(RiskStatus)
   status?: RiskStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsUUID()
   projectId?: string;
 
@@ -42,11 +48,13 @@ export class CreateRiskDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsDateString()
   dueDate?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(emptyToUndefined)
   @IsDateString()
   reviewDate?: string;
 }

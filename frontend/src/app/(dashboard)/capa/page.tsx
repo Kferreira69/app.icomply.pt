@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { capaApi } from '@/lib/api';
 import { Plus, AlertCircle, Loader2, Calendar } from 'lucide-react';
-import { cn, formatDate, getStatusColor, isOverdue } from '@/lib/utils';
+import { cn, formatDate, getStatusColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
 const CAPA_STATUS_LABELS: Record<string, string> = {
@@ -15,7 +15,7 @@ function NewCapaModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
   const createMutation = useMutation({
-    mutationFn: (data: any) => capaApi.create(data),
+    mutationFn: (data: any) => capaApi.create(cleanFormData(data)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['capa'] }); onClose(); },
   });
 
@@ -44,6 +44,11 @@ function NewCapaModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
             <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
           </div>
+          {createMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Erro ao criar CAPA. Verifique os campos e tente novamente.
+            </p>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={createMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
