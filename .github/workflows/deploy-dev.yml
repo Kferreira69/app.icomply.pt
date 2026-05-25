@@ -1,0 +1,49 @@
+name: Deploy → Dev
+
+on:
+  push:
+    branches:
+      - develop
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to dev.icomply.pt
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            cd /opt/icomply
+
+            echo "=== Pull develop branch ==="
+            git checkout develop
+            git pull origin develop
+
+            echo "=== Build & restart backend ==="
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
+              build --no-cache backend
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
+              up -d backend
+
+            echo "=== Build & restart frontend ==="
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
+              build --no-cache frontend
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
+              up -d frontend
+
+            echo "=== Health check ==="
+            sleep 15
+            curl -sf https://api.dev.icomply.pt/api/v1/health | grep '"status":"ok"'
+
+            echo "=== Deploy dev complete ==="
