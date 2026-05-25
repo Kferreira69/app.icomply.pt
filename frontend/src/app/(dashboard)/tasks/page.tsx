@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi, projectsApi } from '@/lib/api';
-import { Plus, Search, CheckSquare, Loader2, Calendar, Pencil, LayoutGrid, List } from 'lucide-react';
+import { Plus, Search, CheckSquare, Loader2, Calendar, Pencil, LayoutGrid, List, MessageSquare } from 'lucide-react';
+import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
@@ -15,16 +16,22 @@ const STATUS_LABELS: Record<string, string> = {
 
 // ── List row ──────────────────────────────────────────────────
 
-function TaskRow({ task, onStatusChange, onEdit }: {
+function TaskRow({ task, onStatusChange, onEdit, onOpenDetail }: {
   task: any;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: any) => void;
+  onOpenDetail: (taskId: string) => void;
 }) {
   return (
     <tr className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', isOverdue(task.dueDate) && task.status !== 'DONE' && 'bg-red-50/30')}>
       <td className="px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-gray-900">{task.title}</p>
+          <button
+            onClick={() => onOpenDetail(task.id)}
+            className="text-sm font-medium text-gray-900 hover:text-blue-600 text-left transition-colors"
+          >
+            {task.title}
+          </button>
           <p className="text-xs text-gray-400">{task.project?.name}</p>
         </div>
       </td>
@@ -60,8 +67,15 @@ function TaskRow({ task, onStatusChange, onEdit }: {
       </td>
       <td className="px-4 py-3 text-xs text-gray-400">
         <div className="flex items-center gap-2">
-          {task._count?.evidences > 0 && (
-            <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{task._count.evidences} ev.</span>
+          {task._count?.comments > 0 && (
+            <button onClick={() => onOpenDetail(task.id)} className="flex items-center gap-0.5 bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors">
+              <MessageSquare className="w-3 h-3" />{task._count.comments}
+            </button>
+          )}
+          {task._count?.subtasks > 0 && (
+            <button onClick={() => onOpenDetail(task.id)} className="flex items-center gap-0.5 bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors">
+              <CheckSquare className="w-3 h-3" />{task._count.subtasks}
+            </button>
           )}
           <button onClick={() => onEdit(task)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title="Editar">
             <Pencil className="w-3.5 h-3.5" />
@@ -139,6 +153,7 @@ export default function TasksPage() {
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showNew, setShowNew] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -260,6 +275,7 @@ export default function TasksPage() {
           tasks={tasks}
           onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
           onEdit={setEditingTask}
+          onOpenDetail={setDetailTaskId}
         />
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -285,6 +301,7 @@ export default function TasksPage() {
                   task={t}
                   onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
                   onEdit={setEditingTask}
+                  onOpenDetail={setDetailTaskId}
                 />
               ))}
             </tbody>
@@ -293,6 +310,15 @@ export default function TasksPage() {
             {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''} · {data?.total ?? 0} total
           </div>
         </div>
+      )}
+
+      {/* Task detail panel */}
+      {detailTaskId && (
+        <TaskDetailPanel
+          taskId={detailTaskId}
+          onClose={() => setDetailTaskId(null)}
+          onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
+        />
       )}
 
       {/* Edit modal */}

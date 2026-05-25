@@ -12,7 +12,7 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core';
-import { Calendar, Pencil, AlertCircle } from 'lucide-react';
+import { Calendar, Pencil, AlertCircle, MessageSquare, CheckSquare as SubtaskIcon } from 'lucide-react';
 import { cn, formatDate, getPriorityColor, isOverdue } from '@/lib/utils';
 
 // ── Column definitions ────────────────────────────────────────
@@ -30,10 +30,12 @@ const COLUMNS = [
 function TaskCard({
   task,
   onEdit,
+  onOpenDetail,
   isDragging = false,
 }: {
   task: any;
   onEdit: (task: any) => void;
+  onOpenDetail?: (taskId: string) => void;
   isDragging?: boolean;
 }) {
   const overdue = isOverdue(task.dueDate) && task.status !== 'DONE';
@@ -50,7 +52,12 @@ function TaskCard({
     >
       {/* Title + edit */}
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900 leading-snug line-clamp-2">{task.title}</p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenDetail?.(task.id); }}
+          className="text-sm font-medium text-gray-900 leading-snug line-clamp-2 text-left hover:text-blue-600 transition-colors"
+        >
+          {task.title}
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(task); }}
           className="p-1 text-gray-300 hover:text-primary rounded flex-shrink-0 transition-colors"
@@ -91,12 +98,24 @@ function TaskCard({
         </div>
       )}
 
-      {/* Evidence count */}
-      {task._count?.evidences > 0 && (
-        <div className="flex gap-1">
-          <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-            {task._count.evidences} evidência{task._count.evidences !== 1 ? 's' : ''}
-          </span>
+      {/* Badges: comments, subtasks, evidences */}
+      {(task._count?.comments > 0 || task._count?.subtasks > 0 || task._count?.evidences > 0) && (
+        <div className="flex gap-1 flex-wrap">
+          {task._count?.comments > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded">
+              <MessageSquare className="w-2.5 h-2.5" />{task._count.comments}
+            </span>
+          )}
+          {task._count?.subtasks > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded">
+              <SubtaskIcon className="w-2.5 h-2.5" />{task._count.subtasks}
+            </span>
+          )}
+          {task._count?.evidences > 0 && (
+            <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+              {task._count.evidences} ev.
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -105,7 +124,7 @@ function TaskCard({
 
 // ── Draggable card wrapper ─────────────────────────────────────
 
-function DraggableTaskCard({ task, onEdit }: { task: any; onEdit: (task: any) => void }) {
+function DraggableTaskCard({ task, onEdit, onOpenDetail }: { task: any; onEdit: (task: any) => void; onOpenDetail?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
 
   return (
@@ -115,7 +134,7 @@ function DraggableTaskCard({ task, onEdit }: { task: any; onEdit: (task: any) =>
       {...attributes}
       style={{ opacity: isDragging ? 0.35 : 1, cursor: isDragging ? 'grabbing' : 'grab' }}
     >
-      <TaskCard task={task} onEdit={onEdit} />
+      <TaskCard task={task} onEdit={onEdit} onOpenDetail={onOpenDetail} />
     </div>
   );
 }
@@ -126,10 +145,12 @@ function KanbanColumn({
   column,
   tasks,
   onEdit,
+  onOpenDetail,
 }: {
   column: typeof COLUMNS[number];
   tasks: any[];
   onEdit: (task: any) => void;
+  onOpenDetail?: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -153,7 +174,7 @@ function KanbanColumn({
         )}
       >
         {tasks.map(task => (
-          <DraggableTaskCard key={task.id} task={task} onEdit={onEdit} />
+          <DraggableTaskCard key={task.id} task={task} onEdit={onEdit} onOpenDetail={onOpenDetail} />
         ))}
         {tasks.length === 0 && !isOver && (
           <div className="flex items-center justify-center h-20 text-xs text-gray-300 italic">
@@ -171,10 +192,12 @@ export function KanbanBoard({
   tasks,
   onStatusChange,
   onEdit,
+  onOpenDetail,
 }: {
   tasks: any[];
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: any) => void;
+  onOpenDetail?: (taskId: string) => void;
 }) {
   const [activeTask, setActiveTask] = useState<any | null>(null);
 
@@ -218,6 +241,7 @@ export function KanbanBoard({
             column={col}
             tasks={tasksByColumn[col.id] ?? []}
             onEdit={onEdit}
+            onOpenDetail={onOpenDetail}
           />
         ))}
       </div>
