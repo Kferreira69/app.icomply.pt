@@ -22,7 +22,7 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "seed": "ts-node --transpile-only --skip-project prisma/seed.ts"
+    "seed": "ts-node --transpile-only --project tsconfig.seed.json prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
@@ -52,7 +52,7 @@
     "uuid": "^9.0.0"
   },
   "prisma": {
-    "seed": "ts-node --transpile-only --skip-project prisma/seed.ts"
+    "seed": "ts-node --transpile-only --project tsconfig.seed.json prisma/seed.ts"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",
