@@ -26,7 +26,7 @@ RUN apk add --no-cache openssl
 # Production deps + ts-node (needed for prisma/seed.ts on demand)
 COPY package*.json ./
 RUN npm install --omit=dev && \
-    npm install --no-save ts-node && \
+    NODE_ENV= npm install --no-save ts-node && \
     npm cache clean --force
 
 # Compiled app
