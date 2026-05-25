@@ -113,6 +113,28 @@ export class MailService {
     );
   }
 
+  async sendNotification(email: string, title: string, message: string): Promise<void> {
+    await this.send(
+      email,
+      `${title} — iComply`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">${title}</h2>
+        <p>${message}</p>
+        <p style="margin: 24px 0;">
+          <a href="${this.frontendUrl}"
+             style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px;
+                    text-decoration: none; font-weight: bold;">
+            Ver na plataforma
+          </a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Compliance Operating System</p>
+      </div>
+      `,
+    );
+  }
+
   async sendWelcome(email: string, firstName: string): Promise<void> {
     await this.send(
       email,

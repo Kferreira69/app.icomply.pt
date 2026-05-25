@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -20,6 +21,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { StorageModule } from './common/storage/storage.module';
 import { MailModule } from './common/mail/mail.module';
 import { HealthModule } from './health/health.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -36,12 +38,16 @@ import { HealthModule } from './health/health.module';
       { name: 'long', ttl: 60000, limit: 500 },
     ]),
 
+    // ── Scheduler (cron jobs) ────────────────────────────────
+    ScheduleModule.forRoot(),
+
     // ── Infrastructure ──────────────────────────────────────
     PrismaModule,
     StorageModule,
     MailModule,
     AuditLogsModule,
     HealthModule,
+    NotificationsModule,
 
     // ── Domain modules ──────────────────────────────────────
     AuthModule,

@@ -129,6 +129,30 @@ enum ControlStatus {
   VERIFIED
 }
 
+enum NotificationType {
+  // Tasks
+  TASK_ASSIGNED
+  TASK_DUE_SOON       // 3 days before due date
+  TASK_OVERDUE
+  TASK_COMPLETED
+  // Risks
+  RISK_HIGH           // risk scored HIGH or CRITICAL
+  RISK_STATUS_CHANGED
+  // CAPA
+  CAPA_ASSIGNED
+  CAPA_DUE_SOON
+  CAPA_OVERDUE
+  // Audits
+  AUDIT_SCHEDULED
+  AUDIT_FINDING_ADDED
+  // Evidence
+  EVIDENCE_EXPIRING   // 30 days before expiry
+  EVIDENCE_REJECTED
+  // System
+  USER_INVITED
+  SYSTEM
+}
+
 enum DiagnosticStatus {
   IN_PROGRESS
   COMPLETED
@@ -185,6 +209,7 @@ model Organization {
   reports           Report[]
   excelImports      ExcelImport[]
   audits            Audit[]
+  notifications     Notification[]
 
   @@map("organizations")
 }
@@ -219,6 +244,7 @@ model User {
   auditLogs        AuditLog[]
   capaItems        Capa[]       @relation("CapaAssignee")
   createdCapas     Capa[]       @relation("CapaCreator")
+  notifications    Notification[]
   auditParticipations AuditParticipant[]
 
   @@map("users")
@@ -681,4 +707,28 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ─── Notifications ────────────────────────────────────────────
+
+model Notification {
+  id             String           @id @default(uuid())
+  organizationId String
+  userId         String           // recipient
+  type           NotificationType
+  title          String
+  message        String
+  entityType     String?          // "Task" | "Risk" | "Capa" | etc.
+  entityId       String?          // uuid of the related entity
+  read           Boolean          @default(false)
+  readAt         DateTime?
+  emailSent      Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
 }
