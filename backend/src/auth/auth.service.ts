@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { MailService } from '../common/mail/mail.service';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +21,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -129,8 +131,7 @@ export class AuthService {
       data: { passwordResetToken: token, passwordResetExpiresAt: expiresAt },
     });
 
-    // TODO: Send email with reset link
-    // await this.emailService.sendPasswordReset(user.email, token);
+    await this.mail.sendPasswordReset(user.email, token);
 
     return { message: 'If the email exists, a reset link was sent' };
   }
