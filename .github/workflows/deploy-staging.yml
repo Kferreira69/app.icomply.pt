@@ -1,0 +1,53 @@
+name: Deploy → Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to staging.icomply.pt
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/icomply
+
+            echo "=== Pull staging branch ==="
+            git checkout staging
+            git pull origin staging
+
+            echo "=== Build & restart backend ==="
+            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+              build --no-cache backend
+            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+              up -d backend
+
+            echo "=== Run migrations ==="
+            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+              exec -T backend npx prisma migrate deploy
+
+            echo "=== Build & restart frontend ==="
+            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+              build --no-cache frontend
+            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+              up -d frontend
+
+            echo "=== Health check ==="
+            sleep 10
+            curl -sf https://api.staging.icomply.pt/api/v1/health | grep '"status":"ok"'
+
+            echo "=== Deploy staging complete ==="
