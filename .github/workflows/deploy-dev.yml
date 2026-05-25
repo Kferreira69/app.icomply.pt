@@ -1,17 +1,17 @@
-name: Deploy → Staging
+name: Deploy → Dev
 
 on:
   push:
     branches:
-      - staging
+      - develop
 
 concurrency:
-  group: deploy-staging
+  group: deploy-dev
   cancel-in-progress: true
 
 jobs:
   deploy:
-    name: Deploy to staging.icomply.pt
+    name: Deploy to dev.icomply.pt
     runs-on: ubuntu-latest
 
     steps:
@@ -26,24 +26,24 @@ jobs:
             set -e
             cd /opt/icomply
 
-            echo "=== Pull staging branch ==="
-            git checkout staging
-            git pull origin staging
+            echo "=== Pull develop branch ==="
+            git checkout develop
+            git pull origin develop
 
             echo "=== Build & restart backend ==="
-            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
               build --no-cache backend
-            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
               up -d backend
 
             echo "=== Build & restart frontend ==="
-            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
               build --no-cache frontend
-            docker compose -f docker-compose.staging.yml --env-file .env.staging \
+            docker compose -f docker-compose.dev.yml --env-file .env.dev \
               up -d frontend
 
             echo "=== Health check ==="
             sleep 15
-            curl -sf https://api.staging.icomply.pt/api/v1/health | grep '"status":"ok"'
+            curl -sf https://api.dev.icomply.pt/api/v1/health | grep '"status":"ok"'
 
-            echo "=== Deploy staging complete ==="
+            echo "=== Deploy dev complete ==="

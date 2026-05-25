@@ -1,0 +1,174 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# iComply — VPS Dev
+#
+# BEFORE FIRST RUN:
+#   1. Ensure traefik-public network exists: docker network create traefik-public
+#   2. Create .env.dev and fill in values
+#   3. Run:
+#        docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
+#   4. Seed (first time only):
+#        docker compose -f docker-compose.dev.yml --env-file .env.dev exec backend npm run seed
+#
+# DOMAIN ROUTING (DEV_DOMAIN=dev.icomply.pt in .env.dev)
+#   https://dev.icomply.pt       → Next.js frontend
+#   https://api.dev.icomply.pt   → NestJS backend
+#
+# Completely isolated from production and staging:
+#   - Explicit project name: icomply-dev
+#   - Separate container names: icomply_dev_*
+#   - Separate image names: icomply-*-dev:latest
+#   - Separate internal network: icomply-dev-internal
+#   - Separate volumes: icomply_dev_*
+#   - Swagger enabled (developer-friendly)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: icomply-dev
+
+networks:
+  traefik-public:
+    external: true
+  icomply-dev-internal:
+    name: icomply-dev-internal
+    driver: bridge
+
+volumes:
+  icomply_dev_postgres_data:
+    name: icomply_dev_postgres_data
+  icomply_dev_minio_data:
+    name: icomply_dev_minio_data
+  icomply_dev_redis_data:
+    name: icomply_dev_redis_data
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: icomply_dev_postgres
+    restart: unless-stopped
+    networks:
+      - icomply-dev-internal
+    environment:
+      POSTGRES_USER: ${DB_USER:-icomply_dev}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-icomply_dev}
+    volumes:
+      - icomply_dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-icomply_dev}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: icomply_dev_redis
+    restart: unless-stopped
+    networks:
+      - icomply-dev-internal
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - icomply_dev_redis_data:/data
+
+  # ── MinIO ───────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: icomply_dev_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    networks:
+      - icomply-dev-internal
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    volumes:
+      - icomply_dev_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ── Backend (NestJS) ────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: icomply-backend-dev:latest
+    container_name: icomply_dev_backend
+    restart: unless-stopped
+    networks:
+      - icomply-dev-internal
+      - traefik-public
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-icomply_dev}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-icomply_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_USER}
+      S3_SECRET_KEY: ${MINIO_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-icomply-dev-evidence}
+      S3_REGION: ${S3_REGION:-eu-west-1}
+      S3_FORCE_PATH_STYLE: 'true'
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      APP_PORT: 3001
+      APP_URL: https://api.${DEV_DOMAIN}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-dev@icomply.pt}
+      ENABLE_SWAGGER: 'true'
+      ENABLE_AUDIT_LOG: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.icomply-dev-api.rule=Host(`api.${DEV_DOMAIN}`)"
+      - "traefik.http.routers.icomply-dev-api.entrypoints=websecure"
+      - "traefik.http.routers.icomply-dev-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.icomply-dev-api.service=icomply-dev-api"
+      - "traefik.http.services.icomply-dev-api.loadbalancer.server.port=3001"
+      - "traefik.http.routers.icomply-dev-api-http.rule=Host(`api.${DEV_DOMAIN}`)"
+      - "traefik.http.routers.icomply-dev-api-http.entrypoints=web"
+      - "traefik.http.routers.icomply-dev-api-http.middlewares=redirect-to-https"
+
+  # ── Frontend (Next.js) ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DEV_DOMAIN}/api/v1
+    image: icomply-frontend-dev:latest
+    container_name: icomply_dev_frontend
+    restart: unless-stopped
+    networks:
+      - icomply-dev-internal
+      - traefik-public
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.${DEV_DOMAIN}/api/v1
+      NEXT_PUBLIC_APP_NAME: iComply DEV
+      NEXT_PUBLIC_APP_VERSION: '1.0.0'
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.icomply-dev-frontend.rule=Host(`${DEV_DOMAIN}`)"
+      - "traefik.http.routers.icomply-dev-frontend.entrypoints=websecure"
+      - "traefik.http.routers.icomply-dev-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.icomply-dev-frontend.service=icomply-dev-frontend"
+      - "traefik.http.services.icomply-dev-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.icomply-dev-frontend-http.rule=Host(`${DEV_DOMAIN}`)"
+      - "traefik.http.routers.icomply-dev-frontend-http.entrypoints=web"
+      - "traefik.http.routers.icomply-dev-frontend-http.middlewares=redirect-to-https"
