@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi, projectsApi } from '@/lib/api';
-import { Plus, Search, Filter, CheckSquare, Loader2, Calendar } from 'lucide-react';
+import { Plus, Search, Filter, CheckSquare, Loader2, Calendar, Pencil } from 'lucide-react';
 import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
@@ -12,7 +12,7 @@ const STATUS_LABELS: Record<string, string> = {
   TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão', DONE: 'Concluído', CANCELLED: 'Cancelado',
 };
 
-function TaskRow({ task, onStatusChange }: { task: any; onStatusChange: (id: string, status: string) => void }) {
+function TaskRow({ task, onStatusChange, onEdit }: { task: any; onStatusChange: (id: string, status: string) => void; onEdit: (task: any) => void }) {
   return (
     <tr className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', isOverdue(task.dueDate) && task.status !== 'DONE' && 'bg-red-50/30')}>
       <td className="px-4 py-3">
@@ -52,9 +52,73 @@ function TaskRow({ task, onStatusChange }: { task: any; onStatusChange: (id: str
         </div>
       </td>
       <td className="px-4 py-3 text-xs text-gray-400">
-        {task._count?.evidences > 0 && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{task._count.evidences} ev.</span>}
+        <div className="flex items-center gap-2">
+          {task._count?.evidences > 0 && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{task._count.evidences} ev.</span>}
+          <button onClick={() => onEdit(task)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title="Editar">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </td>
     </tr>
+  );
+}
+
+function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+    defaultValues: {
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority || 'MEDIUM',
+      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => tasksApi.update(task.id, cleanFormData(data)),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); onClose(); },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Editar Tarefa</h3>
+        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+              <select {...register('priority')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+                {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
+              <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+          </div>
+          {updateMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Erro ao guardar. Tente novamente.
+            </p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -62,6 +126,7 @@ export default function TasksPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -149,6 +214,7 @@ export default function TasksPage() {
                   key={t.id}
                   task={t}
                   onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
+                  onEdit={(task) => setEditingTask(task)}
                 />
               ))}
             </tbody>
@@ -160,6 +226,8 @@ export default function TasksPage() {
       )}
 
       {/* New Task Modal */}
+      {editingTask && <EditTaskModal task={editingTask} onClose={() => setEditingTask(null)} />}
+
       {showNew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">

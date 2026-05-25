@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reportsApi } from '@/lib/api';
 import { BarChart2, Download, Plus, Loader2, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cn, formatDateTime, getStatusColor } from '@/lib/utils';
@@ -15,6 +15,7 @@ function StatusIcon({ status }: { status: string }) {
 
 export default function ReportsPage() {
   const [generating, setGenerating] = useState(false);
+  const qc = useQueryClient();
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ['reports', 'summary'],
@@ -22,12 +23,17 @@ export default function ReportsPage() {
   });
 
   const { data: reportsList } = useQuery({
-    queryKey: ['reports'],
+    queryKey: ['reports', 'list'],
     queryFn: () => reportsApi.list().then(r => r.data),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return Array.isArray(data) && data.some((r: any) => r.status === 'PENDING') ? 3000 : false;
+    },
   });
 
   const generateMutation = useMutation({
     mutationFn: (data: any) => reportsApi.generate(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports', 'list'] }),
   });
 
   const tasksData = summary?.tasks
