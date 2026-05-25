@@ -192,3 +192,12 @@ export const excelImportApi = {
 export const auditLogsApi = {
   list: (params?: any) => api.get('/audit-logs', { params }),
 };
+
+export const notificationsApi = {
+  list: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
+    api.get('/notifications', { params }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/notifications/read-all'),
+  remove: (id: string) => api.delete(`/notifications/${id}`),
+};
