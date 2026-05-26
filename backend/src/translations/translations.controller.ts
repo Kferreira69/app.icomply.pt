@@ -2,7 +2,7 @@ import {
   Controller, Get, Post, Put, Delete,
   Body, Query, Param, UseGuards, Request,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TranslationsService } from './translations.service';
 
 @Controller('translations')

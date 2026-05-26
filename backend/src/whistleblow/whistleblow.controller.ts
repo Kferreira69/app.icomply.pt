@@ -13,7 +13,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { WhistleblowService } from './whistleblow.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 // ─────────────────────────────────────────────────────────────
 // PUBLIC routes (no auth) — for anonymous/identified reporters
