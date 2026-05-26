@@ -28,7 +28,10 @@ export class TrustCenterService {
     // Gather stats
     const [evidenceCount, auditCount, policyCount, vendorCount, lastAudit] = await Promise.all([
       this.prisma.evidence.count({
-        where: { organizationId: org.id, status: 'APPROVED' },
+        where: {
+          uploadedBy: { organizationId: org.id },
+          status: 'APPROVED',
+        },
       }),
       this.prisma.audit.count({ where: { organizationId: org.id } }),
       this.prisma.policy.count({
@@ -36,7 +39,7 @@ export class TrustCenterService {
       }),
       this.prisma.vendor.count({ where: { organizationId: org.id } }),
       this.prisma.audit.findFirst({
-        where: { organizationId: org.id, status: { in: ['COMPLETED', 'CLOSED'] } },
+        where: { organizationId: org.id, status: 'COMPLETED' },
         orderBy: { completedAt: 'desc' },
         select: { completedAt: true, title: true },
       }),
