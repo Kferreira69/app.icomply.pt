@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { risksApi } from '@/lib/api';
-import { Plus, AlertTriangle, Loader2, Grid3X3 } from 'lucide-react';
-import { cn, getRiskColor, getRiskLabel, getStatusColor, formatDate } from '@/lib/utils';
+import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil } from 'lucide-react';
+import { cn, getRiskColor, getRiskLabel, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
 const LIKELIHOOD_LABELS: Record<string, string> = {
@@ -117,8 +117,89 @@ function NewRiskModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+    defaultValues: {
+      title: risk.title,
+      category: risk.category || '',
+      description: risk.description || '',
+      likelihood: risk.likelihood,
+      impact: risk.impact,
+      mitigationPlan: risk.mitigationPlan || '',
+      status: risk.status,
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => risksApi.update(risk.id, cleanFormData(data)),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks'] }); onClose(); },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Editar Risco</h3>
+        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <input {...register('category')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <select {...register('status')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+                {['IDENTIFIED', 'ASSESSED', 'MITIGATED', 'ACCEPTED', 'CLOSED'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Probabilidade</label>
+              <select {...register('likelihood')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+                {Object.entries(LIKELIHOOD_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Impacto</label>
+              <select {...register('impact')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+                {Object.entries(IMPACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Mitigação</label>
+            <textarea {...register('mitigationPlan')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          {updateMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Erro ao guardar. Tente novamente.
+            </p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function RisksPage() {
   const [showNew, setShowNew] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<any | null>(null);
   const [view, setView] = useState<'list' | 'heatmap'>('list');
 
   const { data, isLoading } = useQuery({
@@ -184,7 +265,7 @@ export default function RisksPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Risco', 'Categoria', 'Probabilidade', 'Impacto', 'Nível', 'Estado', 'Prazo'].map(h => (
+                  {['Risco', 'Categoria', 'Probabilidade', 'Impacto', 'Nível', 'Estado', 'Prazo', ''].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
@@ -215,6 +296,11 @@ export default function RisksPage() {
                       <span className={cn('text-xs px-2 py-1 rounded-full', getStatusColor(r.status))}>{r.status}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{formatDate(r.dueDate)}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setEditingRisk(r)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title="Editar">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -224,6 +310,7 @@ export default function RisksPage() {
       )}
 
       {showNew && <NewRiskModal onClose={() => setShowNew(false)} />}
+      {editingRisk && <EditRiskModal risk={editingRisk} onClose={() => setEditingRisk(null)} />}
     </div>
   );
 }

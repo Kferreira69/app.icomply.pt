@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { capaApi } from '@/lib/api';
-import { Plus, AlertCircle, Loader2, Calendar } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, Calendar, Pencil } from 'lucide-react';
 import { cn, formatDate, getStatusColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
@@ -62,8 +62,83 @@ function NewCapaModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function EditCapaModal({ capa, onClose }: { capa: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+    defaultValues: {
+      title: capa.title,
+      description: capa.description || '',
+      rootCause: capa.rootCause || '',
+      correctiveAction: capa.correctiveAction || '',
+      preventiveAction: capa.preventiveAction || '',
+      dueDate: capa.dueDate ? capa.dueDate.slice(0, 10) : '',
+      status: capa.status,
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => capaApi.update(capa.id, cleanFormData(data)),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['capa'] }); onClose(); },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Editar CAPA</h3>
+        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição *</label>
+            <textarea {...register('description', { required: true })} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Causa Raiz</label>
+            <textarea {...register('rootCause')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ação Corretiva</label>
+            <textarea {...register('correctiveAction')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ação Preventiva</label>
+            <textarea {...register('preventiveAction')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <select {...register('status')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+                {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
+              <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+          </div>
+          {updateMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Erro ao guardar. Tente novamente.
+            </p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function CapaPage() {
   const [showNew, setShowNew] = useState(false);
+  const [editingCapa, setEditingCapa] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const qc = useQueryClient();
 
@@ -156,17 +231,22 @@ export default function CapaPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {c.status !== 'CLOSED' && (
-                      <select
-                        value={c.status}
-                        onChange={e => updateMutation.mutate({ id: c.id, status: e.target.value })}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
-                      >
-                        {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {c.status !== 'CLOSED' && (
+                        <select
+                          value={c.status}
+                          onChange={e => updateMutation.mutate({ id: c.id, status: e.target.value })}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                        >
+                          {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => (
+                            <option key={v} value={v}>{l}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button onClick={() => setEditingCapa(c)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title="Editar">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -176,6 +256,7 @@ export default function CapaPage() {
       )}
 
       {showNew && <NewCapaModal onClose={() => setShowNew(false)} />}
+      {editingCapa && <EditCapaModal capa={editingCapa} onClose={() => setEditingCapa(null)} />}
     </div>
   );
 }

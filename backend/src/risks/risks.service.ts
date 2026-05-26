@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
-import { RiskStatus } from '@prisma/client';
+import { RiskStatus, NotificationType } from '@prisma/client';
 
 // Likelihood and impact map 1-5
 const LIKELIHOOD_VALUES: Record<string, number> = {
@@ -21,12 +22,15 @@ function getRiskLevel(score: number): string {
 
 @Injectable()
 export class RisksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(dto: CreateRiskDto, organizationId: string, ownerId: string) {
     const inherentScore = LIKELIHOOD_VALUES[dto.likelihood] * IMPACT_VALUES[dto.impact];
 
-    return this.prisma.risk.create({
+    const risk = await this.prisma.risk.create({
       data: {
         ...dto,
         organizationId,
@@ -37,6 +41,23 @@ export class RisksService {
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+
+    // Alert owner when risk is HIGH or CRITICAL
+    if (inherentScore >= 12) {
+      const level = inherentScore >= 20 ? 'CRÍTICO' : 'ALTO';
+      await this.notifications.create({
+        organizationId,
+        userId: ownerId,
+        type: NotificationType.RISK_HIGH,
+        title: `Risco ${level} registado`,
+        message: `O risco "${risk.title}" foi classificado como ${level} (score ${inherentScore}). Defina um plano de mitigação.`,
+        entityType: 'Risk',
+        entityId: risk.id,
+        sendEmail: inherentScore >= 20,
+      });
+    }
+
+    return risk;
   }
 
   async findAll(

@@ -181,6 +181,69 @@ enum ImportStatus {
   FAILED
 }
 
+enum PolicyStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum PolicyCategory {
+  INFORMATION_SECURITY
+  DATA_PROTECTION
+  BUSINESS_CONTINUITY
+  HUMAN_RESOURCES
+  PHYSICAL_SECURITY
+  ACCESS_CONTROL
+  INCIDENT_MANAGEMENT
+  SUPPLIER_MANAGEMENT
+  COMPLIANCE
+  OPERATIONAL
+  OTHER
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTERESTS
+}
+
+enum ProcessingActivityStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REVIEW
+}
+
+enum DpiaStatus {
+  DRAFT
+  IN_REVIEW
+  COMPLETED
+}
+
+enum DpiaOutcome {
+  LOW_RISK
+  MEDIUM_RISK
+  HIGH_RISK_PROCEED
+  HIGH_RISK_CONSULT_DPA
+}
+
+enum BreachSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BreachStatus {
+  IDENTIFIED
+  ASSESSING
+  NOTIFYING
+  CLOSED
+}
+
 // ─── Organizations (Tenants) ──────────────────────────────────
 
 model Organization {
@@ -210,6 +273,18 @@ model Organization {
   excelImports      ExcelImport[]
   audits            Audit[]
   notifications     Notification[]
+  policies          Policy[]
+  dataProcessingActivities DataProcessingActivity[]
+  dpias             Dpia[]
+  breachNotifications BreachNotification[]
+  nis2Assessments   Nis2Assessment[]
+  vendors           Vendor[]
+  soaControls       SoaControl[]
+  doraIncidents     DoraIncident[]
+  doraTests         DoraTest[]
+  whistleblowReports     WhistleblowReport[]
+  codesOfConduct         CodeOfConduct[]
+  whistleblowTrainings   WhistleblowTraining[]
 
   @@map("organizations")
 }
@@ -246,6 +321,21 @@ model User {
   createdCapas     Capa[]       @relation("CapaCreator")
   notifications    Notification[]
   auditParticipations AuditParticipant[]
+  ownedPolicies    Policy[]     @relation("PolicyOwner")
+  approvedPolicies Policy[]     @relation("PolicyApprover")
+  policyVersions   PolicyVersion[]
+  policyAcknowledgments PolicyAcknowledgment[]
+  controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
+  ownedDpias       Dpia[]       @relation("DpiaOwner")
+  ownedBreaches    BreachNotification[] @relation("BreachNotificationOwner")
+  nis2Assessments       Nis2Assessment[]   @relation("Nis2Responsible")
+  vendorAssessments     VendorAssessment[] @relation("VendorAssessor")
+  doraIncidentsReported DoraIncident[]     @relation("DoraIncidentReporter")
+  doraTestsConducted    DoraTest[]         @relation("DoraTestConductor")
+  whistleblowAssigned   WhistleblowReport[] @relation("WhistleblowAssignee")
+  whistleblowTimeline   WhistleblowTimeline[]
+  codeOfConductAcks     CodeOfConductAck[]
+  trainingAttendances   WhistleblowTrainingAttendee[]
 
   @@map("users")
 }
@@ -267,6 +357,7 @@ model Framework {
   templates    Template[]
   projects     Project[]
   diagnosticQuestions DiagnosticQuestion[]
+  policies     Policy[]
 
   @@map("frameworks")
 }
@@ -731,4 +822,634 @@ model Notification {
   @@index([userId, read, createdAt])
   @@index([organizationId, createdAt])
   @@map("notifications")
+}
+
+// ─── Policies ─────────────────────────────────────────────────
+
+model Policy {
+  id             String         @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  content        String         @db.Text
+  version        String         @default("1.0")
+  status         PolicyStatus   @default(DRAFT)
+  category       PolicyCategory @default(OTHER)
+  frameworkId    String?
+  ownerId        String
+  approverId     String?
+  approvedAt     DateTime?
+  effectiveDate  DateTime?
+  reviewDate     DateTime?
+  expiresAt      DateTime?
+  tags           String[]       @default([])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization    Organization           @relation(fields: [organizationId], references: [id])
+  owner           User                   @relation("PolicyOwner", fields: [ownerId], references: [id])
+  approver        User?                  @relation("PolicyApprover", fields: [approverId], references: [id])
+  framework       Framework?             @relation(fields: [frameworkId], references: [id])
+  versions        PolicyVersion[]
+  acknowledgments PolicyAcknowledgment[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("policies")
+}
+
+model PolicyVersion {
+  id          String   @id @default(uuid())
+  policyId    String
+  version     String
+  content     String   @db.Text
+  changeNote  String?
+  changedById String
+  createdAt   DateTime @default(now())
+
+  policy    Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id])
+
+  @@map("policy_versions")
+}
+
+model PolicyAcknowledgment {
+  id             String   @id @default(uuid())
+  policyId       String
+  userId         String
+  policyVersion  String?
+  acknowledgedAt DateTime @default(now())
+  ipAddress      String?
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([policyId, userId])
+  @@map("policy_acknowledgments")
+}
+
+// ─── GDPR / Data Protection ────────────────────────────────────
+
+model DataProcessingActivity {
+  id                     String                   @id @default(uuid())
+  organizationId         String
+  name                   String
+  purpose                String
+  legalBasis             LegalBasis
+  dataCategories         String[]                 @default([])
+  dataSubjects           String[]                 @default([])
+  recipients             String[]                 @default([])
+  internationalTransfers Boolean                  @default(false)
+  transferCountries      String[]                 @default([])
+  transferSafeguards     String?
+  retentionPeriod        String
+  retentionJustification String?
+  technicalMeasures      String[]                 @default([])
+  organizationalMeasures String[]                 @default([])
+  dpoConsulted           Boolean                  @default(false)
+  processorName          String?
+  processorCountry       String?
+  status                 ProcessingActivityStatus @default(ACTIVE)
+  controllerId           String
+  reviewDate             DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  controller   User         @relation("ProcessingActivityController", fields: [controllerId], references: [id])
+  dpias        Dpia[]
+
+  @@index([organizationId, status])
+  @@map("data_processing_activities")
+}
+
+model Dpia {
+  id                              String       @id @default(uuid())
+  organizationId                  String
+  activityId                      String?
+  title                           String
+  description                     String
+  necessityTest                   String?
+  proportionalityTest             String?
+  riskAssessment                  String?
+  mitigationMeasures              String?
+  dpoConsultation                 String?
+  supervisoryAuthorityConsulted   Boolean      @default(false)
+  outcome                         DpiaOutcome?
+  status                          DpiaStatus   @default(DRAFT)
+  ownerId                         String
+  reviewedAt                      DateTime?
+  createdAt                       DateTime     @default(now())
+  updatedAt                       DateTime     @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  activity     DataProcessingActivity?  @relation(fields: [activityId], references: [id])
+  owner        User                     @relation("DpiaOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("dpias")
+}
+
+model BreachNotification {
+  id                             String         @id @default(uuid())
+  organizationId                 String
+  title                          String
+  description                    String
+  discoveredAt                   DateTime
+  affectedDataSubjects           Int?
+  affectedDataCategories         String[]       @default([])
+  severity                       BreachSeverity @default(MEDIUM)
+  status                         BreachStatus   @default(IDENTIFIED)
+  supervisoryAuthorityNotifiedAt DateTime?
+  supervisoryAuthorityReference  String?
+  dataSubjectsNotifiedAt         DateTime?
+  containmentMeasures            String?
+  rootCause                      String?
+  ownerId                        String
+  createdAt                      DateTime       @default(now())
+  updatedAt                      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User         @relation("BreachNotificationOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("breach_notifications")
+}
+
+// ─── NIS2 Compliance ──────────────────────────────────────────
+
+enum Nis2MeasureStatus {
+  NOT_ASSESSED
+  NON_COMPLIANT
+  PARTIAL
+  COMPLIANT
+  NOT_APPLICABLE
+}
+
+model Nis2Assessment {
+  id             String             @id @default(uuid())
+  organizationId String
+  measureCode    String             // e.g. "ART21_A", "ART23_1"
+  category       String             // RISK_MANAGEMENT | INCIDENT_RESPONSE | SUPPLY_CHAIN | BCP | CRYPTOGRAPHY | HR_SECURITY | ACCESS_CONTROL | VULNERABILITY
+  title          String
+  description    String?
+  status         Nis2MeasureStatus  @default(NOT_ASSESSED)
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  responsible  User?        @relation("Nis2Responsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, measureCode])
+  @@index([organizationId, status])
+  @@map("nis2_assessments")
+}
+
+// ─── Vendor / Third-Party Risk ────────────────────────────────
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REVIEW
+  TERMINATED
+}
+
+enum VendorRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Vendor {
+  id              String          @id @default(uuid())
+  organizationId  String
+  name            String
+  category        String          @default("Technology")
+  contactName     String?
+  contactEmail    String?
+  website         String?
+  countries       String?
+  status          VendorStatus    @default(ACTIVE)
+  riskLevel       VendorRiskLevel @default(MEDIUM)
+  riskScore       Int?
+  contractStart   DateTime?
+  contractEnd     DateTime?
+  dataProcessor   Boolean         @default(false)
+  dataShared      String?
+  lastAssessedAt  DateTime?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  assessments  VendorAssessment[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, riskLevel])
+  @@map("vendors")
+}
+
+model VendorAssessment {
+  id           String          @id @default(uuid())
+  vendorId     String
+  score        Int
+  riskLevel    VendorRiskLevel @default(MEDIUM)
+  findings     String?
+  assessedById String
+  createdAt    DateTime        @default(now())
+
+  vendor     Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  assessedBy User   @relation("VendorAssessor", fields: [assessedById], references: [id])
+
+  @@map("vendor_assessments")
+}
+
+// ─── Statement of Applicability (ISO 27001:2022) ──────────────
+
+enum SoaImplementationStatus {
+  NOT_STARTED
+  PLANNED
+  PARTIALLY_IMPLEMENTED
+  IMPLEMENTED
+  NOT_APPLICABLE
+}
+
+model SoaControl {
+  id                  String                  @id @default(uuid())
+  organizationId      String
+  controlCode         String
+  theme               String
+  title               String
+  description         String?
+  applicable          Boolean                 @default(true)
+  justification       String?
+  status              SoaImplementationStatus @default(NOT_STARTED)
+  implementationNotes String?
+  owner               String?
+  targetDate          DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, theme])
+  @@map("soa_controls")
+}
+
+// ─── DORA — Digital Operational Resilience Act ────────────────
+
+enum DoraIncidentSeverity {
+  MINOR
+  SIGNIFICANT
+  MAJOR
+}
+
+enum DoraIncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum DoraIncidentCategory {
+  AVAILABILITY
+  AUTHENTICITY
+  INTEGRITY
+  CONFIDENTIALITY
+  CONTINUITY
+}
+
+enum DoraTestType {
+  VULNERABILITY_ASSESSMENT
+  PENETRATION_TEST
+  TLPT
+  BUSINESS_CONTINUITY
+  SCENARIO_BASED
+  GAP_ANALYSIS
+}
+
+enum DoraTestStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model DoraIncident {
+  id                   String               @id @default(uuid())
+  organizationId       String
+  title                String
+  description          String
+  severity             DoraIncidentSeverity
+  category             DoraIncidentCategory
+  status               DoraIncidentStatus   @default(OPEN)
+  affectedSystems      String[]             @default([])
+  detectedAt           DateTime
+  resolvedAt           DateTime?
+  rootCause            String?
+  impact               String?
+  estimatedLoss        Float?
+  // Regulatory reporting timelines
+  reportedToRegulator  Boolean              @default(false)
+  initialReportAt      DateTime?            // ≤ 4 hours
+  intermediaryReportAt DateTime?            // ≤ 72 hours
+  finalReportAt        DateTime?            // ≤ 1 month
+  regulatoryRef        String?
+  reportedById         String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  reportedBy   User         @relation("DoraIncidentReporter", fields: [reportedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@map("dora_incidents")
+}
+
+model DoraTest {
+  id                  String         @id @default(uuid())
+  organizationId      String
+  title               String
+  testType            DoraTestType
+  status              DoraTestStatus @default(PLANNED)
+  scope               String?
+  provider            String?
+  plannedDate         DateTime
+  executedDate        DateTime?
+  nextTestDate        DateTime?
+  findings            String?
+  criticalFindings    Int            @default(0)
+  highFindings        Int            @default(0)
+  remediationDeadline DateTime?
+  remediationStatus   String?
+  conductedById       String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  conductedBy  User?        @relation("DoraTestConductor", fields: [conductedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, testType])
+  @@map("dora_tests")
+}
+
+// ─── Translations (manual overrides for i18n) ────────────────
+
+model TranslationOverride {
+  id        String   @id @default(uuid())
+  locale    String   // 'pt', 'en', ...
+  key       String   // e.g. 'common.save', 'dora.title'
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([locale, key])
+  @@index([locale])
+  @@map("translation_overrides")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Canal de Denúncias — RGPC / EU Directive 2019/1937
+// Lei 93/2021 | Regime Geral da Prevenção da Corrupção
+// ─────────────────────────────────────────────────────────────
+
+enum WhistleblowCategory {
+  CORRUPTION
+  FRAUD
+  BRIBERY
+  CONFLICT_OF_INTEREST
+  ABUSE_OF_POWER
+  EMBEZZLEMENT
+  MISUSE_OF_INFORMATION
+  DATA_BREACH
+  WORKPLACE_HARASSMENT
+  SAFETY_VIOLATION
+  ENVIRONMENTAL_VIOLATION
+  OTHER
+}
+
+enum WhistleblowStatus {
+  RECEIVED           // Received — 7-day ack clock starts
+  ACKNOWLEDGED       // Acknowledged within 7 days (legal requirement)
+  UNDER_INVESTIGATION
+  CONCLUDED
+  UNFOUNDED          // Closed as unfounded
+  ARCHIVED
+}
+
+enum WhistleblowPersonRole {
+  ACCUSED
+  WITNESS
+  OTHER
+}
+
+enum WhistleblowTimelineEvent {
+  SUBMITTED
+  ACKNOWLEDGED
+  ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  EVIDENCE_ADDED
+  CONCLUDED
+  REGULATORY_NOTIFIED
+  MENAC_REPORTED
+}
+
+// ── Main report ───────────────────────────────────────────────
+
+model WhistleblowReport {
+  id               String               @id @default(uuid())
+  organizationId   String
+  referenceCode    String               @unique // Public: e.g. "DEN-2024-0001"
+  secureToken      String               @unique // Private: reporter status-check token
+  isAnonymous      Boolean              @default(true)
+  category         WhistleblowCategory
+  status           WhistleblowStatus    @default(RECEIVED)
+
+  // Reporter info (only if not anonymous)
+  reporterName     String?
+  reporterEmail    String?
+  reporterPhone    String?
+  reporterDept     String?
+  reporterRelation String?              // EMPLOYEE, CONTRACTOR, SUPPLIER, FORMER_EMPLOYEE, OTHER
+
+  // Incident details
+  subject          String
+  description      String
+  incidentDate     DateTime?
+  incidentLocation String?
+  repeatOffense    Boolean              @default(false)
+  witnesses        String?              // Free text initially
+
+  // Deadlines (Lei 93/2021)
+  ackDeadline      DateTime             // +7 days from createdAt
+  resolutionDeadline DateTime           // +3 months (extendable to 6)
+  deadlineExtended Boolean              @default(false)
+  extendedUntil    DateTime?
+  extensionReason  String?
+
+  // Timestamps
+  acknowledgedAt   DateTime?
+  assignedAt       DateTime?
+  concludedAt      DateTime?
+
+  // Resolution
+  conclusionSummary String?
+  conclusionType    String?             // SUBSTANTIATED, UNSUBSTANTIATED, INSUFFICIENT_EVIDENCE
+  actionsTaken      String?
+  regulatoryNotified Boolean            @default(false)
+  regulatoryNotifiedAt DateTime?
+
+  // Internal handling
+  assignedToId     String?
+  internalNotes    String?              // Protected — not visible to reporter
+  assignedTo       User?    @relation("WhistleblowAssignee", fields: [assignedToId], references: [id])
+  organization     Organization @relation(fields: [organizationId], references: [id])
+
+  persons          WhistleblowPerson[]
+  evidences        WhistleblowEvidence[]
+  timeline         WhistleblowTimeline[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([referenceCode])
+  @@map("whistleblow_reports")
+}
+
+model WhistleblowPerson {
+  id          String                @id @default(uuid())
+  reportId    String
+  role        WhistleblowPersonRole
+  name        String?
+  jobTitle    String?
+  department  String?
+  notes       String?
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("whistleblow_persons")
+}
+
+model WhistleblowEvidence {
+  id          String   @id @default(uuid())
+  reportId    String
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  uploadedAt  DateTime @default(now())
+  uploadedBy  String?  // null = reporter (anonymous)
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("whistleblow_evidences")
+}
+
+// Immutable audit trail — no updates, no deletes
+model WhistleblowTimeline {
+  id          String                   @id @default(uuid())
+  reportId    String
+  event       WhistleblowTimelineEvent
+  description String
+  actorId     String?                  // null = system or anonymous reporter
+  actorRole   String?                  // REPORTER, MANAGER, SYSTEM
+  metadata    Json?                    // Extra structured data
+  createdAt   DateTime                 @default(now())
+
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  actor       User?             @relation(fields: [actorId], references: [id])
+
+  @@index([reportId, createdAt])
+  @@map("whistleblow_timeline")
+}
+
+// ── Code of Conduct ───────────────────────────────────────────
+
+model CodeOfConduct {
+  id              String   @id @default(uuid())
+  organizationId  String
+  title           String
+  content         String   // Markdown
+  version         String   @default("1.0")
+  isActive        Boolean  @default(true)
+  requiresAck     Boolean  @default(true)
+  publishedAt     DateTime?
+  reviewDate      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization       @relation(fields: [organizationId], references: [id])
+  acknowledgments CodeOfConductAck[]
+
+  @@index([organizationId, isActive])
+  @@map("codes_of_conduct")
+}
+
+model CodeOfConductAck {
+  id          String   @id @default(uuid())
+  conductId   String
+  userId      String
+  acknowledgedAt DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  conduct     CodeOfConduct @relation(fields: [conductId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@unique([conductId, userId])
+  @@index([conductId])
+  @@map("code_of_conduct_acks")
+}
+
+// ── Training Plans ────────────────────────────────────────────
+
+model WhistleblowTraining {
+  id               String   @id @default(uuid())
+  organizationId   String
+  title            String
+  description      String?
+  trainingDate     DateTime
+  durationMinutes  Int      @default(60)
+  instructor       String?
+  location         String?  // Physical or online URL
+  mandatory        Boolean  @default(true)
+  materialUrl      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization                  @relation(fields: [organizationId], references: [id])
+  attendees        WhistleblowTrainingAttendee[]
+
+  @@index([organizationId, trainingDate])
+  @@map("whistleblow_trainings")
+}
+
+model WhistleblowTrainingAttendee {
+  id            String    @id @default(uuid())
+  trainingId    String
+  userId        String
+  attended      Boolean   @default(false)
+  completedAt   DateTime?
+  score         Int?
+  certificateUrl String?
+  notes         String?
+
+  training      WhistleblowTraining @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id])
+
+  @@unique([trainingId, userId])
+  @@index([trainingId])
+  @@map("whistleblow_training_attendees")
 }

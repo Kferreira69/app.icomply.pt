@@ -180,21 +180,25 @@ export default function DiagnosticPage() {
                 </div>
               )}
 
-              {/* SINGLE_CHOICE */}
-              {question.type === 'SINGLE_CHOICE' && question.options?.map((opt: any) => (
-                <button
-                  key={opt.value}
-                  onClick={() => handleAnswer(opt.value)}
-                  className={cn(
-                    'w-full text-left p-4 rounded-lg border-2 text-sm transition-all',
-                    answers[question.id] === opt.value
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700',
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              {/* SINGLE_CHOICE — options can be plain strings or {value,label} objects */}
+              {question.type === 'SINGLE_CHOICE' && question.options?.map((opt: any) => {
+                const val = typeof opt === 'object' ? opt.value : opt;
+                const lbl = typeof opt === 'object' ? (opt.label ?? opt.value) : opt;
+                return (
+                  <button
+                    key={val}
+                    onClick={() => handleAnswer(val)}
+                    className={cn(
+                      'w-full text-left p-4 rounded-lg border-2 text-sm transition-all',
+                      answers[question.id] === val
+                        ? 'border-primary bg-primary/5 text-primary font-medium'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700',
+                    )}
+                  >
+                    {lbl}
+                  </button>
+                );
+              })}
 
               {/* TEXT */}
               {question.type === 'TEXT' && (

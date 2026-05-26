@@ -1,0 +1,158 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# iComply — Staging (coexists with production on the same VPS)
+#
+# DOMAIN in .env.staging should be set to "staging.icomply.pt"
+# so that Traefik routes:
+#   https://app.staging.icomply.pt  → Next.js frontend
+#   https://api.staging.icomply.pt  → NestJS backend
+#
+# Container names and volume names are prefixed with "staging_" to avoid
+# clashing with the production docker-compose.vps.yml stack.
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  traefik-public:
+    external: true
+  icomply-staging-internal:
+    name: icomply-staging-internal
+    driver: bridge
+
+volumes:
+  icomply_staging_postgres_data:
+    name: icomply_staging_postgres_data
+  icomply_staging_minio_data:
+    name: icomply_staging_minio_data
+  icomply_staging_redis_data:
+    name: icomply_staging_redis_data
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: icomply_staging_postgres
+    restart: unless-stopped
+    networks:
+      - icomply-staging-internal
+    environment:
+      POSTGRES_USER: ${DB_USER:-icomply}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-icomply_staging}
+    volumes:
+      - icomply_staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-icomply}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: icomply_staging_redis
+    restart: unless-stopped
+    networks:
+      - icomply-staging-internal
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - icomply_staging_redis_data:/data
+
+  # ── MinIO ───────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: icomply_staging_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    networks:
+      - icomply-staging-internal
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    volumes:
+      - icomply_staging_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ── Backend (NestJS) ────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: icomply_staging_backend
+    restart: unless-stopped
+    networks:
+      - icomply-staging-internal
+      - traefik-public
+    environment:
+      NODE_ENV: staging
+      DATABASE_URL: postgresql://${DB_USER:-icomply}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-icomply_staging}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_USER}
+      S3_SECRET_KEY: ${MINIO_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET:-icomply-evidence-staging}
+      S3_REGION: ${S3_REGION:-eu-west-1}
+      S3_FORCE_PATH_STYLE: 'true'
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      APP_PORT: 3001
+      APP_URL: https://api.${DOMAIN}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      ENABLE_SWAGGER: 'true'
+      ENABLE_AUDIT_LOG: 'true'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.icomply-staging-api.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-staging-api.entrypoints=websecure"
+      - "traefik.http.routers.icomply-staging-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.icomply-staging-api.service=icomply-staging-api"
+      - "traefik.http.services.icomply-staging-api.loadbalancer.server.port=3001"
+      - "traefik.http.routers.icomply-staging-api-http.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-staging-api-http.entrypoints=web"
+      - "traefik.http.routers.icomply-staging-api-http.middlewares=redirect-to-https"
+
+  # ── Frontend (Next.js) ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api/v1
+    container_name: icomply_staging_frontend
+    restart: unless-stopped
+    networks:
+      - icomply-staging-internal
+      - traefik-public
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api/v1
+      NEXT_PUBLIC_APP_NAME: iComply (Staging)
+      NEXT_PUBLIC_APP_VERSION: '1.0.0-staging'
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.icomply-staging-frontend.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-staging-frontend.entrypoints=websecure"
+      - "traefik.http.routers.icomply-staging-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.icomply-staging-frontend.service=icomply-staging-frontend"
+      - "traefik.http.services.icomply-staging-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.icomply-staging-frontend-http.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-staging-frontend-http.entrypoints=web"
+      - "traefik.http.routers.icomply-staging-frontend-http.middlewares=redirect-to-https"

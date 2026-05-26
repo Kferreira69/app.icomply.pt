@@ -201,3 +201,145 @@ export const notificationsApi = {
   markAllAsRead: () => api.patch('/notifications/read-all'),
   remove: (id: string) => api.delete(`/notifications/${id}`),
 };
+
+export const policiesApi = {
+  list: (params?: { status?: string; category?: string }) => api.get('/policies', { params }),
+  get: (id: string) => api.get(`/policies/${id}`),
+  stats: () => api.get('/policies/stats'),
+  create: (data: any) => api.post('/policies', data),
+  update: (id: string, data: any) => api.patch(`/policies/${id}`, data),
+  remove: (id: string) => api.delete(`/policies/${id}`),
+  submitForReview: (id: string) => api.post(`/policies/${id}/submit`),
+  approve: (id: string) => api.post(`/policies/${id}/approve`),
+  archive: (id: string) => api.post(`/policies/${id}/archive`),
+  revertToDraft: (id: string) => api.post(`/policies/${id}/revert`),
+  acknowledge: (id: string) => api.post(`/policies/${id}/acknowledge`),
+  acknowledgmentStatus: (id: string) => api.get(`/policies/${id}/acknowledgment-status`),
+};
+
+export const gdprApi = {
+  dashboard: () => api.get('/gdpr/dashboard'),
+  // ROPA / Processing Activities
+  activities: {
+    list: (params?: { status?: string }) => api.get('/gdpr/activities', { params }),
+    get: (id: string) => api.get(`/gdpr/activities/${id}`),
+    create: (data: any) => api.post('/gdpr/activities', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/activities/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/activities/${id}`),
+    ropaReport: () => api.get('/gdpr/activities/ropa-report'),
+  },
+  // DPIAs
+  dpias: {
+    list: (params?: { status?: string }) => api.get('/gdpr/dpias', { params }),
+    get: (id: string) => api.get(`/gdpr/dpias/${id}`),
+    create: (data: any) => api.post('/gdpr/dpias', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/dpias/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/dpias/${id}`),
+  },
+  // Breach Notifications
+  breaches: {
+    list: () => api.get('/gdpr/breaches'),
+    get: (id: string) => api.get(`/gdpr/breaches/${id}`),
+    create: (data: any) => api.post('/gdpr/breaches', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/breaches/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/breaches/${id}`),
+  },
+};
+
+export const nis2Api = {
+  dashboard: () => api.get('/nis2/dashboard'),
+  updateMeasure: (measureCode: string, data: any) => api.patch(`/nis2/measures/${measureCode}`, data),
+  bulkUpdate: (updates: Array<{ measureCode: string; status: string }>) =>
+    api.patch('/nis2/measures', { updates }),
+};
+
+
+export const vendorsApi = {
+  dashboard: () => api.get('/vendors/dashboard'),
+  list: (params?: { status?: string; riskLevel?: string; category?: string }) =>
+    api.get('/vendors', { params }),
+  get: (id: string) => api.get(`/vendors/${id}`),
+  create: (data: any) => api.post('/vendors', data),
+  update: (id: string, data: any) => api.patch(`/vendors/${id}`, data),
+  remove: (id: string) => api.delete(`/vendors/${id}`),
+  addAssessment: (id: string, data: { score: number; findings?: string }) =>
+    api.post(`/vendors/${id}/assessments`, data),
+};
+
+export const soaApi = {
+  dashboard: () => api.get('/soa/dashboard'),
+  list: (theme?: string) => api.get('/soa', { params: theme ? { theme } : {} }),
+  update: (controlCode: string, data: any) => api.patch(`/soa/${encodeURIComponent(controlCode)}`, data),
+  bulkUpdate: (updates: any[]) => api.patch('/soa/bulk', { updates }),
+};
+
+export const doraApi = {
+  dashboard: () => api.get('/dora/dashboard'),
+  // Incidents
+  listIncidents: (params?: { severity?: string; status?: string; category?: string }) =>
+    api.get('/dora/incidents', { params }),
+  getIncident: (id: string) => api.get(`/dora/incidents/${id}`),
+  createIncident: (data: any) => api.post('/dora/incidents', data),
+  updateIncident: (id: string, data: any) => api.patch(`/dora/incidents/${id}`, data),
+  deleteIncident: (id: string) => api.delete(`/dora/incidents/${id}`),
+  // Tests
+  listTests: (params?: { testType?: string; status?: string }) =>
+    api.get('/dora/tests', { params }),
+  createTest: (data: any) => api.post('/dora/tests', data),
+  updateTest: (id: string, data: any) => api.patch(`/dora/tests/${id}`, data),
+  deleteTest: (id: string) => api.delete(`/dora/tests/${id}`),
+};
+
+export const whistleblowApi = {
+  // Public (no auth)
+  submit: (orgSlug: string, data: any) =>
+    api.post(`/whistleblow/submit/${orgSlug}`, data),
+  checkStatus: (token: string) =>
+    api.get(`/whistleblow/status/${token}`),
+
+  // Protected
+  dashboard: () => api.get('/whistleblow/dashboard'),
+  listReports: (params?: any) => api.get('/whistleblow/reports', { params }),
+  getReport: (id: string) => api.get(`/whistleblow/reports/${id}`),
+  updateReport: (id: string, data: any) =>
+    api.patch(`/whistleblow/reports/${id}`, data),
+  addNote: (id: string, note: string) =>
+    api.post(`/whistleblow/reports/${id}/notes`, { note }),
+  menacReport: (year?: number) =>
+    api.get('/whistleblow/menac', { params: year ? { year } : {} }),
+
+  // Code of Conduct
+  listConduct: () => api.get('/whistleblow/conduct'),
+  getConduct: (id: string) => api.get(`/whistleblow/conduct/${id}`),
+  createConduct: (data: any) => api.post('/whistleblow/conduct', data),
+  updateConduct: (id: string, data: any) =>
+    api.patch(`/whistleblow/conduct/${id}`, data),
+  acknowledgeConduct: (id: string) =>
+    api.post(`/whistleblow/conduct/${id}/acknowledge`),
+
+  // Training
+  listTrainings: () => api.get('/whistleblow/trainings'),
+  createTraining: (data: any) => api.post('/whistleblow/trainings', data),
+  updateTraining: (id: string, data: any) =>
+    api.patch(`/whistleblow/trainings/${id}`, data),
+  markAttendance: (
+    trainingId: string,
+    userId: string,
+    data: { attended: boolean; score?: number; certificateUrl?: string },
+  ) => api.patch(`/whistleblow/trainings/${trainingId}/attendance/${userId}`, data),
+};
+
+export const translationsApi = {
+  listOverrides: (locale?: string) =>
+    api.get('/translations', { params: locale ? { locale } : {} }),
+  getOverridesMap: (locale: string) =>
+    api.get('/translations/overrides', { params: { locale } }),
+  upsertOverride: (locale: string, key: string, value: string) =>
+    api.put(`/translations/${locale}/${encodeURIComponent(key)}`, { value }),
+  deleteOverride: (locale: string, key: string) =>
+    api.delete(`/translations/${locale}/${encodeURIComponent(key)}`),
+  translate: (key: string, text: string, targetLang: string, save = false) =>
+    api.post('/translations/translate', { key, text, targetLang, save }),
+  translateBatch: (texts: string[], targetLang: string, sourceLang = 'PT') =>
+    api.post('/translations/translate/batch', { texts, targetLang, sourceLang }),
+};
