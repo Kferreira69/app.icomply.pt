@@ -1161,11 +1161,3 @@ function MenacTab() {
     </div>
   );
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  CORRUPTION: 'Corrupção', FRAUD: 'Fraude', BRIBERY: 'Suborno',
-  CONFLICT_OF_INTEREST: 'Conflito de interesses', ABUSE_OF_POWER: 'Abuso de poder',
-  EMBEZZLEMENT: 'Desvio de fundos', MISUSE_OF_INFORMATION: 'Info. indevida',
-  DATA_BREACH: 'Violação dados', WORKPLACE_HARASSMENT: 'Assédio',
-  SAFETY_VIOLATION: 'Segurança', ENVIRONMENTAL_VIOLATION: 'Ambiental', OTHER: 'Outro',
-};
