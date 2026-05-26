@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight,
-  BookOpen, ShieldCheck, Network,
+  BookOpen, ShieldCheck, Network, Building2, FileCheck2,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -25,6 +25,8 @@ const navItems = [
   { href: '/policies', label: 'Políticas', icon: BookOpen },
   { href: '/gdpr', label: 'GDPR / ROPA', icon: ShieldCheck },
   { href: '/nis2', label: 'NIS2', icon: Network },
+  { href: '/vendors', label: 'Fornecedores', icon: Building2 },
+  { href: '/soa', label: 'SoA ISO 27001', icon: FileCheck2 },
   { href: '/excel-import', label: 'Importar Excel', icon: Upload },
 ];
 

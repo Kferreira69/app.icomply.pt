@@ -25,6 +25,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PoliciesModule } from './policies/policies.module';
 import { GdprModule } from './gdpr/gdpr.module';
 import { Nis2Module } from './nis2/nis2.module';
+import { VendorsModule } from './vendors/vendors.module';
+import { SoaModule } from './soa/soa.module';
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { Nis2Module } from './nis2/nis2.module';
     PoliciesModule,
     GdprModule,
     Nis2Module,
+    VendorsModule,
+    SoaModule,
   ],
 })
 export class AppModule {}

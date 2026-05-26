@@ -252,3 +252,23 @@ export const nis2Api = {
   bulkUpdate: (updates: Array<{ measureCode: string; status: string }>) =>
     api.patch('/nis2/measures', { updates }),
 };
+
+
+export const vendorsApi = {
+  dashboard: () => api.get('/vendors/dashboard'),
+  list: (params?: { status?: string; riskLevel?: string; category?: string }) =>
+    api.get('/vendors', { params }),
+  get: (id: string) => api.get(`/vendors/${id}`),
+  create: (data: any) => api.post('/vendors', data),
+  update: (id: string, data: any) => api.patch(`/vendors/${id}`, data),
+  remove: (id: string) => api.delete(`/vendors/${id}`),
+  addAssessment: (id: string, data: { score: number; findings?: string }) =>
+    api.post(`/vendors/${id}/assessments`, data),
+};
+
+export const soaApi = {
+  dashboard: () => api.get('/soa/dashboard'),
+  list: (theme?: string) => api.get('/soa', { params: theme ? { theme } : {} }),
+  update: (controlCode: string, data: any) => api.patch(`/soa/${encodeURIComponent(controlCode)}`, data),
+  bulkUpdate: (updates: any[]) => api.patch('/soa/bulk', { updates }),
+};
