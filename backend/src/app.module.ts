@@ -24,6 +24,7 @@ import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PoliciesModule } from './policies/policies.module';
 import { GdprModule } from './gdpr/gdpr.module';
+import { Nis2Module } from './nis2/nis2.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { GdprModule } from './gdpr/gdpr.module';
     ExcelImportModule,
     PoliciesModule,
     GdprModule,
+    Nis2Module,
   ],
 })
 export class AppModule {}

@@ -245,3 +245,10 @@ export const gdprApi = {
     remove: (id: string) => api.delete(`/gdpr/breaches/${id}`),
   },
 };
+
+export const nis2Api = {
+  dashboard: () => api.get('/nis2/dashboard'),
+  updateMeasure: (measureCode: string, data: any) => api.patch(`/nis2/measures/${measureCode}`, data),
+  bulkUpdate: (updates: Array<{ measureCode: string; status: string }>) =>
+    api.patch('/nis2/measures', { updates }),
+};

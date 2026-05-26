@@ -277,6 +277,7 @@ model Organization {
   dataProcessingActivities DataProcessingActivity[]
   dpias             Dpia[]
   breachNotifications BreachNotification[]
+  nis2Assessments   Nis2Assessment[]
 
   @@map("organizations")
 }
@@ -320,6 +321,7 @@ model User {
   controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
   ownedDpias       Dpia[]       @relation("DpiaOwner")
   ownedBreaches    BreachNotification[] @relation("BreachNotificationOwner")
+  nis2Assessments  Nis2Assessment[]     @relation("Nis2Responsible")
 
   @@map("users")
 }
@@ -958,4 +960,38 @@ model BreachNotification {
 
   @@index([organizationId, status])
   @@map("breach_notifications")
+}
+
+// ─── NIS2 Compliance ──────────────────────────────────────────
+
+enum Nis2MeasureStatus {
+  NOT_ASSESSED
+  NON_COMPLIANT
+  PARTIAL
+  COMPLIANT
+  NOT_APPLICABLE
+}
+
+model Nis2Assessment {
+  id             String             @id @default(uuid())
+  organizationId String
+  measureCode    String             // e.g. "ART21_A", "ART23_1"
+  category       String             // RISK_MANAGEMENT | INCIDENT_RESPONSE | SUPPLY_CHAIN | BCP | CRYPTOGRAPHY | HR_SECURITY | ACCESS_CONTROL | VULNERABILITY
+  title          String
+  description    String?
+  status         Nis2MeasureStatus  @default(NOT_ASSESSED)
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  responsible  User?        @relation("Nis2Responsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, measureCode])
+  @@index([organizationId, status])
+  @@map("nis2_assessments")
 }
