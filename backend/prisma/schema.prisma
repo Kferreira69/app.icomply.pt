@@ -282,6 +282,9 @@ model Organization {
   soaControls       SoaControl[]
   doraIncidents     DoraIncident[]
   doraTests         DoraTest[]
+  whistleblowReports     WhistleblowReport[]
+  codesOfConduct         CodeOfConduct[]
+  whistleblowTrainings   WhistleblowTraining[]
 
   @@map("organizations")
 }
@@ -329,6 +332,10 @@ model User {
   vendorAssessments     VendorAssessment[] @relation("VendorAssessor")
   doraIncidentsReported DoraIncident[]     @relation("DoraIncidentReporter")
   doraTestsConducted    DoraTest[]         @relation("DoraTestConductor")
+  whistleblowAssigned   WhistleblowReport[] @relation("WhistleblowAssignee")
+  whistleblowTimeline   WhistleblowTimeline[]
+  codeOfConductAcks     CodeOfConductAck[]
+  trainingAttendances   WhistleblowTrainingAttendee[]
 
   @@map("users")
 }
@@ -1208,4 +1215,241 @@ model TranslationOverride {
   @@unique([locale, key])
   @@index([locale])
   @@map("translation_overrides")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Canal de Denúncias — RGPC / EU Directive 2019/1937
+// Lei 93/2021 | Regime Geral da Prevenção da Corrupção
+// ─────────────────────────────────────────────────────────────
+
+enum WhistleblowCategory {
+  CORRUPTION
+  FRAUD
+  BRIBERY
+  CONFLICT_OF_INTEREST
+  ABUSE_OF_POWER
+  EMBEZZLEMENT
+  MISUSE_OF_INFORMATION
+  DATA_BREACH
+  WORKPLACE_HARASSMENT
+  SAFETY_VIOLATION
+  ENVIRONMENTAL_VIOLATION
+  OTHER
+}
+
+enum WhistleblowStatus {
+  RECEIVED           // Received — 7-day ack clock starts
+  ACKNOWLEDGED       // Acknowledged within 7 days (legal requirement)
+  UNDER_INVESTIGATION
+  CONCLUDED
+  UNFOUNDED          // Closed as unfounded
+  ARCHIVED
+}
+
+enum WhistleblowPersonRole {
+  ACCUSED
+  WITNESS
+  OTHER
+}
+
+enum WhistleblowTimelineEvent {
+  SUBMITTED
+  ACKNOWLEDGED
+  ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  EVIDENCE_ADDED
+  CONCLUDED
+  REGULATORY_NOTIFIED
+  MENAC_REPORTED
+}
+
+// ── Main report ───────────────────────────────────────────────
+
+model WhistleblowReport {
+  id               String               @id @default(uuid())
+  organizationId   String
+  referenceCode    String               @unique // Public: e.g. "DEN-2024-0001"
+  secureToken      String               @unique // Private: reporter status-check token
+  isAnonymous      Boolean              @default(true)
+  category         WhistleblowCategory
+  status           WhistleblowStatus    @default(RECEIVED)
+
+  // Reporter info (only if not anonymous)
+  reporterName     String?
+  reporterEmail    String?
+  reporterPhone    String?
+  reporterDept     String?
+  reporterRelation String?              // EMPLOYEE, CONTRACTOR, SUPPLIER, FORMER_EMPLOYEE, OTHER
+
+  // Incident details
+  subject          String
+  description      String
+  incidentDate     DateTime?
+  incidentLocation String?
+  repeatOffense    Boolean              @default(false)
+  witnesses        String?              // Free text initially
+
+  // Deadlines (Lei 93/2021)
+  ackDeadline      DateTime             // +7 days from createdAt
+  resolutionDeadline DateTime           // +3 months (extendable to 6)
+  deadlineExtended Boolean              @default(false)
+  extendedUntil    DateTime?
+  extensionReason  String?
+
+  // Timestamps
+  acknowledgedAt   DateTime?
+  assignedAt       DateTime?
+  concludedAt      DateTime?
+
+  // Resolution
+  conclusionSummary String?
+  conclusionType    String?             // SUBSTANTIATED, UNSUBSTANTIATED, INSUFFICIENT_EVIDENCE
+  actionsTaken      String?
+  regulatoryNotified Boolean            @default(false)
+  regulatoryNotifiedAt DateTime?
+
+  // Internal handling
+  assignedToId     String?
+  internalNotes    String?              // Protected — not visible to reporter
+  assignedTo       User?    @relation("WhistleblowAssignee", fields: [assignedToId], references: [id])
+  organization     Organization @relation(fields: [organizationId], references: [id])
+
+  persons          WhistleblowPerson[]
+  evidences        WhistleblowEvidence[]
+  timeline         WhistleblowTimeline[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([referenceCode])
+  @@map("whistleblow_reports")
+}
+
+model WhistleblowPerson {
+  id          String                @id @default(uuid())
+  reportId    String
+  role        WhistleblowPersonRole
+  name        String?
+  jobTitle    String?
+  department  String?
+  notes       String?
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("whistleblow_persons")
+}
+
+model WhistleblowEvidence {
+  id          String   @id @default(uuid())
+  reportId    String
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  uploadedAt  DateTime @default(now())
+  uploadedBy  String?  // null = reporter (anonymous)
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("whistleblow_evidences")
+}
+
+// Immutable audit trail — no updates, no deletes
+model WhistleblowTimeline {
+  id          String                   @id @default(uuid())
+  reportId    String
+  event       WhistleblowTimelineEvent
+  description String
+  actorId     String?                  // null = system or anonymous reporter
+  actorRole   String?                  // REPORTER, MANAGER, SYSTEM
+  metadata    Json?                    // Extra structured data
+  createdAt   DateTime                 @default(now())
+
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  actor       User?             @relation(fields: [actorId], references: [id])
+
+  @@index([reportId, createdAt])
+  @@map("whistleblow_timeline")
+}
+
+// ── Code of Conduct ───────────────────────────────────────────
+
+model CodeOfConduct {
+  id              String   @id @default(uuid())
+  organizationId  String
+  title           String
+  content         String   // Markdown
+  version         String   @default("1.0")
+  isActive        Boolean  @default(true)
+  requiresAck     Boolean  @default(true)
+  publishedAt     DateTime?
+  reviewDate      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization       @relation(fields: [organizationId], references: [id])
+  acknowledgments CodeOfConductAck[]
+
+  @@index([organizationId, isActive])
+  @@map("codes_of_conduct")
+}
+
+model CodeOfConductAck {
+  id          String   @id @default(uuid())
+  conductId   String
+  userId      String
+  acknowledgedAt DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  conduct     CodeOfConduct @relation(fields: [conductId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@unique([conductId, userId])
+  @@index([conductId])
+  @@map("code_of_conduct_acks")
+}
+
+// ── Training Plans ────────────────────────────────────────────
+
+model WhistleblowTraining {
+  id               String   @id @default(uuid())
+  organizationId   String
+  title            String
+  description      String?
+  trainingDate     DateTime
+  durationMinutes  Int      @default(60)
+  instructor       String?
+  location         String?  // Physical or online URL
+  mandatory        Boolean  @default(true)
+  materialUrl      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization                  @relation(fields: [organizationId], references: [id])
+  attendees        WhistleblowTrainingAttendee[]
+
+  @@index([organizationId, trainingDate])
+  @@map("whistleblow_trainings")
+}
+
+model WhistleblowTrainingAttendee {
+  id            String    @id @default(uuid())
+  trainingId    String
+  userId        String
+  attended      Boolean   @default(false)
+  completedAt   DateTime?
+  score         Int?
+  certificateUrl String?
+  notes         String?
+
+  training      WhistleblowTraining @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id])
+
+  @@unique([trainingId, userId])
+  @@index([trainingId])
+  @@map("whistleblow_training_attendees")
 }

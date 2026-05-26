@@ -90,6 +90,7 @@
     "users": "Utilizadores",
     "security": "Segurança",
     "translations": "Traduções",
+    "denuncias": "Canal Denúncias",
     "logout": "Sair"
   },
   "auth": {
@@ -372,5 +373,64 @@
     "translatingAll": "A traduzir todas as chaves...",
     "deeplKey": "Chave DeepL API",
     "deeplKeyHint": "A chave está configurada no servidor (.env)"
+  },
+  "whistleblow": {
+    "title": "Canal de Denúncias",
+    "subtitle": "RGPC · Lei 93/2021 · Directiva UE 2019/1937",
+    "dashboard": "Painel",
+    "reports": "Denúncias",
+    "conduct": "Código de Conduta",
+    "training": "Formação",
+    "menac": "Relatório MENAC",
+    "submitReport": "Submeter Denúncia",
+    "checkStatus": "Verificar Estado",
+    "copyPublicLink": "Copiar link público",
+    "anonymous": "Anónimo",
+    "identified": "Identificado",
+    "referenceCode": "Código de Referência",
+    "secureToken": "Token Seguro",
+    "ackDeadline": "Prazo de acuse de recepção",
+    "resolutionDeadline": "Prazo de resolução",
+    "acknowledgedAt": "Acuse enviado em",
+    "concludedAt": "Concluída em",
+    "conclusionSummary": "Resumo da conclusão",
+    "internalNotes": "Notas internas",
+    "assignedTo": "Atribuído a",
+    "deadlineExtended": "Prazo prorrogado",
+    "regulatoryNotified": "Entidade reguladora notificada",
+    "addNote": "Adicionar nota interna",
+    "sendAck": "Enviar acuse de recepção",
+    "category": {
+      "CORRUPTION": "Corrupção",
+      "FRAUD": "Fraude",
+      "BRIBERY": "Suborno",
+      "CONFLICT_OF_INTEREST": "Conflito de interesses",
+      "ABUSE_OF_POWER": "Abuso de poder",
+      "EMBEZZLEMENT": "Desvio de fundos",
+      "MISUSE_OF_INFORMATION": "Uso indevido de informação",
+      "DATA_BREACH": "Violação de dados",
+      "WORKPLACE_HARASSMENT": "Assédio no trabalho",
+      "SAFETY_VIOLATION": "Violação de segurança",
+      "ENVIRONMENTAL_VIOLATION": "Violação ambiental",
+      "OTHER": "Outro"
+    },
+    "status": {
+      "RECEIVED": "Recebida",
+      "ACKNOWLEDGED": "Confirmada",
+      "UNDER_INVESTIGATION": "Em investigação",
+      "CONCLUDED": "Concluída",
+      "UNFOUNDED": "Sem fundamento",
+      "ARCHIVED": "Arquivada"
+    },
+    "compliance": {
+      "score": "Saúde do Canal",
+      "ackOverdue": "acuses em atraso",
+      "resolutionOverdue": "resoluções em atraso",
+      "ackRule": "Acuse de recepção em 7 dias úteis",
+      "resolutionRule": "Resolução em 3 meses (prorrogável até 6)",
+      "menacRule": "Relatório anual ao MENAC"
+    },
+    "menacExport": "Exportar para MENAC",
+    "menacPortalNote": "O relatório deve ser enviado via portal do MENAC até 31 de Março"
   }
 }

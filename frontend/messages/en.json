@@ -90,6 +90,7 @@
     "users": "Users",
     "security": "Security",
     "translations": "Translations",
+    "denuncias": "Whistleblowing",
     "logout": "Sign Out"
   },
   "auth": {
@@ -372,5 +373,64 @@
     "translatingAll": "Translating all keys...",
     "deeplKey": "DeepL API Key",
     "deeplKeyHint": "The key is configured on the server (.env)"
+  },
+  "whistleblow": {
+    "title": "Whistleblowing Channel",
+    "subtitle": "RGPC · Law 93/2021 · EU Directive 2019/1937",
+    "dashboard": "Dashboard",
+    "reports": "Reports",
+    "conduct": "Code of Conduct",
+    "training": "Training",
+    "menac": "MENAC Report",
+    "submitReport": "Submit Report",
+    "checkStatus": "Check Status",
+    "copyPublicLink": "Copy public link",
+    "anonymous": "Anonymous",
+    "identified": "Identified",
+    "referenceCode": "Reference Code",
+    "secureToken": "Secure Token",
+    "ackDeadline": "Acknowledgment deadline",
+    "resolutionDeadline": "Resolution deadline",
+    "acknowledgedAt": "Acknowledged at",
+    "concludedAt": "Concluded at",
+    "conclusionSummary": "Conclusion summary",
+    "internalNotes": "Internal notes",
+    "assignedTo": "Assigned to",
+    "deadlineExtended": "Deadline extended",
+    "regulatoryNotified": "Regulator notified",
+    "addNote": "Add internal note",
+    "sendAck": "Send acknowledgment",
+    "category": {
+      "CORRUPTION": "Corruption",
+      "FRAUD": "Fraud",
+      "BRIBERY": "Bribery",
+      "CONFLICT_OF_INTEREST": "Conflict of interest",
+      "ABUSE_OF_POWER": "Abuse of power",
+      "EMBEZZLEMENT": "Embezzlement",
+      "MISUSE_OF_INFORMATION": "Misuse of information",
+      "DATA_BREACH": "Data breach",
+      "WORKPLACE_HARASSMENT": "Workplace harassment",
+      "SAFETY_VIOLATION": "Safety violation",
+      "ENVIRONMENTAL_VIOLATION": "Environmental violation",
+      "OTHER": "Other"
+    },
+    "status": {
+      "RECEIVED": "Received",
+      "ACKNOWLEDGED": "Acknowledged",
+      "UNDER_INVESTIGATION": "Under investigation",
+      "CONCLUDED": "Concluded",
+      "UNFOUNDED": "Unfounded",
+      "ARCHIVED": "Archived"
+    },
+    "compliance": {
+      "score": "Channel Health",
+      "ackOverdue": "acknowledgments overdue",
+      "resolutionOverdue": "resolutions overdue",
+      "ackRule": "Acknowledgment within 7 business days",
+      "resolutionRule": "Resolution within 3 months (extendable to 6)",
+      "menacRule": "Annual MENAC report"
+    },
+    "menacExport": "Export for MENAC",
+    "menacPortalNote": "Report must be submitted via the MENAC portal by 31 March"
   }
 }

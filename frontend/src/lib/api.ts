@@ -290,6 +290,45 @@ export const doraApi = {
   deleteTest: (id: string) => api.delete(`/dora/tests/${id}`),
 };
 
+export const whistleblowApi = {
+  // Public (no auth)
+  submit: (orgSlug: string, data: any) =>
+    api.post(`/whistleblow/submit/${orgSlug}`, data),
+  checkStatus: (token: string) =>
+    api.get(`/whistleblow/status/${token}`),
+
+  // Protected
+  dashboard: () => api.get('/whistleblow/dashboard'),
+  listReports: (params?: any) => api.get('/whistleblow/reports', { params }),
+  getReport: (id: string) => api.get(`/whistleblow/reports/${id}`),
+  updateReport: (id: string, data: any) =>
+    api.patch(`/whistleblow/reports/${id}`, data),
+  addNote: (id: string, note: string) =>
+    api.post(`/whistleblow/reports/${id}/notes`, { note }),
+  menacReport: (year?: number) =>
+    api.get('/whistleblow/menac', { params: year ? { year } : {} }),
+
+  // Code of Conduct
+  listConduct: () => api.get('/whistleblow/conduct'),
+  getConduct: (id: string) => api.get(`/whistleblow/conduct/${id}`),
+  createConduct: (data: any) => api.post('/whistleblow/conduct', data),
+  updateConduct: (id: string, data: any) =>
+    api.patch(`/whistleblow/conduct/${id}`, data),
+  acknowledgeConduct: (id: string) =>
+    api.post(`/whistleblow/conduct/${id}/acknowledge`),
+
+  // Training
+  listTrainings: () => api.get('/whistleblow/trainings'),
+  createTraining: (data: any) => api.post('/whistleblow/trainings', data),
+  updateTraining: (id: string, data: any) =>
+    api.patch(`/whistleblow/trainings/${id}`, data),
+  markAttendance: (
+    trainingId: string,
+    userId: string,
+    data: { attended: boolean; score?: number; certificateUrl?: string },
+  ) => api.patch(`/whistleblow/trainings/${trainingId}/attendance/${userId}`, data),
+};
+
 export const translationsApi = {
   listOverrides: (locale?: string) =>
     api.get('/translations', { params: locale ? { locale } : {} }),

@@ -29,6 +29,7 @@ import { VendorsModule } from './vendors/vendors.module';
 import { SoaModule } from './soa/soa.module';
 import { DoraModule } from './dora/dora.module';
 import { TranslationsModule } from './translations/translations.module';
+import { WhistleblowModule } from './whistleblow/whistleblow.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { TranslationsModule } from './translations/translations.module';
     SoaModule,
     DoraModule,
     TranslationsModule,
+    WhistleblowModule,
   ],
 })
 export class AppModule {}

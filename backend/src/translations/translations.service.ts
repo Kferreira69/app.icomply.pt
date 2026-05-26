@@ -16,10 +16,21 @@ export class TranslationsService {
 
   // ── DeepL Translation ──────────────────────────────────────────
 
+  // Map locale codes to DeepL language codes (source always EN)
+  private toDeeplCode(locale: string): string {
+    const map: Record<string, string> = {
+      pt: 'PT-PT',
+      en: 'EN-GB',
+      fr: 'FR',
+      es: 'ES',
+    };
+    return map[locale.toLowerCase()] ?? locale.toUpperCase();
+  }
+
   async translate(
     text: string | string[],
     targetLang: string,
-    sourceLang = 'PT',
+    sourceLang = 'EN',
   ): Promise<string[]> {
     if (!this.deeplApiKey) {
       throw new InternalServerErrorException(
@@ -31,8 +42,8 @@ export class TranslationsService {
 
     const body = new URLSearchParams();
     body.append('auth_key', this.deeplApiKey);
-    body.append('target_lang', targetLang.toUpperCase());
-    body.append('source_lang', sourceLang.toUpperCase());
+    body.append('target_lang', this.toDeeplCode(targetLang));
+    body.append('source_lang', this.toDeeplCode(sourceLang));
     texts.forEach(t => body.append('text', t));
 
     const response = await fetch(this.deeplApiUrl, {
@@ -52,7 +63,7 @@ export class TranslationsService {
     return result.translations.map(t => t.text);
   }
 
-  async translateOne(text: string, targetLang: string, sourceLang = 'PT'): Promise<string> {
+  async translateOne(text: string, targetLang: string, sourceLang = 'EN'): Promise<string> {
     const [translated] = await this.translate(text, targetLang, sourceLang);
     return translated;
   }

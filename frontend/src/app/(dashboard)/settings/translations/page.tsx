@@ -25,7 +25,8 @@ const PT_FLAT = flattenMessages(ptMessages);
 
 const LOCALES = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
-  // Add more locales here as needed
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
 ];
 
 export default function TranslationsPage() {
