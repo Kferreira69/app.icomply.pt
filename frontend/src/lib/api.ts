@@ -272,3 +272,35 @@ export const soaApi = {
   update: (controlCode: string, data: any) => api.patch(`/soa/${encodeURIComponent(controlCode)}`, data),
   bulkUpdate: (updates: any[]) => api.patch('/soa/bulk', { updates }),
 };
+
+export const doraApi = {
+  dashboard: () => api.get('/dora/dashboard'),
+  // Incidents
+  listIncidents: (params?: { severity?: string; status?: string; category?: string }) =>
+    api.get('/dora/incidents', { params }),
+  getIncident: (id: string) => api.get(`/dora/incidents/${id}`),
+  createIncident: (data: any) => api.post('/dora/incidents', data),
+  updateIncident: (id: string, data: any) => api.patch(`/dora/incidents/${id}`, data),
+  deleteIncident: (id: string) => api.delete(`/dora/incidents/${id}`),
+  // Tests
+  listTests: (params?: { testType?: string; status?: string }) =>
+    api.get('/dora/tests', { params }),
+  createTest: (data: any) => api.post('/dora/tests', data),
+  updateTest: (id: string, data: any) => api.patch(`/dora/tests/${id}`, data),
+  deleteTest: (id: string) => api.delete(`/dora/tests/${id}`),
+};
+
+export const translationsApi = {
+  listOverrides: (locale?: string) =>
+    api.get('/translations', { params: locale ? { locale } : {} }),
+  getOverridesMap: (locale: string) =>
+    api.get('/translations/overrides', { params: { locale } }),
+  upsertOverride: (locale: string, key: string, value: string) =>
+    api.put(`/translations/${locale}/${encodeURIComponent(key)}`, { value }),
+  deleteOverride: (locale: string, key: string) =>
+    api.delete(`/translations/${locale}/${encodeURIComponent(key)}`),
+  translate: (key: string, text: string, targetLang: string, save = false) =>
+    api.post('/translations/translate', { key, text, targetLang, save }),
+  translateBatch: (texts: string[], targetLang: string, sourceLang = 'PT') =>
+    api.post('/translations/translate/batch', { texts, targetLang, sourceLang }),
+};

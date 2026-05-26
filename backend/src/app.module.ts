@@ -27,6 +27,8 @@ import { GdprModule } from './gdpr/gdpr.module';
 import { Nis2Module } from './nis2/nis2.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { SoaModule } from './soa/soa.module';
+import { DoraModule } from './dora/dora.module';
+import { TranslationsModule } from './translations/translations.module';
 
 @Module({
   imports: [
@@ -74,6 +76,8 @@ import { SoaModule } from './soa/soa.module';
     Nis2Module,
     VendorsModule,
     SoaModule,
+    DoraModule,
+    TranslationsModule,
   ],
 })
 export class AppModule {}

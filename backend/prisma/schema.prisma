@@ -280,6 +280,8 @@ model Organization {
   nis2Assessments   Nis2Assessment[]
   vendors           Vendor[]
   soaControls       SoaControl[]
+  doraIncidents     DoraIncident[]
+  doraTests         DoraTest[]
 
   @@map("organizations")
 }
@@ -323,8 +325,10 @@ model User {
   controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
   ownedDpias       Dpia[]       @relation("DpiaOwner")
   ownedBreaches    BreachNotification[] @relation("BreachNotificationOwner")
-  nis2Assessments  Nis2Assessment[]     @relation("Nis2Responsible")
-  vendorAssessments VendorAssessment[]  @relation("VendorAssessor")
+  nis2Assessments       Nis2Assessment[]   @relation("Nis2Responsible")
+  vendorAssessments     VendorAssessment[] @relation("VendorAssessor")
+  doraIncidentsReported DoraIncident[]     @relation("DoraIncidentReporter")
+  doraTestsConducted    DoraTest[]         @relation("DoraTestConductor")
 
   @@map("users")
 }
@@ -1090,4 +1094,118 @@ model SoaControl {
   @@unique([organizationId, controlCode])
   @@index([organizationId, theme])
   @@map("soa_controls")
+}
+
+// ─── DORA — Digital Operational Resilience Act ────────────────
+
+enum DoraIncidentSeverity {
+  MINOR
+  SIGNIFICANT
+  MAJOR
+}
+
+enum DoraIncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum DoraIncidentCategory {
+  AVAILABILITY
+  AUTHENTICITY
+  INTEGRITY
+  CONFIDENTIALITY
+  CONTINUITY
+}
+
+enum DoraTestType {
+  VULNERABILITY_ASSESSMENT
+  PENETRATION_TEST
+  TLPT
+  BUSINESS_CONTINUITY
+  SCENARIO_BASED
+  GAP_ANALYSIS
+}
+
+enum DoraTestStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model DoraIncident {
+  id                   String               @id @default(uuid())
+  organizationId       String
+  title                String
+  description          String
+  severity             DoraIncidentSeverity
+  category             DoraIncidentCategory
+  status               DoraIncidentStatus   @default(OPEN)
+  affectedSystems      String[]             @default([])
+  detectedAt           DateTime
+  resolvedAt           DateTime?
+  rootCause            String?
+  impact               String?
+  estimatedLoss        Float?
+  // Regulatory reporting timelines
+  reportedToRegulator  Boolean              @default(false)
+  initialReportAt      DateTime?            // ≤ 4 hours
+  intermediaryReportAt DateTime?            // ≤ 72 hours
+  finalReportAt        DateTime?            // ≤ 1 month
+  regulatoryRef        String?
+  reportedById         String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  reportedBy   User         @relation("DoraIncidentReporter", fields: [reportedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@map("dora_incidents")
+}
+
+model DoraTest {
+  id                  String         @id @default(uuid())
+  organizationId      String
+  title               String
+  testType            DoraTestType
+  status              DoraTestStatus @default(PLANNED)
+  scope               String?
+  provider            String?
+  plannedDate         DateTime
+  executedDate        DateTime?
+  nextTestDate        DateTime?
+  findings            String?
+  criticalFindings    Int            @default(0)
+  highFindings        Int            @default(0)
+  remediationDeadline DateTime?
+  remediationStatus   String?
+  conductedById       String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  conductedBy  User?        @relation("DoraTestConductor", fields: [conductedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, testType])
+  @@map("dora_tests")
+}
+
+// ─── Translations (manual overrides for i18n) ────────────────
+
+model TranslationOverride {
+  id        String   @id @default(uuid())
+  locale    String   // 'pt', 'en', ...
+  key       String   // e.g. 'common.save', 'dora.title'
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([locale, key])
+  @@index([locale])
+  @@map("translation_overrides")
 }
