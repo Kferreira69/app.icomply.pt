@@ -15,38 +15,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 15m
-          script: |
-            set -e
-            cd /opt/icomply
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash -s << 'ENDSSH'
+          set -e
 
-            echo "=== Sync develop branch (hard reset — no merge conflicts) ==="
-            git fetch origin develop
-            git checkout -B develop origin/develop
-            git reset --hard origin/develop
-            git clean -fd
-            echo "=== Code at commit: $(git rev-parse --short HEAD) ==="
+          echo "=== Sync develop branch ==="
+          cd /opt/icomply
+          git fetch origin develop
+          git checkout -B develop origin/develop
+          git reset --hard origin/develop
+          git clean -fd
+          echo "Commit: $(git rev-parse --short HEAD)"
 
-            echo "=== Build & restart backend ==="
-            docker compose -f docker-compose.dev.yml --env-file .env.dev \
-              build --no-cache backend
-            docker compose -f docker-compose.dev.yml --env-file .env.dev \
-              up -d backend
+          echo "=== Build & restart backend ==="
+          docker compose -f docker-compose.dev.yml --env-file .env.dev \
+            build --no-cache backend
+          docker compose -f docker-compose.dev.yml --env-file .env.dev \
+            up -d backend
 
-            echo "=== Build & restart frontend ==="
-            docker compose -f docker-compose.dev.yml --env-file .env.dev \
-              build --no-cache frontend
-            docker compose -f docker-compose.dev.yml --env-file .env.dev \
-              up -d frontend
+          echo "=== Build & restart frontend ==="
+          docker compose -f docker-compose.dev.yml --env-file .env.dev \
+            build --no-cache frontend
+          docker compose -f docker-compose.dev.yml --env-file .env.dev \
+            up -d frontend
 
-            echo "=== Health check ==="
-            sleep 15
-            curl -sf https://api.dev.icomply.pt/api/v1/health | grep '"status":"ok"'
+          echo "=== Health check ==="
+          sleep 15
+          curl -sf https://api.dev.icomply.pt/api/v1/health | grep '"status":"ok"'
 
-            echo "=== Deploy dev complete ==="
+          echo "=== Deploy dev complete ==="
+          ENDSSH
