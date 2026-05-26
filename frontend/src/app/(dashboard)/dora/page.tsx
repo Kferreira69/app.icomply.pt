@@ -138,7 +138,7 @@ function IncidentModal({
   const handleSubmit = () => {
     onSave({
       ...form,
-      affectedSystems: form.affectedSystems.split(',').map(s => s.trim()).filter(Boolean),
+      affectedSystems: form.affectedSystems.split(',').map((s: string) => s.trim()).filter(Boolean),
       estimatedLoss: form.estimatedLoss ? Number(form.estimatedLoss) : undefined,
       resolvedAt: form.resolvedAt || undefined,
       rootCause: form.rootCause || undefined,

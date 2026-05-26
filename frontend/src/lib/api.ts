@@ -329,6 +329,12 @@ export const whistleblowApi = {
   ) => api.patch(`/whistleblow/trainings/${trainingId}/attendance/${userId}`, data),
 };
 
+export const trustCenterApi = {
+  getPublic: (slug: string) => api.get(`/trust-center/public/${slug}`),
+  getSettings: () => api.get('/trust-center/settings'),
+  updateSettings: (data: any) => api.patch('/trust-center/settings', data),
+};
+
 export const translationsApi = {
   listOverrides: (locale?: string) =>
     api.get('/translations', { params: locale ? { locale } : {} }),

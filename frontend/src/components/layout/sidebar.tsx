@@ -8,7 +8,7 @@ import {
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
-  Activity, MessageSquareWarning,
+  Activity, MessageSquareWarning, Globe,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -37,6 +37,7 @@ const navItems = [
 const settingsItems = [
   { href: '/settings/organization',  label: 'Organização',  icon: Settings },
   { href: '/settings/users',         label: 'Utilizadores', icon: Settings },
+  { href: '/settings/trust-center',  label: 'Trust Center', icon: Globe },
   { href: '/settings/translations',  label: 'Traduções',    icon: Settings },
 ];
 

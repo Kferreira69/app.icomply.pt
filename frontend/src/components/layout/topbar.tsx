@@ -17,6 +17,15 @@ const pageTitles: Record<string, string> = {
   '/excel-import': 'Importar Excel',
   '/settings/organization': 'Organização',
   '/settings/users': 'Utilizadores',
+  '/settings/trust-center': 'Trust Center',
+  '/settings/translations': 'Traduções',
+  '/denuncias': 'Canal de Denúncias',
+  '/vendors': 'Fornecedores',
+  '/soa': 'SoA ISO 27001',
+  '/dora': 'DORA',
+  '/policies': 'Políticas',
+  '/gdpr': 'GDPR / ROPA',
+  '/nis2': 'NIS2',
 };
 
 export function Topbar() {

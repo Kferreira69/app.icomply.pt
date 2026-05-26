@@ -30,6 +30,7 @@ import { SoaModule } from './soa/soa.module';
 import { DoraModule } from './dora/dora.module';
 import { TranslationsModule } from './translations/translations.module';
 import { WhistleblowModule } from './whistleblow/whistleblow.module';
+import { TrustCenterModule } from './trust-center/trust-center.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { WhistleblowModule } from './whistleblow/whistleblow.module';
     DoraModule,
     TranslationsModule,
     WhistleblowModule,
+    TrustCenterModule,
   ],
 })
 export class AppModule {}

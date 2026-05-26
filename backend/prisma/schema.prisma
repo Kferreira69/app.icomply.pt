@@ -285,8 +285,34 @@ model Organization {
   whistleblowReports     WhistleblowReport[]
   codesOfConduct         CodeOfConduct[]
   whistleblowTrainings   WhistleblowTraining[]
+  trustCenter            TrustCenterSettings?
 
   @@map("organizations")
+}
+
+// ─── Trust Center ─────────────────────────────────────────────
+
+model TrustCenterSettings {
+  id               String   @id @default(uuid())
+  organizationId   String   @unique
+  isPublic         Boolean  @default(false)
+  showFrameworks   Boolean  @default(true)
+  showEvidence     Boolean  @default(true)
+  showAudits       Boolean  @default(true)
+  showPolicies     Boolean  @default(true)
+  showVendors      Boolean  @default(false)
+  showRisks        Boolean  @default(false)
+  customMessage    String?
+  contactEmail     String?
+  customTitle      String?
+  logoUrl          String?
+  accentColor      String   @default("#2563eb")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("trust_center_settings")
 }
 
 // ─── Users ───────────────────────────────────────────────────
