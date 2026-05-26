@@ -52,7 +52,7 @@ export default function TranslationsPage() {
     onSuccess: (_, { key }) => {
       qc.invalidateQueries({ queryKey: ['translation-overrides', targetLocale] });
       setEditingKey(null);
-      setSavedKeys(prev => new Set([...prev, key]));
+      setSavedKeys(prev => { const next = new Set(prev); next.add(key); return next; });
       setTimeout(() => setSavedKeys(prev => {
         const next = new Set(prev);
         next.delete(key);
@@ -71,7 +71,7 @@ export default function TranslationsPage() {
     try {
       const res = await translationsApi.translate(key, ptText, targetLocale, true);
       qc.invalidateQueries({ queryKey: ['translation-overrides', targetLocale] });
-      setSavedKeys(prev => new Set([...prev, key]));
+      setSavedKeys(prev => { const next = new Set(prev); next.add(key); return next; });
       setTimeout(() => setSavedKeys(prev => {
         const next = new Set(prev);
         next.delete(key);
