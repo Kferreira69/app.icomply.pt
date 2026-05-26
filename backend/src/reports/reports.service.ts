@@ -75,7 +75,7 @@ export class ReportsService {
         this.prisma.task.groupBy({ by: ['status'], where: { project: { organizationId } }, _count: true }),
         this.prisma.risk.findMany({
           where: { organizationId },
-          select: { title: true, level: true, status: true, inherentScore: true },
+          select: { title: true, status: true, inherentScore: true },
           orderBy: { inherentScore: 'desc' },
         }),
         this.prisma.evidence.groupBy({ by: ['status'], where: { uploadedBy: { organizationId } }, _count: true }),
@@ -95,7 +95,13 @@ export class ReportsService {
       complianceScore: avgScore,
       projects: { total: projects.length, list: projects },
       tasks: tasks.reduce((acc, t) => ({ ...acc, [t.status]: t._count }), {} as Record<string, number>),
-      risks,
+      risks: risks.map((r: any) => ({
+        ...r,
+        level: r.inherentScore >= 20 ? 'CRITICAL'
+          : r.inherentScore >= 12 ? 'HIGH'
+          : r.inherentScore >= 6  ? 'MEDIUM'
+          : 'LOW',
+      })),
       evidence: evidence.reduce((acc, e) => ({ ...acc, [e.status]: e._count }), {} as Record<string, number>),
       auditsCompleted: audits,
       totalAudits,
