@@ -558,7 +558,7 @@ export default function DenunciasPage() {
               {/* Conclusion */}
               <ConclusionPanel
                 report={selectedReport}
-                onSave={data =>
+                onSave={(data: any) =>
                   updateMutation.mutate({ id: selectedId, data })
                 }
               />
