@@ -26,10 +26,12 @@ jobs:
             set -e
             cd /opt/icomply
 
-            echo "=== Pull staging branch ==="
-            git fetch origin
-            git checkout staging 2>/dev/null || git checkout -b staging origin/staging
-            git pull origin staging
+            echo "=== Sync staging branch (hard reset — no merge conflicts) ==="
+            git fetch origin staging
+            git checkout -B staging origin/staging
+            git reset --hard origin/staging
+            git clean -fd
+            echo "=== Code at commit: $(git rev-parse --short HEAD) ==="
 
             echo "=== Build & restart backend ==="
             docker compose -f docker-compose.staging.yml --env-file .env.staging \

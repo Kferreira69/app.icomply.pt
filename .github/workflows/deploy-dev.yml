@@ -26,10 +26,12 @@ jobs:
             set -e
             cd /opt/icomply
 
-            echo "=== Pull develop branch ==="
-            git fetch origin
-            git checkout develop 2>/dev/null || git checkout -b develop origin/develop
-            git pull origin develop
+            echo "=== Sync develop branch (hard reset — no merge conflicts) ==="
+            git fetch origin develop
+            git checkout -B develop origin/develop
+            git reset --hard origin/develop
+            git clean -fd
+            echo "=== Code at commit: $(git rev-parse --short HEAD) ==="
 
             echo "=== Build & restart backend ==="
             docker compose -f docker-compose.dev.yml --env-file .env.dev \
