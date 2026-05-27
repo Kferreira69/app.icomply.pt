@@ -271,7 +271,7 @@ export function Sidebar() {
           color: 'bg-rose-600 text-white',
           items: [
             { href: '/governance/controls',  label: 'Control Library',      icon: Layers },
-            { href: '/governance/coverage',  label: 'Coverage Matrix',      icon: GitMerge },
+            { href: '/governance/framework-map', label: 'Framework Map',      icon: GitMerge },
             { href: '/governance/gaps',      label: 'Gap & Impact',         icon: Zap },
             { href: '/governance/obligations', label: 'Regulatory Horizon', icon: ScrollText },
           ],
