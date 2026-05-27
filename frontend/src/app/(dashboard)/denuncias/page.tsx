@@ -2,34 +2,38 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { whistleblowApi } from '@/lib/api';
 import {
-  Shield, AlertTriangle, Clock, CheckCircle, Search, Filter,
+  Shield, AlertTriangle, Clock, CheckCircle, Search,
   Eye, ChevronRight, Users, BookOpen, FileBarChart2, GraduationCap,
   XCircle, Copy, Check, ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  RECEIVED: { label: 'Recebida', color: 'bg-amber-100 text-amber-700' },
-  ACKNOWLEDGED: { label: 'Confirmada', color: 'bg-blue-100 text-blue-700' },
-  UNDER_INVESTIGATION: { label: 'Em investigação', color: 'bg-purple-100 text-purple-700' },
-  CONCLUDED: { label: 'Concluída', color: 'bg-green-100 text-green-700' },
-  UNFOUNDED: { label: 'Sem fundamento', color: 'bg-gray-100 text-gray-600' },
-  ARCHIVED: { label: 'Arquivada', color: 'bg-gray-100 text-gray-500' },
+// ── Status colors only (labels via t()) ───────────────────────
+
+const STATUS_COLORS: Record<string, string> = {
+  RECEIVED:             'bg-amber-100 text-amber-700',
+  ACKNOWLEDGED:         'bg-blue-100 text-blue-700',
+  UNDER_INVESTIGATION:  'bg-purple-100 text-purple-700',
+  CONCLUDED:            'bg-green-100 text-green-700',
+  UNFOUNDED:            'bg-gray-100 text-gray-600',
+  ARCHIVED:             'bg-gray-100 text-gray-500',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  CORRUPTION: 'Corrupção', FRAUD: 'Fraude', BRIBERY: 'Suborno',
-  CONFLICT_OF_INTEREST: 'Conflito de interesses', ABUSE_OF_POWER: 'Abuso de poder',
-  EMBEZZLEMENT: 'Desvio de fundos', MISUSE_OF_INFORMATION: 'Info. indevida',
-  DATA_BREACH: 'Violação dados', WORKPLACE_HARASSMENT: 'Assédio',
-  SAFETY_VIOLATION: 'Segurança', ENVIRONMENTAL_VIOLATION: 'Ambiental', OTHER: 'Outro',
-};
+const STATUS_KEYS = ['RECEIVED', 'ACKNOWLEDGED', 'UNDER_INVESTIGATION', 'CONCLUDED', 'UNFOUNDED', 'ARCHIVED'];
+
+const CATEGORY_KEYS = [
+  'CORRUPTION', 'FRAUD', 'BRIBERY', 'CONFLICT_OF_INTEREST', 'ABUSE_OF_POWER',
+  'EMBEZZLEMENT', 'MISUSE_OF_INFORMATION', 'DATA_BREACH', 'WORKPLACE_HARASSMENT',
+  'SAFETY_VIOLATION', 'ENVIRONMENTAL_VIOLATION', 'OTHER',
+];
 
 type TabKey = 'dashboard' | 'reports' | 'conduct' | 'training' | 'menac';
 
 export default function DenunciasPage() {
+  const t = useTranslations('denuncias');
   const [tab, setTab] = useState<TabKey>('dashboard');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
@@ -73,13 +77,13 @@ export default function DenunciasPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const TABS = [
-    { key: 'dashboard', label: 'Painel', icon: Shield },
-    { key: 'reports', label: 'Denúncias', icon: Eye },
-    { key: 'conduct', label: 'Código de Conduta', icon: BookOpen },
-    { key: 'training', label: 'Formação', icon: GraduationCap },
-    { key: 'menac', label: 'Relatório MENAC', icon: FileBarChart2 },
-  ] as const;
+  const TABS: { key: TabKey; labelKey: string; icon: any }[] = [
+    { key: 'dashboard', labelKey: 'tabDashboard', icon: Shield },
+    { key: 'reports',   labelKey: 'tabReports',   icon: Eye },
+    { key: 'conduct',   labelKey: 'tabConduct',   icon: BookOpen },
+    { key: 'training',  labelKey: 'tabTraining',  icon: GraduationCap },
+    { key: 'menac',     labelKey: 'tabMenac',     icon: FileBarChart2 },
+  ];
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -91,10 +95,8 @@ export default function DenunciasPage() {
               <Shield className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Canal de Denúncias</h1>
-              <p className="text-sm text-gray-500">
-                RGPC · Lei 93/2021 · Directiva UE 2019/1937
-              </p>
+              <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+              <p className="text-sm text-gray-500">{t('subtitle')}</p>
             </div>
           </div>
           <button
@@ -102,31 +104,28 @@ export default function DenunciasPage() {
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
             {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copiado!' : 'Copiar link público'}
+            {copied ? t('copied') : t('copyLink')}
           </button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
-        {TABS.map(t => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setSelectedId(null); }}
-              className={cn(
-                'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                tab === t.key
-                  ? 'bg-white shadow text-gray-900'
-                  : 'text-gray-600 hover:text-gray-800',
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              {t.label}
-            </button>
-          );
-        })}
+        {TABS.map(({ key, labelKey, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => { setTab(key); setSelectedId(null); }}
+            className={cn(
+              'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              tab === key
+                ? 'bg-white shadow text-gray-900'
+                : 'text-gray-600 hover:text-gray-800',
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            {t(labelKey)}
+          </button>
+        ))}
       </div>
 
       {/* ── Dashboard Tab ── */}
@@ -144,22 +143,20 @@ export default function DenunciasPage() {
               </div>
             </div>
             <div>
-              <p className="text-lg font-semibold text-gray-900">Saúde do Canal de Denúncias</p>
-              <p className="text-sm text-gray-500">
-                Conformidade com prazos legais obrigatórios (Lei 93/2021)
-              </p>
+              <p className="text-lg font-semibold text-gray-900">{t('channelHealth')}</p>
+              <p className="text-sm text-gray-500">{t('channelHealthSubtitle')}</p>
               {(dash.ackOverdue > 0 || dash.resolutionOverdue > 0) && (
                 <div className="flex gap-3 mt-2">
                   {dash.ackOverdue > 0 && (
                     <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
-                      {dash.ackOverdue} acuses em atraso
+                      {t('ackOverdue', { count: dash.ackOverdue })}
                     </span>
                   )}
                   {dash.resolutionOverdue > 0 && (
                     <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {dash.resolutionOverdue} resoluções em atraso
+                      {t('resolutionOverdue', { count: dash.resolutionOverdue })}
                     </span>
                   )}
                 </div>
@@ -167,9 +164,9 @@ export default function DenunciasPage() {
             </div>
             <div className="ml-auto grid grid-cols-3 gap-4 text-center">
               {[
-                { label: 'Total', value: dash.total, color: 'text-gray-900' },
-                { label: 'Em aberto', value: dash.open, color: 'text-amber-600' },
-                { label: 'Concluídas', value: dash.byStatus?.find((s: any) => s.status === 'CONCLUDED')?.count ?? 0, color: 'text-green-600' },
+                { label: t('totalLabel'), value: dash.total, color: 'text-gray-900' },
+                { label: t('openLabel'),  value: dash.open,  color: 'text-amber-600' },
+                { label: t('concludedLabel'), value: dash.byStatus?.find((s: any) => s.status === 'CONCLUDED')?.count ?? 0, color: 'text-green-600' },
               ].map(s => (
                 <div key={s.label}>
                   <p className={cn('text-2xl font-bold', s.color)}>{s.value}</p>
@@ -184,10 +181,10 @@ export default function DenunciasPage() {
             {/* Recent reports */}
             <div className="bg-white border rounded-xl p-5">
               <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Eye className="w-4 h-4 text-gray-400" /> Denúncias Recentes
+                <Eye className="w-4 h-4 text-gray-400" /> {t('recentReports')}
               </h3>
               {dash.recentReports?.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">Sem denúncias registadas</p>
+                <p className="text-sm text-gray-400 py-4 text-center">{t('noReports')}</p>
               ) : (
                 <div className="space-y-2">
                   {dash.recentReports?.map((r: any) => (
@@ -199,15 +196,12 @@ export default function DenunciasPage() {
                       <div>
                         <p className="text-sm font-mono text-blue-700">{r.referenceCode}</p>
                         <p className="text-xs text-gray-500">
-                          {CATEGORY_LABELS[r.category]} · {r.isAnonymous ? 'Anónimo' : 'Identificado'}
+                          {t(`category.${r.category}`)} · {r.isAnonymous ? t('anonymous') : t('identified')}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={cn(
-                          'text-xs px-2 py-0.5 rounded-full',
-                          STATUS_LABELS[r.status]?.color,
-                        )}>
-                          {STATUS_LABELS[r.status]?.label}
+                        <span className={cn('text-xs px-2 py-0.5 rounded-full', STATUS_COLORS[r.status])}>
+                          {t(`status.${r.status}`)}
                         </span>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </div>
@@ -220,10 +214,10 @@ export default function DenunciasPage() {
             {/* Upcoming deadlines */}
             <div className="bg-white border rounded-xl p-5">
               <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400" /> Prazos a Expirar (30 dias)
+                <Clock className="w-4 h-4 text-gray-400" /> {t('upcomingDeadlines')}
               </h3>
               {dash.upcomingDeadlines?.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">Sem prazos a expirar</p>
+                <p className="text-sm text-gray-400 py-4 text-center">{t('noDeadlines')}</p>
               ) : (
                 <div className="space-y-2">
                   {dash.upcomingDeadlines?.map((r: any) => {
@@ -234,15 +228,15 @@ export default function DenunciasPage() {
                       <div key={r.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div>
                           <p className="text-sm font-mono text-blue-700">{r.referenceCode}</p>
-                          <p className="text-xs text-gray-500">{STATUS_LABELS[r.status]?.label}</p>
+                          <p className="text-xs text-gray-500">{t(`status.${r.status}`)}</p>
                         </div>
                         <span className={cn(
                           'text-xs font-semibold px-2 py-1 rounded-lg',
-                          days <= 7 ? 'bg-red-100 text-red-700' :
+                          days <= 7  ? 'bg-red-100 text-red-700' :
                           days <= 14 ? 'bg-amber-100 text-amber-700' :
                           'bg-gray-100 text-gray-600',
                         )}>
-                          {days}d restantes
+                          {t('daysRemaining', { count: days })}
                         </span>
                       </div>
                     );
@@ -255,33 +249,33 @@ export default function DenunciasPage() {
           {/* By category */}
           {dash.byCategory?.length > 0 && (
             <div className="bg-white border rounded-xl p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">Denúncias por Categoria</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">{t('byCategory')}</h3>
               <div className="grid grid-cols-4 gap-3">
                 {dash.byCategory.map((c: any) => (
                   <div key={c.category} className="text-center p-3 bg-gray-50 rounded-xl">
                     <p className="text-xl font-bold text-gray-900">{c.count}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{CATEGORY_LABELS[c.category]}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{t(`category.${c.category}`)}</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Legal compliance info */}
+          {/* Legal obligations */}
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm">
-            <h3 className="font-semibold text-blue-900 mb-2">Obrigações Legais (Lei 93/2021)</h3>
+            <h3 className="font-semibold text-blue-900 mb-2">{t('legalObligations')}</h3>
             <div className="grid grid-cols-3 gap-4 text-blue-800">
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs">Acuse de recepção em <strong>7 dias úteis</strong></p>
+                <p className="text-xs">{t('obligation1')}</p>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs">Resolução em <strong>3 meses</strong> (prorrogável até 6)</p>
+                <p className="text-xs">{t('obligation2')}</p>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs">Relatório anual ao <strong>MENAC</strong></p>
+                <p className="text-xs">{t('obligation3')}</p>
               </div>
             </div>
           </div>
@@ -297,7 +291,7 @@ export default function DenunciasPage() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Pesquisar denúncias..."
+                placeholder={t('searchPlaceholder')}
                 className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
               />
             </div>
@@ -306,9 +300,9 @@ export default function DenunciasPage() {
               onChange={e => setStatusFilter(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
             >
-              <option value="">Todos os estados</option>
-              {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l.label}</option>
+              <option value="">{t('allStatuses')}</option>
+              {STATUS_KEYS.map(k => (
+                <option key={k} value={k}>{t(`status.${k}`)}</option>
               ))}
             </select>
           </div>
@@ -317,13 +311,13 @@ export default function DenunciasPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Referência</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Categoria</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Canal</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Acuse</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Resolução</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colRef')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colCategory')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colChannel')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colStatus')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colAck')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colResolution')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('colDate')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -331,7 +325,7 @@ export default function DenunciasPage() {
                   ?.filter((r: any) =>
                     !search ||
                     r.referenceCode.toLowerCase().includes(search.toLowerCase()) ||
-                    CATEGORY_LABELS[r.category]?.toLowerCase().includes(search.toLowerCase()),
+                    t(`category.${r.category}`).toLowerCase().includes(search.toLowerCase()),
                   )
                   .map((r: any) => {
                     const ackOverdue = r.ackOverdue;
@@ -344,39 +338,36 @@ export default function DenunciasPage() {
                       >
                         <td className="px-4 py-3 font-mono text-blue-700">{r.referenceCode}</td>
                         <td className="px-4 py-3 text-gray-700">
-                          {CATEGORY_LABELS[r.category] || r.category}
+                          {t(`category.${r.category}`)}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                            {r.isAnonymous ? '🕵️ Anónimo' : '👤 Identificado'}
+                            {r.isAnonymous ? `🕵️ ${t('anonymous')}` : `👤 ${t('identified')}`}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn(
-                            'text-xs px-2 py-0.5 rounded-full',
-                            STATUS_LABELS[r.status]?.color,
-                          )}>
-                            {STATUS_LABELS[r.status]?.label}
+                          <span className={cn('text-xs px-2 py-0.5 rounded-full', STATUS_COLORS[r.status])}>
+                            {t(`status.${r.status}`)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {r.acknowledgedAt ? (
-                            <span className="text-green-600">✓ {new Date(r.acknowledgedAt).toLocaleDateString('pt-PT')}</span>
+                            <span className="text-green-600">✓ {new Date(r.acknowledgedAt).toLocaleDateString()}</span>
                           ) : ackOverdue ? (
-                            <span className="text-red-600 font-semibold">⚠ Em atraso</span>
+                            <span className="text-red-600 font-semibold">⚠ {t('overdue')}</span>
                           ) : (
-                            <span className="text-gray-400">{new Date(r.ackDeadline).toLocaleDateString('pt-PT')}</span>
+                            <span className="text-gray-400">{new Date(r.ackDeadline).toLocaleDateString()}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {resOverdue ? (
-                            <span className="text-red-600 font-semibold">⚠ Em atraso</span>
+                            <span className="text-red-600 font-semibold">⚠ {t('overdue')}</span>
                           ) : (
-                            <span className="text-gray-400">{new Date(r.resolutionDeadline).toLocaleDateString('pt-PT')}</span>
+                            <span className="text-gray-400">{new Date(r.resolutionDeadline).toLocaleDateString()}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">
-                          {new Date(r.createdAt).toLocaleDateString('pt-PT')}
+                          {new Date(r.createdAt).toLocaleDateString()}
                         </td>
                       </tr>
                     );
@@ -384,7 +375,7 @@ export default function DenunciasPage() {
               </tbody>
             </table>
             {(!reportsData?.reports || reportsData.reports.length === 0) && (
-              <p className="text-center py-12 text-gray-400">Sem denúncias registadas</p>
+              <p className="text-center py-12 text-gray-400">{t('noReports')}</p>
             )}
           </div>
         </div>
@@ -392,187 +383,13 @@ export default function DenunciasPage() {
 
       {/* ── Report Detail ── */}
       {tab === 'reports' && selectedId && selectedReport && (
-        <div>
-          <button
-            onClick={() => setSelectedId(null)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
-          >
-            ← Voltar à lista
-          </button>
-
-          <div className="grid grid-cols-3 gap-6">
-            {/* Main info */}
-            <div className="col-span-2 space-y-4">
-              <div className="bg-white border rounded-xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-gray-900 font-mono">
-                    {selectedReport.referenceCode}
-                  </h2>
-                  <span className={cn(
-                    'text-sm px-3 py-1 rounded-full',
-                    STATUS_LABELS[selectedReport.status]?.color,
-                  )}>
-                    {STATUS_LABELS[selectedReport.status]?.label}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-                  <div>
-                    <p className="text-xs text-gray-500">Categoria</p>
-                    <p className="font-medium">{CATEGORY_LABELS[selectedReport.category]}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Canal</p>
-                    <p className="font-medium">
-                      {selectedReport.isAnonymous ? 'Anónimo' : 'Identificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Data de submissão</p>
-                    <p className="font-medium">
-                      {new Date(selectedReport.createdAt).toLocaleDateString('pt-PT')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Prazo de resolução</p>
-                    <p className="font-medium">
-                      {new Date(selectedReport.resolutionDeadline).toLocaleDateString('pt-PT')}
-                      {selectedReport.deadlineExtended && ' (prorrogado)'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-xs text-gray-500 mb-1">Assunto</p>
-                  <p className="font-semibold text-gray-800">{selectedReport.subject}</p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Descrição</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-line">
-                    {selectedReport.description}
-                  </p>
-                </div>
-
-                {selectedReport.incidentDate && (
-                  <div className="mt-3">
-                    <p className="text-xs text-gray-500 mb-1">Data do incidente</p>
-                    <p className="text-sm">
-                      {new Date(selectedReport.incidentDate).toLocaleDateString('pt-PT')}
-                      {selectedReport.incidentLocation && ` — ${selectedReport.incidentLocation}`}
-                    </p>
-                  </div>
-                )}
-
-                {selectedReport.repeatOffense && (
-                  <p className="mt-2 text-xs bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg inline-block">
-                    ⚠ Situação recorrente / repetida
-                  </p>
-                )}
-              </div>
-
-              {/* Persons */}
-              {selectedReport.persons?.length > 0 && (
-                <div className="bg-white border rounded-xl p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-gray-400" /> Pessoas Envolvidas
-                  </h3>
-                  <div className="space-y-2">
-                    {selectedReport.persons.map((p: any) => (
-                      <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <span className={cn(
-                          'text-xs px-2 py-0.5 rounded-full font-semibold',
-                          p.role === 'ACCUSED'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-600',
-                        )}>
-                          {p.role === 'ACCUSED' ? 'Visado' : 'Testemunha'}
-                        </span>
-                        <span className="text-sm font-medium">{p.name || '(sem nome)'}</span>
-                        {p.jobTitle && <span className="text-xs text-gray-500">{p.jobTitle}</span>}
-                        {p.department && <span className="text-xs text-gray-400">— {p.department}</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Timeline */}
-              <div className="bg-white border rounded-xl p-5">
-                <h3 className="font-semibold text-gray-900 mb-3">Histórico (Auditoria Imutável)</h3>
-                <div className="space-y-3">
-                  {selectedReport.timeline?.map((t: any, i: number) => (
-                    <div key={t.id} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                        {i < selectedReport.timeline.length - 1 && (
-                          <div className="w-0.5 h-full bg-gray-200 mt-1" />
-                        )}
-                      </div>
-                      <div className="pb-3">
-                        <p className="text-sm text-gray-800">{t.description}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(t.createdAt).toLocaleString('pt-PT')}
-                          {t.actor && ` — ${t.actor.firstName} ${t.actor.lastName}`}
-                          {t.actorRole && ` (${t.actorRole})`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions panel */}
-            <div className="space-y-4">
-              {/* Status update */}
-              <div className="bg-white border rounded-xl p-5">
-                <h3 className="font-semibold text-gray-900 mb-3">Actualizar Estado</h3>
-                <select
-                  value={selectedReport.status}
-                  onChange={e =>
-                    updateMutation.mutate({ id: selectedId, data: { status: e.target.value } })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3"
-                >
-                  {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                    <option key={v} value={v}>{l.label}</option>
-                  ))}
-                </select>
-
-                {!selectedReport.acknowledgedAt && (
-                  <button
-                    onClick={() =>
-                      updateMutation.mutate({
-                        id: selectedId,
-                        data: { status: 'ACKNOWLEDGED' },
-                      })
-                    }
-                    className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                  >
-                    Enviar Acuse de Recepção
-                  </button>
-                )}
-              </div>
-
-              {/* Conclusion */}
-              <ConclusionPanel
-                report={selectedReport}
-                onSave={(data: any) =>
-                  updateMutation.mutate({ id: selectedId, data })
-                }
-              />
-
-              {/* Internal note */}
-              <NotePanel
-                reportId={selectedId}
-                onAdded={() =>
-                  qc.invalidateQueries({ queryKey: ['whistleblow-report', selectedId] })
-                }
-              />
-            </div>
-          </div>
-        </div>
+        <ReportDetail
+          report={selectedReport}
+          selectedId={selectedId}
+          onBack={() => setSelectedId(null)}
+          onUpdate={(data: any) => updateMutation.mutate({ id: selectedId, data })}
+          onNoteAdded={() => qc.invalidateQueries({ queryKey: ['whistleblow-report', selectedId] })}
+        />
       )}
 
       {/* ── Code of Conduct Tab ── */}
@@ -587,9 +404,179 @@ export default function DenunciasPage() {
   );
 }
 
+// ── Report Detail ────────────────────────────────────────────
+
+function ReportDetail({ report, selectedId, onBack, onUpdate, onNoteAdded }: {
+  report: any; selectedId: string; onBack: () => void;
+  onUpdate: (data: any) => void; onNoteAdded: () => void;
+}) {
+  const t = useTranslations('denuncias');
+
+  return (
+    <div>
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
+      >
+        ← {t('backToList')}
+      </button>
+
+      <div className="grid grid-cols-3 gap-6">
+        {/* Main info */}
+        <div className="col-span-2 space-y-4">
+          <div className="bg-white border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900 font-mono">
+                {report.referenceCode}
+              </h2>
+              <span className={cn('text-sm px-3 py-1 rounded-full', STATUS_COLORS[report.status])}>
+                {t(`status.${report.status}`)}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+              <div>
+                <p className="text-xs text-gray-500">{t('categoryLabel')}</p>
+                <p className="font-medium">{t(`category.${report.category}`)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">{t('channelLabel')}</p>
+                <p className="font-medium">
+                  {report.isAnonymous ? t('anonymous') : t('identified')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">{t('submittedAt')}</p>
+                <p className="font-medium">
+                  {new Date(report.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">{t('resolutionDeadlineLabel')}</p>
+                <p className="font-medium">
+                  {new Date(report.resolutionDeadline).toLocaleDateString()}
+                  {report.deadlineExtended && ` ${t('extended')}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs text-gray-500 mb-1">{t('subjectLabel')}</p>
+              <p className="font-semibold text-gray-800">{report.subject}</p>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-500 mb-1">{t('descriptionLabel')}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-line">{report.description}</p>
+            </div>
+
+            {report.incidentDate && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 mb-1">{t('incidentDateLabel')}</p>
+                <p className="text-sm">
+                  {new Date(report.incidentDate).toLocaleDateString()}
+                  {report.incidentLocation && ` — ${report.incidentLocation}`}
+                </p>
+              </div>
+            )}
+
+            {report.repeatOffense && (
+              <p className="mt-2 text-xs bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg inline-block">
+                ⚠ {t('repeatOffense')}
+              </p>
+            )}
+          </div>
+
+          {/* Persons */}
+          {report.persons?.length > 0 && (
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-400" /> {t('involvedPersons')}
+              </h3>
+              <div className="space-y-2">
+                {report.persons.map((p: any) => (
+                  <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-semibold',
+                      p.role === 'ACCUSED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600',
+                    )}>
+                      {p.role === 'ACCUSED' ? t('accused') : t('witness')}
+                    </span>
+                    <span className="text-sm font-medium">{p.name || t('noName')}</span>
+                    {p.jobTitle && <span className="text-xs text-gray-500">{p.jobTitle}</span>}
+                    {p.department && <span className="text-xs text-gray-400">— {p.department}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Timeline */}
+          <div className="bg-white border rounded-xl p-5">
+            <h3 className="font-semibold text-gray-900 mb-3">{t('auditHistory')}</h3>
+            <div className="space-y-3">
+              {report.timeline?.map((entry: any, i: number) => (
+                <div key={entry.id} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                    {i < report.timeline.length - 1 && (
+                      <div className="w-0.5 h-full bg-gray-200 mt-1" />
+                    )}
+                  </div>
+                  <div className="pb-3">
+                    <p className="text-sm text-gray-800">{entry.description}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(entry.createdAt).toLocaleString()}
+                      {entry.actor && ` — ${entry.actor.firstName} ${entry.actor.lastName}`}
+                      {entry.actorRole && ` (${entry.actorRole})`}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions panel */}
+        <div className="space-y-4">
+          {/* Status update */}
+          <div className="bg-white border rounded-xl p-5">
+            <h3 className="font-semibold text-gray-900 mb-3">{t('updateStatus')}</h3>
+            <select
+              value={report.status}
+              onChange={e => onUpdate({ status: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3"
+            >
+              {STATUS_KEYS.map(k => (
+                <option key={k} value={k}>{t(`status.${k}`)}</option>
+              ))}
+            </select>
+
+            {!report.acknowledgedAt && (
+              <button
+                onClick={() => onUpdate({ status: 'ACKNOWLEDGED' })}
+                className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                {t('sendAck')}
+              </button>
+            )}
+          </div>
+
+          {/* Conclusion */}
+          <ConclusionPanel report={report} onSave={onUpdate} />
+
+          {/* Internal note */}
+          <NotePanel reportId={selectedId} onAdded={onNoteAdded} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────
 
 function ConclusionPanel({ report, onSave }: any) {
+  const t = useTranslations('denuncias');
   const [open, setOpen] = useState(false);
   const [conclusion, setConclusion] = useState(report.conclusionSummary || '');
   const [type, setType] = useState(report.conclusionType || '');
@@ -600,44 +587,40 @@ function ConclusionPanel({ report, onSave }: any) {
         onClick={() => setOpen(true)}
         className="w-full border border-gray-300 rounded-xl p-3 text-sm text-gray-600 hover:bg-gray-50 text-left"
       >
-        {report.conclusionSummary ? '✏️ Editar conclusão' : '+ Registar conclusão'}
+        {report.conclusionSummary ? `✏️ ${t('editConclusion')}` : `+ ${t('addConclusion')}`}
       </button>
     );
   }
 
   return (
     <div className="bg-white border rounded-xl p-5">
-      <h3 className="font-semibold text-gray-900 mb-3">Conclusão</h3>
+      <h3 className="font-semibold text-gray-900 mb-3">{t('conclusionTitle')}</h3>
       <select
         value={type}
         onChange={e => setType(e.target.value)}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3"
       >
-        <option value="">Tipo de conclusão...</option>
-        <option value="SUBSTANTIATED">Fundada — acções tomadas</option>
-        <option value="UNSUBSTANTIATED">Sem fundamento apurado</option>
-        <option value="INSUFFICIENT_EVIDENCE">Prova insuficiente</option>
+        <option value="">{t('conclusionTypePlaceholder')}</option>
+        <option value="SUBSTANTIATED">{t('conclusionSubstantiated')}</option>
+        <option value="UNSUBSTANTIATED">{t('conclusionUnsubstantiated')}</option>
+        <option value="INSUFFICIENT_EVIDENCE">{t('conclusionInsufficient')}</option>
       </select>
       <textarea
         rows={4}
         value={conclusion}
         onChange={e => setConclusion(e.target.value)}
-        placeholder="Resumo da conclusão (visível ao denunciante)..."
+        placeholder={t('conclusionPlaceholder')}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none mb-3"
       />
       <div className="flex gap-2">
         <button
           onClick={() => {
-            onSave({
-              status: 'CONCLUDED',
-              conclusionSummary: conclusion,
-              conclusionType: type,
-            });
+            onSave({ status: 'CONCLUDED', conclusionSummary: conclusion, conclusionType: type });
             setOpen(false);
           }}
           className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
         >
-          Guardar conclusão
+          {t('saveConclusion')}
         </button>
         <button onClick={() => setOpen(false)} className="px-3 border border-gray-300 rounded-lg text-sm">
           ✕
@@ -648,6 +631,7 @@ function ConclusionPanel({ report, onSave }: any) {
 }
 
 function NotePanel({ reportId, onAdded }: { reportId: string; onAdded: () => void }) {
+  const t = useTranslations('denuncias');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -664,12 +648,12 @@ function NotePanel({ reportId, onAdded }: { reportId: string; onAdded: () => voi
 
   return (
     <div className="bg-white border rounded-xl p-5">
-      <h3 className="font-semibold text-gray-900 mb-3">Nota Interna</h3>
+      <h3 className="font-semibold text-gray-900 mb-3">{t('internalNote')}</h3>
       <textarea
         rows={3}
         value={note}
         onChange={e => setNote(e.target.value)}
-        placeholder="Nota interna (não visível ao denunciante)..."
+        placeholder={t('notePlaceholder')}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none mb-2"
       />
       <button
@@ -677,13 +661,14 @@ function NotePanel({ reportId, onAdded }: { reportId: string; onAdded: () => voi
         disabled={saving || !note.trim()}
         className="w-full py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-40"
       >
-        {saving ? 'A guardar...' : 'Adicionar nota'}
+        {saving ? t('saving') : t('addNote')}
       </button>
     </div>
   );
 }
 
 function ConductTab() {
+  const t = useTranslations('denuncias');
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: '', content: '', version: '1.0', requiresAck: true });
   const qc = useQueryClient();
@@ -710,12 +695,12 @@ function ConductTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Código de Conduta</h2>
+        <h2 className="text-lg font-semibold text-gray-900">{t('conductTitle')}</h2>
         <button
           onClick={() => setCreating(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
         >
-          + Nova versão
+          {t('newVersion')}
         </button>
       </div>
 
@@ -724,14 +709,14 @@ function ConductTab() {
           <input
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="Título do Código de Conduta"
+            placeholder={t('conductTitlePlaceholder')}
             className="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
           <div className="grid grid-cols-2 gap-4">
             <input
               value={form.version}
               onChange={e => setForm(f => ({ ...f, version: e.target.value }))}
-              placeholder="Versão (ex: 1.0)"
+              placeholder={t('versionPlaceholder')}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
             <label className="flex items-center gap-2 text-sm">
@@ -740,14 +725,14 @@ function ConductTab() {
                 checked={form.requiresAck}
                 onChange={e => setForm(f => ({ ...f, requiresAck: e.target.checked }))}
               />
-              Requer acuse dos colaboradores
+              {t('requiresAckLabel')}
             </label>
           </div>
           <textarea
             rows={10}
             value={form.content}
             onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-            placeholder="Conteúdo do Código de Conduta (Markdown suportado)..."
+            placeholder={t('conductContentPlaceholder')}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none font-mono"
           />
           <div className="flex gap-3">
@@ -756,10 +741,10 @@ function ConductTab() {
               disabled={createMutation.isPending}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"
             >
-              Publicar
+              {t('publish')}
             </button>
             <button onClick={() => setCreating(false)} className="px-4 py-2 border rounded-lg text-sm">
-              Cancelar
+              {t('cancel')}
             </button>
           </div>
         </div>
@@ -773,22 +758,22 @@ function ConductTab() {
               <p className="text-xs text-gray-500">
                 v{doc.version} ·{' '}
                 {doc.publishedAt
-                  ? `Publicado em ${new Date(doc.publishedAt).toLocaleDateString('pt-PT')}`
-                  : 'Rascunho'}{' '}
-                · {doc._count?.acknowledgments ?? 0} acuses
+                  ? t('publishedAt', { date: new Date(doc.publishedAt).toLocaleDateString() })
+                  : t('draft')}{' '}
+                · {doc._count?.acknowledgments ?? 0} {t('ackCount')}
               </p>
             </div>
             <div className="flex items-center gap-2">
               {doc.isActive && (
                 <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                  Activo
+                  {t('active')}
                 </span>
               )}
               <button
                 onClick={() => ackMutation.mutate(doc.id)}
                 className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-xs hover:bg-gray-50"
               >
-                <CheckCircle className="w-3.5 h-3.5" /> Acusar leitura
+                <CheckCircle className="w-3.5 h-3.5" /> {t('acknowledgeReading')}
               </button>
             </div>
           </div>
@@ -800,6 +785,7 @@ function ConductTab() {
 }
 
 function TrainingTab() {
+  const t = useTranslations('denuncias');
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', trainingDate: '', durationMinutes: 60,
@@ -829,12 +815,12 @@ function TrainingTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Plano de Formação</h2>
+        <h2 className="text-lg font-semibold text-gray-900">{t('trainingPlan')}</h2>
         <button
           onClick={() => setCreating(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
         >
-          + Nova formação
+          {t('newTraining')}
         </button>
       </div>
 
@@ -842,16 +828,16 @@ function TrainingTab() {
         <div className="bg-white border rounded-xl p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Título *</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('trainingTitleLabel')}</label>
               <input
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                placeholder="Ex: Formação Canal de Denúncias 2025"
+                placeholder={t('trainingTitlePlaceholder')}
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Data *</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('dateLabel')}</label>
               <input
                 type="datetime-local"
                 value={form.trainingDate}
@@ -860,7 +846,7 @@ function TrainingTab() {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Duração (min)</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('durationLabel')}</label>
               <input
                 type="number"
                 value={form.durationMinutes}
@@ -869,25 +855,25 @@ function TrainingTab() {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Formador</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('instructorLabel')}</label>
               <input
                 value={form.instructor}
                 onChange={e => setForm(f => ({ ...f, instructor: e.target.value }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                placeholder="Nome do formador"
+                placeholder={t('instructorPlaceholder')}
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Local / URL</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('locationLabel')}</label>
               <input
                 value={form.location}
                 onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                placeholder="Sala de reuniões / https://meet..."
+                placeholder={t('locationPlaceholder')}
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Descrição</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('descriptionLabel')}</label>
               <textarea
                 rows={3}
                 value={form.description}
@@ -901,7 +887,7 @@ function TrainingTab() {
                 checked={form.mandatory}
                 onChange={e => setForm(f => ({ ...f, mandatory: e.target.checked }))}
               />
-              Formação obrigatória
+              {t('mandatoryLabel')}
             </label>
           </div>
           <div className="flex gap-3">
@@ -910,55 +896,55 @@ function TrainingTab() {
               disabled={createMutation.isPending}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"
             >
-              Criar formação
+              {t('createTraining')}
             </button>
             <button onClick={() => setCreating(false)} className="px-4 py-2 border rounded-lg text-sm">
-              Cancelar
+              {t('cancel')}
             </button>
           </div>
         </div>
       )}
 
-      {trainings?.map((t: any) => {
-        const attended = t.attendees?.filter((a: any) => a.attended).length ?? 0;
-        const total = t.attendees?.length ?? t._count?.attendees ?? 0;
+      {trainings?.map((tr: any) => {
+        const attended = tr.attendees?.filter((a: any) => a.attended).length ?? 0;
+        const total = tr.attendees?.length ?? tr._count?.attendees ?? 0;
         return (
-          <div key={t.id} className="bg-white border rounded-xl p-5">
+          <div key={tr.id} className="bg-white border rounded-xl p-5">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h3 className="font-semibold text-gray-900">{t.title}</h3>
+                <h3 className="font-semibold text-gray-900">{tr.title}</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {new Date(t.trainingDate).toLocaleString('pt-PT', {
+                  {new Date(tr.trainingDate).toLocaleString(undefined, {
                     day: '2-digit', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit',
                   })}
-                  {t.instructor && ` · ${t.instructor}`}
-                  {t.location && ` · ${t.location}`}
-                  {' · '}{t.durationMinutes}min
+                  {tr.instructor && ` · ${tr.instructor}`}
+                  {tr.location && ` · ${tr.location}`}
+                  {' · '}{tr.durationMinutes}min
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {t.mandatory && (
+                {tr.mandatory && (
                   <span className="text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full">
-                    Obrigatório
+                    {t('mandatory')}
                   </span>
                 )}
                 <span className="text-sm font-semibold text-gray-700">
-                  {attended}/{total} presentes
+                  {t('presentCount', { attended, total })}
                 </span>
               </div>
             </div>
 
-            {t.attendees?.length > 0 && (
+            {tr.attendees?.length > 0 && (
               <div className="mt-3 space-y-1">
-                {t.attendees.map((a: any) => (
+                {tr.attendees.map((a: any) => (
                   <div key={a.userId} className="flex items-center gap-3 py-1.5">
                     <span className="text-sm text-gray-700 flex-1">
                       {a.user?.firstName} {a.user?.lastName}
                     </span>
                     <button
                       onClick={() => markAttMutation.mutate({
-                        trainingId: t.id, userId: a.userId, attended: !a.attended,
+                        trainingId: tr.id, userId: a.userId, attended: !a.attended,
                       })}
                       className={cn(
                         'text-xs px-3 py-1 rounded-full transition-colors',
@@ -967,7 +953,7 @@ function TrainingTab() {
                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200',
                       )}
                     >
-                      {a.attended ? '✓ Presente' : 'Ausente'}
+                      {a.attended ? `✓ ${t('present')}` : t('absent')}
                     </button>
                   </div>
                 ))}
@@ -981,6 +967,7 @@ function TrainingTab() {
 }
 
 function MenacTab() {
+  const t = useTranslations('denuncias');
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
 
@@ -989,17 +976,19 @@ function MenacTab() {
     queryFn: () => whistleblowApi.menacReport(year).then(r => r.data),
   });
 
-  const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-                   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  // Short month abbreviations from locale
+  const MONTHS = [
+    t('month.Jan'), t('month.Feb'), t('month.Mar'), t('month.Apr'),
+    t('month.May'), t('month.Jun'), t('month.Jul'), t('month.Aug'),
+    t('month.Sep'), t('month.Oct'), t('month.Nov'), t('month.Dec'),
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Relatório MENAC</h2>
-          <p className="text-sm text-gray-500">
-            Mecanismo Nacional Anti-Corrupção — Relatório Anual Obrigatório
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900">{t('menacTitle')}</h2>
+          <p className="text-sm text-gray-500">{t('menacSubtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -1013,7 +1002,6 @@ function MenacTab() {
           </select>
           <button
             onClick={() => {
-              // Export as JSON for now
               const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -1023,22 +1011,22 @@ function MenacTab() {
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
           >
-            Exportar JSON
+            {t('exportJson')}
           </button>
         </div>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">A carregar...</p>
+        <p className="text-sm text-gray-400">{t('loading')}</p>
       ) : data ? (
         <>
           {/* Summary */}
           <div className="grid grid-cols-4 gap-4">
             {[
-              { label: 'Total de denúncias', value: data.totalReports, color: 'text-gray-900' },
-              { label: 'Concluídas', value: data.concluded, color: 'text-green-600' },
-              { label: 'Sem fundamento', value: data.unfounded, color: 'text-gray-500' },
-              { label: 'Em aberto', value: data.open, color: 'text-amber-600' },
+              { label: t('totalReports'), value: data.totalReports, color: 'text-gray-900' },
+              { label: t('concludedLabel'), value: data.concluded,   color: 'text-green-600' },
+              { label: t('unfounded'),      value: data.unfounded,   color: 'text-gray-500' },
+              { label: t('openLabel'),      value: data.open,        color: 'text-amber-600' },
             ].map(s => (
               <div key={s.label} className="bg-white border rounded-xl p-5 text-center">
                 <p className={cn('text-3xl font-bold', s.color)}>{s.value}</p>
@@ -1049,7 +1037,7 @@ function MenacTab() {
 
           {/* By month */}
           <div className="bg-white border rounded-xl p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Denúncias por Mês — {year}</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">{t('byMonth', { year })}</h3>
             <div className="grid grid-cols-12 gap-1 items-end" style={{ height: 100 }}>
               {MONTHS.map((m, i) => {
                 const count = data.byMonth?.find((bm: any) => bm.month === i + 1)?.count ?? 0;
@@ -1072,7 +1060,7 @@ function MenacTab() {
 
           {/* By category */}
           <div className="bg-white border rounded-xl p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Por Categoria</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">{t('byCategoryLabel')}</h3>
             <div className="space-y-2">
               {data.byCategory?.map((c: any) => {
                 const pct = data.totalReports > 0
@@ -1081,17 +1069,12 @@ function MenacTab() {
                 return (
                   <div key={c.category} className="flex items-center gap-3">
                     <span className="text-sm text-gray-700 w-40 flex-shrink-0">
-                      {CATEGORY_LABELS[c.category] || c.category}
+                      {t(`category.${c.category}`)}
                     </span>
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                      {c.count}
-                    </span>
+                    <span className="text-sm font-semibold text-gray-900 w-8 text-right">{c.count}</span>
                   </div>
                 );
               })}
@@ -1100,59 +1083,57 @@ function MenacTab() {
 
           {/* Training */}
           <div className="bg-white border rounded-xl p-5">
-            <h3 className="font-semibold text-gray-900 mb-3">Formações Realizadas</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">{t('trainingsTitle')}</h3>
             <div className="flex items-center gap-6 mb-4">
               <div>
                 <p className="text-2xl font-bold text-gray-900">{data.trainings?.length ?? 0}</p>
-                <p className="text-xs text-gray-500">Formações</p>
+                <p className="text-xs text-gray-500">{t('trainingsCount')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{data.totalTrainingAttendees}</p>
-                <p className="text-xs text-gray-500">Participantes totais</p>
+                <p className="text-xs text-gray-500">{t('totalAttendees')}</p>
               </div>
             </div>
             {data.trainings?.length > 0 ? (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-gray-500 border-b">
-                    <th className="py-2 text-left">Formação</th>
-                    <th className="py-2 text-left">Data</th>
-                    <th className="py-2 text-right">Participantes</th>
-                    <th className="py-2 text-right">Obrigatório</th>
+                    <th className="py-2 text-left">{t('colTraining')}</th>
+                    <th className="py-2 text-left">{t('colDate')}</th>
+                    <th className="py-2 text-right">{t('colAttendees')}</th>
+                    <th className="py-2 text-right">{t('colMandatory')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.trainings.map((t: any) => (
-                    <tr key={t.id} className="border-b border-gray-50">
-                      <td className="py-2">{t.title}</td>
+                  {data.trainings.map((tr: any) => (
+                    <tr key={tr.id} className="border-b border-gray-50">
+                      <td className="py-2">{tr.title}</td>
                       <td className="py-2 text-gray-500">
-                        {new Date(t.date).toLocaleDateString('pt-PT')}
+                        {new Date(tr.date).toLocaleDateString()}
                       </td>
-                      <td className="py-2 text-right">{t.attendees}</td>
-                      <td className="py-2 text-right">{t.mandatory ? '✓' : '—'}</td>
+                      <td className="py-2 text-right">{tr.attendees}</td>
+                      <td className="py-2 text-right">{tr.mandatory ? '✓' : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <p className="text-sm text-gray-400">Sem formações em {year}</p>
+              <p className="text-sm text-gray-400">{t('noTrainings', { year })}</p>
             )}
           </div>
 
           {/* Legal notice */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            <p className="font-semibold mb-1">⚠️ Obrigação legal de reporte ao MENAC</p>
+            <p className="font-semibold mb-1">{t('legalNoticeTitle')}</p>
             <p className="text-xs">
-              Nos termos do artigo 22.º da Lei 93/2021, as entidades obrigadas devem
-              enviar o relatório anual ao MENAC até 31 de Março de cada ano, referente
-              ao ano anterior. Este relatório deve ser enviado via{' '}
+              {t('legalNoticeDesc')}{' '}
               <a
                 href="https://www.menac.pt"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-amber-700 underline"
               >
-                portal do MENAC
+                {t('menacPortal')}
               </a>.
             </p>
           </div>
