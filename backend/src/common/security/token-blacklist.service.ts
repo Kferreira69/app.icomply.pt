@@ -1,46 +1,39 @@
 /**
- * Token Blacklist Service
+ * Token Blacklist Service — Redis-backed
  *
- * Keeps a set of revoked JWTs until they naturally expire.
- * Currently in-memory — swap the backing store for Redis in production:
+ * Revoked JWTs are stored in Redis with a TTL matching the token's remaining
+ * lifetime. This guarantees:
+ *   - Blacklist survives server restarts
+ *   - Works correctly in multi-instance / horizontal-scaling scenarios
+ *   - No memory leak (Redis expires keys automatically)
  *
- *   await this.redis.set(`bl:${jti}`, '1', 'EX', ttlSeconds);
- *   return !!(await this.redis.exists(`bl:${jti}`));
+ * Key format:  bl:{jti}
+ * Value:       "1"  (just a marker — the TTL carries the logic)
  */
-import { Injectable, Logger } from '@nestjs/common';
-
-interface BlacklistEntry {
-  expiresAt: number; // Unix ms
-}
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 @Injectable()
 export class TokenBlacklistService {
   private readonly logger = new Logger(TokenBlacklistService.name);
-  private readonly store = new Map<string, BlacklistEntry>();
 
-  /** Revoke a token for `ttlSeconds` (should equal the JWT's remaining lifetime). */
-  revoke(jti: string, ttlSeconds: number): void {
-    this.store.set(jti, { expiresAt: Date.now() + ttlSeconds * 1000 });
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+
+  /**
+   * Revoke a token by its JTI claim.
+   * @param jti     — unique JWT ID (jti claim)
+   * @param ttlSeconds — seconds until the token would have expired naturally
+   */
+  async revoke(jti: string, ttlSeconds: number): Promise<void> {
+    if (ttlSeconds <= 0) return; // already expired — nothing to do
+    await this.redis.set(`bl:${jti}`, '1', 'EX', ttlSeconds);
     this.logger.debug(`Token revoked: ${jti} (TTL ${ttlSeconds}s)`);
-    this.prune();
   }
 
   /** Returns true when the token has been explicitly revoked. */
-  isRevoked(jti: string): boolean {
-    const entry = this.store.get(jti);
-    if (!entry) return false;
-    if (Date.now() > entry.expiresAt) {
-      this.store.delete(jti);
-      return false;
-    }
-    return true;
-  }
-
-  /** Remove expired entries to prevent memory growth. */
-  private prune(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.store) {
-      if (now > entry.expiresAt) this.store.delete(key);
-    }
+  async isRevoked(jti: string): Promise<boolean> {
+    const exists = await this.redis.exists(`bl:${jti}`);
+    return exists === 1;
   }
 }

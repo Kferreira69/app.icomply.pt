@@ -37,7 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     jti?: string;
   }) {
     // Reject blacklisted tokens (explicit logout)
-    if (payload.jti && this.blacklist.isRevoked(payload.jti)) {
+    if (payload.jti && await this.blacklist.isRevoked(payload.jti)) {
       throw new UnauthorizedException('Token has been revoked');
     }
 

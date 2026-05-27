@@ -127,7 +127,7 @@ export class AuthService {
       const decoded = this.jwt.decode(token) as any;
       if (decoded?.jti && decoded?.exp) {
         const ttl = decoded.exp - Math.floor(Date.now() / 1000);
-        if (ttl > 0) this.blacklist.revoke(decoded.jti, ttl);
+        if (ttl > 0) await this.blacklist.revoke(decoded.jti, ttl);
       }
     } catch { /* ignore decode errors */ }
     return { message: 'Logged out successfully' };

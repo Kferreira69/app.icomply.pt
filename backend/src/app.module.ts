@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { RedisModule } from './common/redis/redis.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -59,6 +60,7 @@ import { UnifiedControlsModule } from './unified-controls/unified-controls.modul
     ScheduleModule.forRoot(),
 
     // ── Infrastructure ──────────────────────────────────────
+    RedisModule,
     PrismaModule,
     StorageModule,
     MailModule,
