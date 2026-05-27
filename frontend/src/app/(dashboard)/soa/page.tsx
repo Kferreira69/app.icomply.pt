@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { soaApi } from '@/lib/api';
 import {
   FileCheck2, ChevronDown, ChevronRight, X,
-  CheckCircle, AlertCircle, Clock, XCircle,
+  CheckCircle, AlertCircle, Clock, XCircle, Download,
 } from 'lucide-react';
 
 // ── Types / Constants ─────────────────────────────────────────────
@@ -316,6 +316,14 @@ export default function SoaPage() {
           </h1>
           <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
         </div>
+        <a
+          href={`${process.env.NEXT_PUBLIC_API_URL}/soa/export/csv`}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+          download="soa-iso27001-2022.csv"
+        >
+          <Download className="w-4 h-4" />
+          {t('exportCsv')}
+        </a>
       </div>
 
       {/* Dashboard row */}

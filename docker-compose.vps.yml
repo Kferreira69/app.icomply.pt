@@ -90,10 +90,10 @@ services:
       retries: 3
 
   # ── Backend (NestJS) ────────────────────────────────────────
+  # Image built on GitHub Actions and pushed to GHCR.
+  # VPS only does: docker compose pull && docker compose up -d
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/kferreira69/icomply-backend:latest
     container_name: icomply_backend
     restart: unless-stopped
     networks:
@@ -144,12 +144,9 @@ services:
       - "traefik.http.routers.icomply-api-http.middlewares=redirect-to-https"
 
   # ── Frontend (Next.js) ──────────────────────────────────────
+  # Image built on GitHub Actions (NEXT_PUBLIC_API_URL baked at build time).
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api/v1
+    image: ghcr.io/kferreira69/icomply-frontend:latest
     container_name: icomply_frontend
     restart: unless-stopped
     networks:

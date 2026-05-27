@@ -220,4 +220,47 @@ export class SoaService {
   async getStats(organizationId: string) {
     return this.getDashboard(organizationId);
   }
+
+  // ── Export ────────────────────────────────────────────────────
+
+  async exportCsv(organizationId: string): Promise<string> {
+    await this.initOrganization(organizationId);
+    const controls = await this.prisma.soaControl.findMany({
+      where: { organizationId },
+      orderBy: { controlCode: 'asc' },
+    });
+
+    const STATUS_LABEL: Record<string, string> = {
+      NOT_STARTED:           'Not Started',
+      PLANNED:               'Planned',
+      PARTIALLY_IMPLEMENTED: 'Partially Implemented',
+      IMPLEMENTED:           'Implemented',
+      NOT_APPLICABLE:        'Not Applicable',
+    };
+
+    const esc = (v: string | null | undefined) =>
+      `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    const header = [
+      'Control Code', 'Theme', 'Title', 'Description',
+      'Applicable', 'Status', 'Owner', 'Target Date',
+      'Implementation Notes', 'Justification',
+    ].map(esc).join(',');
+
+    const rows = controls.map(c => [
+      esc(c.controlCode),
+      esc(c.theme),
+      esc(c.title),
+      esc(c.description),
+      esc(c.applicable ? 'Yes' : 'No'),
+      esc(STATUS_LABEL[c.status] ?? c.status),
+      esc(c.owner),
+      esc(c.targetDate ? c.targetDate.toISOString().split('T')[0] : null),
+      esc(c.implementationNotes),
+      esc(c.justification),
+    ].join(','));
+
+    // UTF-8 BOM prefix so Excel opens it correctly with accented chars
+    return '﻿' + [header, ...rows].join('\r\n');
+  }
 }

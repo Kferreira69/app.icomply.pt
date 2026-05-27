@@ -41,6 +41,17 @@ export class MailService {
     return apiUrl.replace('https://api.', 'https://');
   }
 
+  /** Verify SMTP connection — used by /health endpoint. */
+  async testConnection(): Promise<boolean> {
+    if (!this.transporter) return false;
+    try {
+      await this.transporter.verify();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async send(to: string, subject: string, html: string): Promise<void> {
     if (!this.transporter) {
       this.logger.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}`);

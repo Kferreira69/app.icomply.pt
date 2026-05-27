@@ -421,6 +421,7 @@
     "saving": "Enregistrement...",
     "colCode": "Code",
     "colStatus": "État",
+    "exportCsv": "Exporter CSV",
     "legalNotice": "ISO/IEC 27001:2022 — Annex A Controls — Ce document est confidentiel et soumis à révision périodique. Score = (Implémentés + Partiels × 0,5) / Applicables × 100",
     "themeLabel": {
       "Organizational": "A.5 — Organisationnel",

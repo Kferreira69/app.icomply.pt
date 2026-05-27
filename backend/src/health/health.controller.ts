@@ -1,32 +1,46 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { MailService } from '../common/mail/mail.service';
 import { Public } from '../common/decorators/public.decorator';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis/redis.module';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Health check — returns service status' })
+  @ApiOperation({ summary: 'Health check — database, Redis and SMTP status' })
   async check() {
-    let dbOk = false;
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      dbOk = true;
-    } catch {
-      dbOk = false;
-    }
+    const [dbResult, redisResult, smtpResult] = await Promise.allSettled([
+      this.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+      this.redis.ping().then(r => r === 'PONG').catch(() => false),
+      this.mail.testConnection(),
+    ]);
+
+    const db    = dbResult.status    === 'fulfilled' && dbResult.value    === true;
+    const cache = redisResult.status === 'fulfilled' && redisResult.value === true;
+    const smtp  = smtpResult.status  === 'fulfilled' && smtpResult.value  === true;
+
+    // SMTP is not critical — service is "ok" as long as DB + Redis are up
+    const allOk = db && cache;
 
     return {
-      status: dbOk ? 'ok' : 'degraded',
+      status: allOk ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       environment: process.env.NODE_ENV || 'development',
       services: {
-        database: dbOk ? 'up' : 'down',
+        database: db    ? 'up' : 'down',
+        redis:    cache ? 'up' : 'down',
+        smtp:     smtp  ? 'up' : (process.env.SMTP_HOST ? 'down' : 'not_configured'),
       },
     };
   }
