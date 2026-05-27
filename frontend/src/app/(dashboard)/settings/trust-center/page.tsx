@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { trustCenterApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
-import { Globe, Eye, EyeOff, Copy, Check, ExternalLink, Shield, Save } from 'lucide-react';
+import { Globe, Eye, Copy, Check, ExternalLink, Shield, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function TrustCenterSettingsPage() {
+  const t = useTranslations('trustCenter');
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const [copied, setCopied] = useState(false);
@@ -67,17 +69,17 @@ export default function TrustCenterSettingsPage() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">A carregar...</div>;
+    return <div className="flex items-center justify-center h-64 text-gray-400">{t('loading')}</div>;
   }
 
-  const TOGGLE_OPTIONS = [
-    { key: 'showFrameworks', label: 'Frameworks de Conformidade', desc: 'Mostra os frameworks activos e o score de progresso' },
-    { key: 'showEvidence', label: 'Evidências', desc: 'Conta de evidências aprovadas' },
-    { key: 'showAudits', label: 'Auditorias', desc: 'Número de auditorias e última auditoria concluída' },
-    { key: 'showPolicies', label: 'Políticas', desc: 'Número de políticas activas e aprovadas' },
-    { key: 'showVendors', label: 'Fornecedores', desc: 'Número de fornecedores avaliados' },
-    { key: 'showRisks', label: 'Riscos', desc: 'Informação do registo de riscos (cuidado com dados sensíveis)' },
-  ] as const;
+  const TOGGLE_OPTIONS: { key: keyof typeof form; labelKey: string; descKey: string }[] = [
+    { key: 'showFrameworks', labelKey: 'toggleFrameworksLabel', descKey: 'toggleFrameworksDesc' },
+    { key: 'showEvidence',   labelKey: 'toggleEvidenceLabel',   descKey: 'toggleEvidenceDesc' },
+    { key: 'showAudits',     labelKey: 'toggleAuditsLabel',     descKey: 'toggleAuditsDesc' },
+    { key: 'showPolicies',   labelKey: 'togglePoliciesLabel',   descKey: 'togglePoliciesDesc' },
+    { key: 'showVendors',    labelKey: 'toggleVendorsLabel',    descKey: 'toggleVendorsDesc' },
+    { key: 'showRisks',      labelKey: 'toggleRisksLabel',      descKey: 'toggleRisksDesc' },
+  ];
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -87,10 +89,8 @@ export default function TrustCenterSettingsPage() {
           <Shield className="w-6 h-6 text-blue-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Trust Center Público</h1>
-          <p className="text-sm text-gray-500">
-            Página pública partilhável com o estado de conformidade da sua organização
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-sm text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -98,11 +98,9 @@ export default function TrustCenterSettingsPage() {
       <div className="bg-white border rounded-xl p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-gray-900">Estado do Trust Center</h2>
+            <h2 className="font-semibold text-gray-900">{t('statusTitle')}</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              {form.isPublic
-                ? 'O seu Trust Center está público e acessível via link'
-                : 'O seu Trust Center está oculto — só você consegue ver a página'}
+              {form.isPublic ? t('statusPublic') : t('statusHidden')}
             </p>
           </div>
           <button
@@ -130,7 +128,7 @@ export default function TrustCenterSettingsPage() {
               className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded bg-white border border-blue-200"
             >
               {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-              {copied ? 'Copiado' : 'Copiar'}
+              {copied ? t('copied') : t('copy')}
             </button>
             <a
               href={publicUrl}
@@ -138,7 +136,7 @@ export default function TrustCenterSettingsPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded bg-white border border-blue-200"
             >
-              <ExternalLink className="w-3 h-3" /> Ver
+              <ExternalLink className="w-3 h-3" /> {t('view')}
             </a>
           </div>
         )}
@@ -146,10 +144,10 @@ export default function TrustCenterSettingsPage() {
 
       {/* Appearance */}
       <div className="bg-white border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Aparência</h2>
+        <h2 className="font-semibold text-gray-900">{t('appearance')}</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Título personalizado</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('customTitleLabel')}</label>
             <input
               value={form.customTitle}
               onChange={e => setForm(f => ({ ...f, customTitle: e.target.value }))}
@@ -158,7 +156,7 @@ export default function TrustCenterSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Email de contacto</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('contactEmail')}</label>
             <input
               type="email"
               value={form.contactEmail}
@@ -168,7 +166,7 @@ export default function TrustCenterSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Cor de destaque</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('accentColor')}</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -186,26 +184,26 @@ export default function TrustCenterSettingsPage() {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Mensagem pública</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('customMessage')}</label>
           <textarea
             rows={3}
             value={form.customMessage}
             onChange={e => setForm(f => ({ ...f, customMessage: e.target.value }))}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
-            placeholder="A nossa organização está comprometida com os mais elevados padrões de conformidade e segurança..."
+            placeholder={t('customMessagePlaceholder')}
           />
         </div>
       </div>
 
       {/* Visibility toggles */}
       <div className="bg-white border rounded-xl p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">Informação visível ao público</h2>
+        <h2 className="font-semibold text-gray-900 mb-4">{t('visibilityTitle')}</h2>
         <div className="space-y-4">
           {TOGGLE_OPTIONS.map(opt => (
             <div key={opt.key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
               <div>
-                <p className="text-sm font-medium text-gray-900">{opt.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                <p className="text-sm font-medium text-gray-900">{t(opt.labelKey)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t(opt.descKey)}</p>
               </div>
               <button
                 onClick={() => setForm(f => ({ ...f, [opt.key]: !f[opt.key] }))}
@@ -226,16 +224,12 @@ export default function TrustCenterSettingsPage() {
         </div>
       </div>
 
-      {/* Preview notice */}
+      {/* How to use notice */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
         <Eye className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
         <div className="text-sm text-amber-800">
-          <p className="font-medium">Como usar o Trust Center</p>
-          <p className="text-xs mt-1">
-            Partilhe o link público com potenciais clientes, parceiros ou auditores para demonstrar
-            o seu estado de conformidade de forma transparente. Só os dados que ativar aqui serão
-            visíveis. Nunca serão partilhados dados pessoais de colaboradores ou informação sensível.
-          </p>
+          <p className="font-medium">{t('howToUseTitle')}</p>
+          <p className="text-xs mt-1">{t('howToUseDesc')}</p>
         </div>
       </div>
 
@@ -247,7 +241,7 @@ export default function TrustCenterSettingsPage() {
           className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-60"
         >
           <Save className="w-4 h-4" />
-          {saveMutation.isPending ? 'A guardar...' : 'Guardar configurações'}
+          {saveMutation.isPending ? t('saving') : t('saveSettings')}
         </button>
       </div>
     </div>

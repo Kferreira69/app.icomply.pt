@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { aiAssistantApi } from '@/lib/api';
 import {
   Bot, Send, User, Sparkles, RefreshCw,
@@ -14,39 +15,6 @@ interface Message {
   content: string;
   timestamp: Date;
 }
-
-const SUGGESTED_PROMPTS = [
-  {
-    icon: Shield,
-    label: 'Estado de conformidade',
-    prompt: 'Qual é o estado atual de conformidade da minha organização? Dá-me um resumo executivo.',
-  },
-  {
-    icon: AlertTriangle,
-    label: 'Riscos críticos',
-    prompt: 'Quais são os riscos mais críticos que preciso de resolver urgentemente?',
-  },
-  {
-    icon: ClipboardCheck,
-    label: 'Próximos passos ISO 27001',
-    prompt: 'O que preciso de fazer para avançar na certificação ISO 27001? Quais os controlos prioritários?',
-  },
-  {
-    icon: FileText,
-    label: 'Evidências em falta',
-    prompt: 'Que evidências estão pendentes ou em falta para o próximo audit?',
-  },
-  {
-    icon: BookOpen,
-    label: 'Requisitos GDPR',
-    prompt: 'Estamos conformes com o GDPR? Quais os pontos de atenção no ROPA e nas DPIAs?',
-  },
-  {
-    icon: Activity,
-    label: 'DORA / NIS2',
-    prompt: 'Quais são as principais obrigações DORA e NIS2 que ainda precisamos de endereçar?',
-  },
-];
 
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user';
@@ -67,23 +35,12 @@ function MessageBubble({ message }: { message: Message }) {
         )}
       >
         {message.content.split('\n').map((line, i) => {
-          // Render headers (lines starting with ##)
           if (line.startsWith('## ')) {
-            return (
-              <p key={i} className="font-semibold mt-3 mb-1 first:mt-0">
-                {line.replace('## ', '')}
-              </p>
-            );
+            return <p key={i} className="font-semibold mt-3 mb-1 first:mt-0">{line.replace('## ', '')}</p>;
           }
-          // Render bold (**text**)
           if (line.startsWith('**') && line.endsWith('**')) {
-            return (
-              <p key={i} className="font-semibold mt-2">
-                {line.slice(2, -2)}
-              </p>
-            );
+            return <p key={i} className="font-semibold mt-2">{line.slice(2, -2)}</p>;
           }
-          // Render bullet points
           if (line.startsWith('- ') || line.startsWith('• ')) {
             return (
               <div key={i} className="flex gap-2 mt-1">
@@ -92,7 +49,6 @@ function MessageBubble({ message }: { message: Message }) {
               </div>
             );
           }
-          // Numbered list
           if (/^\d+\.\s/.test(line)) {
             return (
               <div key={i} className="flex gap-2 mt-1">
@@ -101,23 +57,16 @@ function MessageBubble({ message }: { message: Message }) {
               </div>
             );
           }
-          // Empty line
           if (line.trim() === '') return <div key={i} className="h-2" />;
-          // Normal text — handle inline **bold**
           const parts = line.split(/\*\*(.+?)\*\*/g);
           return (
             <p key={i} className={i > 0 ? 'mt-1' : ''}>
-              {parts.map((part, j) =>
-                j % 2 === 1 ? <strong key={j}>{part}</strong> : part,
-              )}
+              {parts.map((part, j) => j % 2 === 1 ? <strong key={j}>{part}</strong> : part)}
             </p>
           );
         })}
-        <p className={cn(
-          'text-xs mt-2 opacity-60',
-          isUser ? 'text-blue-100' : 'text-gray-400',
-        )}>
-          {message.timestamp.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+        <p className={cn('text-xs mt-2 opacity-60', isUser ? 'text-blue-100' : 'text-gray-400')}>
+          {message.timestamp.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
       {isUser && (
@@ -147,12 +96,19 @@ function TypingIndicator() {
 }
 
 export default function AiAssistantPage() {
+  const t = useTranslations('aiAssistant');
+
+  const SUGGESTED_PROMPTS = [
+    { icon: Shield,         label: t('prompt1Label'), prompt: t('prompt1Prompt') },
+    { icon: AlertTriangle,  label: t('prompt2Label'), prompt: t('prompt2Prompt') },
+    { icon: ClipboardCheck, label: t('prompt3Label'), prompt: t('prompt3Prompt') },
+    { icon: FileText,       label: t('prompt4Label'), prompt: t('prompt4Prompt') },
+    { icon: BookOpen,       label: t('prompt5Label'), prompt: t('prompt5Prompt') },
+    { icon: Activity,       label: t('prompt6Label'), prompt: t('prompt6Prompt') },
+  ];
+
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: 'Olá! Sou o **iComply AI**, o teu assistente de conformidade.\n\nTenho acesso ao estado atual da tua organização e posso ajudar-te com:\n- Análise do estado de conformidade\n- Requisitos de frameworks (ISO 27001, GDPR, NIS2, DORA)\n- Priorização de tarefas e riscos\n- Interpretação de requisitos regulatórios\n\nComo posso ajudar?',
-      timestamp: new Date(),
-    },
+    { role: 'assistant', content: t('initialMessage'), timestamp: new Date() },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -176,13 +132,12 @@ export default function AiAssistantPage() {
     setLoading(true);
 
     try {
-      // Send only role/content to API (exclude UI-only timestamp)
       const apiMessages = newMessages.map(({ role, content }) => ({ role, content }));
       const res = await aiAssistantApi.chat(apiMessages);
       const reply = res.data.reply as string;
       setMessages(prev => [...prev, { role: 'assistant', content: reply, timestamp: new Date() }]);
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Erro ao contactar o assistente. Verifica se ANTHROPIC_API_KEY está configurada no servidor.';
+      const msg = err?.response?.data?.message ?? t('fallbackError');
       setError(msg);
     } finally {
       setLoading(false);
@@ -198,11 +153,7 @@ export default function AiAssistantPage() {
   };
 
   const clearChat = () => {
-    setMessages([{
-      role: 'assistant',
-      content: 'Conversa reiniciada. Como posso ajudar?',
-      timestamp: new Date(),
-    }]);
+    setMessages([{ role: 'assistant', content: t('resetMessage'), timestamp: new Date() }]);
     setError(null);
   };
 
@@ -221,10 +172,10 @@ export default function AiAssistantPage() {
               <span className="font-semibold text-gray-900">iComply AI</span>
               <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                Online
+                {t('online')}
               </span>
             </div>
-            <p className="text-xs text-gray-500">Assistente especializado em conformidade regulatória</p>
+            <p className="text-xs text-gray-500">{t('botSubtitle')}</p>
           </div>
         </div>
         <button
@@ -232,7 +183,7 @@ export default function AiAssistantPage() {
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          Nova conversa
+          {t('newConversation')}
         </button>
       </div>
 
@@ -246,16 +197,15 @@ export default function AiAssistantPage() {
         {error && (
           <div className="flex justify-center">
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl max-w-lg text-center">
-              <strong>Erro:</strong> {error}
+              <strong>{t('errorLabel')}</strong> {error}
             </div>
           </div>
         )}
 
-        {/* Suggested prompts shown when conversation is fresh */}
         {showSuggestions && !loading && (
           <div className="pt-4">
             <p className="text-xs text-gray-400 text-center mb-3 flex items-center justify-center gap-1">
-              <Sparkles className="w-3 h-3" /> Sugestões para começar
+              <Sparkles className="w-3 h-3" /> {t('suggestionsLabel')}
             </p>
             <div className="grid grid-cols-2 gap-2 max-w-2xl mx-auto">
               {SUGGESTED_PROMPTS.map(({ icon: Icon, label, prompt }) => (
@@ -289,7 +239,7 @@ export default function AiAssistantPage() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Pergunta sobre conformidade, riscos, frameworks… (Enter para enviar, Shift+Enter para nova linha)"
+              placeholder={t('inputPlaceholder')}
               rows={1}
               style={{ resize: 'none' }}
               className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 transition-colors overflow-hidden"
@@ -311,16 +261,10 @@ export default function AiAssistantPage() {
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed',
             )}
           >
-            {loading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-xs text-gray-400 text-center mt-2">
-          Alimentado por Claude AI · Respostas baseadas nos dados reais da tua organização
-        </p>
+        <p className="text-xs text-gray-400 text-center mt-2">{t('footer')}</p>
       </div>
     </div>
   );

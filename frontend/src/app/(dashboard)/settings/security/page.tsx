@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
 import { authApi } from '@/lib/api';
 import { Lock, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function SecuritySettingsPage() {
+  const t = useTranslations('security');
   const [result, setResult] = useState<{ ok?: boolean; message?: string } | null>(null);
 
   const { register, handleSubmit, reset, watch, formState: { isSubmitting, errors } } = useForm<{
@@ -18,10 +20,10 @@ export default function SecuritySettingsPage() {
     setResult(null);
     try {
       await authApi.changePassword(data.currentPassword, data.newPassword);
-      setResult({ ok: true, message: 'Palavra-passe alterada com sucesso.' });
+      setResult({ ok: true, message: t('changeSuccess') });
       reset();
     } catch (e: any) {
-      setResult({ ok: false, message: e?.response?.data?.message || 'Erro ao alterar a palavra-passe.' });
+      setResult({ ok: false, message: e?.response?.data?.message || t('changeError') });
     }
   };
 
@@ -33,14 +35,14 @@ export default function SecuritySettingsPage() {
             <Lock className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Alterar Palavra-passe</h2>
-            <p className="text-xs text-gray-400">Utilize uma palavra-passe forte com mínimo 8 caracteres</p>
+            <h2 className="text-base font-semibold text-gray-900">{t('title')}</h2>
+            <p className="text-xs text-gray-400">{t('subtitle')}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Palavra-passe Atual *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('currentPassword')}</label>
             <input
               {...register('currentPassword', { required: true })}
               type="password"
@@ -49,11 +51,11 @@ export default function SecuritySettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nova Palavra-passe *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('newPassword')}</label>
             <input
               {...register('newPassword', {
                 required: true,
-                minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+                minLength: { value: 8, message: t('minLength') },
               })}
               type="password"
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
@@ -62,11 +64,11 @@ export default function SecuritySettingsPage() {
             {errors.newPassword && <p className="text-xs text-red-500 mt-1">{errors.newPassword.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Nova Palavra-passe *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('confirmPassword')}</label>
             <input
               {...register('confirmPassword', {
                 required: true,
-                validate: v => v === watch('newPassword') || 'As palavras-passe não coincidem',
+                validate: v => v === watch('newPassword') || t('passwordMismatch'),
               })}
               type="password"
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
@@ -88,18 +90,18 @@ export default function SecuritySettingsPage() {
             className="w-full bg-primary text-white rounded-lg py-2.5 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Alterar Palavra-passe
+            {t('changePasswordBtn')}
           </button>
         </form>
       </div>
 
       {/* 2FA placeholder */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-1">Autenticação de Dois Fatores (2FA)</h2>
-        <p className="text-sm text-gray-500 mb-4">Adicione uma camada extra de segurança à sua conta.</p>
+        <h2 className="text-base font-semibold text-gray-900 mb-1">{t('twoFATitle')}</h2>
+        <p className="text-sm text-gray-500 mb-4">{t('twoFASubtitle')}</p>
         <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
           <div className="w-2 h-2 bg-gray-400 rounded-full flex-shrink-0"></div>
-          <p className="text-sm text-gray-500">2FA via TOTP (Google Authenticator) — <span className="text-primary font-medium">Em breve</span></p>
+          <p className="text-sm text-gray-500">{t('twoFAComingSoon')}</p>
         </div>
       </div>
     </div>
