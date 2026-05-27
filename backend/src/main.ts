@@ -1,5 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
@@ -8,9 +9,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
@@ -19,8 +21,18 @@ async function bootstrap() {
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isProd = nodeEnv === 'production';
 
+  // ── Trust proxy — required behind Traefik/nginx ───────────────
+  app.set('trust proxy', 1);
+
+  // ── Graceful shutdown ─────────────────────────────────────────
+  app.enableShutdownHooks();
+
   // ── Cookie parser (required for HttpOnly cookie JWT) ──────────
   app.use(cookieParser());
+
+  // ── Body size limit — prevent DoS via huge payloads ──────────
+  app.use(require('express').json({ limit: '1mb' }));
+  app.use(require('express').urlencoded({ extended: true, limit: '1mb' }));
 
   // ── Security headers (Helmet) ─────────────────────────────────
   app.use(
@@ -35,8 +47,9 @@ async function bootstrap() {
         },
       },
       crossOriginEmbedderPolicy: false, // allow Swagger UI
+      hidePoweredBy: true,              // remove X-Powered-By: Express
       hsts: isProd
-        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        ? { maxAge: 63072000, includeSubDomains: true, preload: true } // 2 years
         : false,
     }),
   );
@@ -73,12 +86,15 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      // Never expose validation details to the client in production
+      disableErrorMessages: isProd,
     }),
   );
 
   // ── Global interceptors ───────────────────────────────────────
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector)),
+    new AuditLogInterceptor(),
   );
 
   // ── Swagger ───────────────────────────────────────────────────

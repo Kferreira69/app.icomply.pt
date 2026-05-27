@@ -3,6 +3,7 @@ import {
   HttpCode, HttpStatus, Request, Response,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Response as Res, Request as Req } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -33,6 +34,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
+  @Throttle({ short: { limit: 5, ttl: 60000 } })   // 5 attempts / 60s per IP
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login — sets HttpOnly cookie and returns tokens' })
@@ -71,6 +73,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ short: { limit: 10, ttl: 60000 } })  // 10 refreshes / 60s per IP
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
@@ -88,6 +91,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ short: { limit: 3, ttl: 3600000 } }) // 3 attempts / hour per IP
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset email' })
