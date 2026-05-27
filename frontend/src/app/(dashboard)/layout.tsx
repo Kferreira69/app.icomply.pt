@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
@@ -9,12 +9,15 @@ import { Topbar } from '@/components/layout/topbar';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isAuthenticated) {
+      // Save intended destination so login can redirect back
+      sessionStorage.setItem('redirectAfterLogin', pathname);
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, pathname]);
 
   if (!isAuthenticated) return null;
 

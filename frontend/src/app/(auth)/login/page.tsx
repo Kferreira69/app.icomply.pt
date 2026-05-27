@@ -34,7 +34,9 @@ export default function LoginPage() {
       const { accessToken, refreshToken, user } = res.data;
       setTokens(accessToken, refreshToken);
       setUser(user);
-      router.push('/dashboard');
+      const redirect = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
+      sessionStorage.removeItem('redirectAfterLogin');
+      router.push(redirect);
     } catch (err: any) {
       setError(err.response?.data?.message || t('invalidCredentials'));
     }

@@ -335,6 +335,13 @@ export const trustCenterApi = {
   updateSettings: (data: any) => api.patch('/trust-center/settings', data),
 };
 
+export const permissionsApi = {
+  getMyPermissions: () => api.get('/permissions/me'),
+  getUserPermissions: (userId: string) => api.get(`/permissions/${userId}`),
+  setUserPermissions: (userId: string, permissions: Array<{ module: string; level: number }>) =>
+    api.put(`/permissions/${userId}`, { permissions }),
+};
+
 export const aiAssistantApi = {
   chat: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) =>
     api.post('/ai-assistant/chat', { messages }),

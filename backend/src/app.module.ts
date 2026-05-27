@@ -32,6 +32,7 @@ import { TranslationsModule } from './translations/translations.module';
 import { WhistleblowModule } from './whistleblow/whistleblow.module';
 import { TrustCenterModule } from './trust-center/trust-center.module';
 import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
+import { PermissionsModule } from './permissions/permissions.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
     WhistleblowModule,
     TrustCenterModule,
     AiAssistantModule,
+    PermissionsModule,
   ],
 })
 export class AppModule {}

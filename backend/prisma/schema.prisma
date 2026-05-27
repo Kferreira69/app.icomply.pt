@@ -362,8 +362,28 @@ model User {
   whistleblowTimeline   WhistleblowTimeline[]
   codeOfConductAcks     CodeOfConductAck[]
   trainingAttendances   WhistleblowTrainingAttendee[]
+  permissions           UserPermission[]
 
   @@map("users")
+}
+
+// ─── User Permissions ─────────────────────────────────────────
+// Granular per-module access control (0=none, 1=read, 2=full)
+// ADMIN role always bypasses these; they apply to non-admin users.
+
+model UserPermission {
+  id     String @id @default(uuid())
+  userId String
+  module String  // dashboard | diagnostic | projects | tasks | risks |
+                 // evidence | audits | capa | reports | policies | gdpr |
+                 // nis2 | dora | denuncias | vendors | soa | excelImport |
+                 // aiAssistant | trustCenter | users | settings | translations
+  level  Int    @default(1)  // 0=NONE 1=READ 2=FULL
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@map("user_permissions")
 }
 
 // ─── Frameworks ───────────────────────────────────────────────
