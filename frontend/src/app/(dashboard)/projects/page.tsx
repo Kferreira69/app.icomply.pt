@@ -7,8 +7,10 @@ import { Plus, Search, FolderOpen, Calendar, BarChart2, Loader2 } from 'lucide-r
 import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
 
 function ProjectCard({ project }: { project: any }) {
+  const t = useTranslations('projects');
   const score = project.complianceScore ?? 0;
   return (
     <Link href={`/projects/${project.id}`} className="block">
@@ -26,7 +28,7 @@ function ProjectCard({ project }: { project: any }) {
         {/* Compliance score bar */}
         <div className="mb-3">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Conformidade</span>
+            <span>{t('cardCompliance')}</span>
             <span className="font-medium">{Math.round(score)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -40,9 +42,9 @@ function ProjectCard({ project }: { project: any }) {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
-            { label: 'Tarefas', value: project._count?.tasks ?? 0 },
-            { label: 'Riscos', value: project._count?.risks ?? 0 },
-            { label: 'Evidências', value: project._count?.evidences ?? 0 },
+            { label: t('cardTasks'), value: project._count?.tasks ?? 0 },
+            { label: t('cardRisks'), value: project._count?.risks ?? 0 },
+            { label: t('cardEvidence'), value: project._count?.evidences ?? 0 },
           ].map(s => (
             <div key={s.label} className="bg-gray-50 rounded-lg p-2">
               <p className="text-base font-bold text-gray-900">{s.value}</p>
@@ -54,7 +56,7 @@ function ProjectCard({ project }: { project: any }) {
         {project.targetDate && (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
             <Calendar className="w-3.5 h-3.5" />
-            Meta: {formatDate(project.targetDate)}
+            {t('cardTarget')} {formatDate(project.targetDate)}
           </div>
         )}
       </div>
@@ -63,6 +65,8 @@ function ProjectCard({ project }: { project: any }) {
 }
 
 function NewProjectModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('projects');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const { data: frameworks } = useQuery({
     queryKey: ['frameworks'],
@@ -82,45 +86,45 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Novo Projeto de Conformidade</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('newProjectFull')}</h3>
         <form onSubmit={handleSubmit(d => createMutation.mutate(cleanFormData(d)))} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Projeto *</label>
-            <input {...register('name', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="ex: Implementação ISO 27001 2026" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('projectName')} *</label>
+            <input {...register('name', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder={t('projectNamePlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Framework *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('framework')} *</label>
             <select {...register('frameworkId', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-              <option value="">Selecionar framework...</option>
+              <option value="">{t('selectFramework')}</option>
               {frameworks?.map((fw: any) => (
                 <option key={fw.id} value={fw.id}>{fw.name} ({fw.version})</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-            <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" placeholder="Objetivo do projeto..." />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('description')}</label>
+            <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" placeholder={t('descriptionPlaceholder') as string} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('startDate')}</label>
               <input {...register('startDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data Meta</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('targetDate')}</label>
               <input {...register('targetDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
           {createMutation.isError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              Erro ao criar projeto. Verifique os campos e tente novamente.
+              {t('createError')}
             </p>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
             <button type="submit" disabled={isSubmitting || createMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Criar Projeto
+              {tCommon('create')}
             </button>
           </div>
         </form>
@@ -130,6 +134,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function ProjectsPage() {
+  const t = useTranslations('projects');
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
 
@@ -152,7 +157,7 @@ export default function ProjectsPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar projetos..."
+            placeholder={t('searchPlaceholder') as string}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
           />
         </div>
@@ -160,17 +165,17 @@ export default function ProjectsPage() {
           onClick={() => setShowNew(true)}
           className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
         >
-          <Plus className="w-4 h-4" /> Novo Projeto
+          <Plus className="w-4 h-4" /> {t('newProject')}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: data?.total ?? 0 },
-          { label: 'Ativos', value: (data?.data || []).filter((p: any) => p.status === 'ACTIVE').length },
-          { label: 'Concluídos', value: (data?.data || []).filter((p: any) => p.status === 'COMPLETED').length },
-          { label: 'Rascunhos', value: (data?.data || []).filter((p: any) => p.status === 'DRAFT').length },
+          { label: t('statTotal'), value: data?.total ?? 0 },
+          { label: t('statActive'), value: (data?.data || []).filter((p: any) => p.status === 'ACTIVE').length },
+          { label: t('statCompleted'), value: (data?.data || []).filter((p: any) => p.status === 'COMPLETED').length },
+          { label: t('statDraft'), value: (data?.data || []).filter((p: any) => p.status === 'DRAFT').length },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <p className="text-2xl font-bold text-gray-900">{s.value}</p>
@@ -187,9 +192,9 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
           <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 mb-4">Nenhum projeto encontrado</p>
+          <p className="text-gray-500 mb-4">{t('noProjects')}</p>
           <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Criar primeiro projeto
+            <Plus className="w-4 h-4" /> {t('createFirst')}
           </button>
         </div>
       ) : (

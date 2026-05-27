@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { policiesApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,28 +12,23 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-// ── Status colours ────────────────────────────────────────────
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  DRAFT:     { bg: 'bg-gray-100',   text: 'text-gray-700',   label: 'Rascunho' },
-  IN_REVIEW: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Em Revisão' },
-  APPROVED:  { bg: 'bg-green-100',  text: 'text-green-800',  label: 'Aprovada' },
-  ARCHIVED:  { bg: 'bg-red-50',     text: 'text-red-700',    label: 'Arquivada' },
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  INFORMATION_SECURITY: 'Segurança da Informação',
-  DATA_PROTECTION:      'Proteção de Dados',
-  HR:                   'Recursos Humanos',
-  COMPLIANCE:           'Compliance',
-  OPERATIONS:           'Operações',
-  FINANCE:              'Finanças',
-  OTHER:                'Outro',
-};
-
 // ── Modal: Create / Edit Policy ───────────────────────────────
 function PolicyModal({
   onClose, onSave, initial,
 }: { onClose: () => void; onSave: (d: any) => void; initial?: any }) {
+  const t = useTranslations('policies');
+  const tCommon = useTranslations('common');
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    INFORMATION_SECURITY: t('category.INFORMATION_SECURITY'),
+    DATA_PROTECTION: t('category.DATA_PROTECTION'),
+    HR: t('category.HUMAN_RESOURCES'),
+    COMPLIANCE: t('category.COMPLIANCE'),
+    OPERATIONS: t('category.OPERATIONAL'),
+    FINANCE: 'Finanças',
+    OTHER: t('category.OTHER'),
+  };
+
   const [form, setForm] = useState({
     title: initial?.title ?? '',
     category: initial?.category ?? 'OTHER',
@@ -58,70 +54,70 @@ function PolicyModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{initial ? 'Editar Política' : 'Nova Política'}</h2>
+          <h2 className="text-lg font-semibold">{initial ? t('editPolicy') : t('newPolicy')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('policyName')} *</label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 value={form.title}
                 onChange={e => set('title', e.target.value)}
-                placeholder="Ex: Política de Segurança da Informação"
+                placeholder={t('titlePlaceholder') as string}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('reviewDate')}</label>
               <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.category} onChange={e => set('category', e.target.value)}>
                 {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Revisão</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('reviewDate')}</label>
               <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.reviewDate} onChange={e => set('reviewDate', e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Entrada em Vigor</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('effectiveDate')}</label>
               <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.effectiveDate} onChange={e => set('effectiveDate', e.target.value)} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Resumo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('summaryLabel')}</label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 value={form.description}
                 onChange={e => set('description', e.target.value)}
-                placeholder="Breve descrição do propósito desta política"
+                placeholder={t('descriptionPlaceholder') as string}
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Conteúdo *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('content')} *</label>
               <textarea
                 className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
                 rows={12}
                 value={form.content}
                 onChange={e => set('content', e.target.value)}
-                placeholder="Escreva o conteúdo completo da política aqui..."
+                placeholder={t('contentPlaceholder') as string}
               />
             </div>
             {initial && (
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nota de Alteração</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('changeNote')}</label>
                 <input
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                   value={form.changeNote}
                   onChange={e => set('changeNote', e.target.value)}
-                  placeholder="Descreva o que foi alterado (opcional)"
+                  placeholder={t('changeNotePlaceholder') as string}
                 />
               </div>
             )}
           </div>
         </div>
         <div className="p-6 border-t flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
           <Button onClick={handleSave}>
-            {initial ? 'Guardar Alterações' : 'Criar Política'}
+            {initial ? t('status.APPROVED') : t('newPolicy')}
           </Button>
         </div>
       </div>
@@ -133,6 +129,24 @@ function PolicyModal({
 function ViewPolicyModal({
   policy, onClose, onAction,
 }: { policy: any; onClose: () => void; onAction: (action: string) => void }) {
+  const t = useTranslations('policies');
+
+  const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    DRAFT:     { bg: 'bg-gray-100',   text: 'text-gray-700',   label: t('status.DRAFT') },
+    IN_REVIEW: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: t('status.IN_REVIEW') },
+    APPROVED:  { bg: 'bg-green-100',  text: 'text-green-800',  label: t('status.APPROVED') },
+    ARCHIVED:  { bg: 'bg-red-50',     text: 'text-red-700',    label: t('status.ARCHIVED') },
+  };
+  const CATEGORY_LABELS: Record<string, string> = {
+    INFORMATION_SECURITY: t('category.INFORMATION_SECURITY'),
+    DATA_PROTECTION: t('category.DATA_PROTECTION'),
+    HR: t('category.HUMAN_RESOURCES'),
+    COMPLIANCE: t('category.COMPLIANCE'),
+    OPERATIONS: t('category.OPERATIONAL'),
+    FINANCE: 'Finanças',
+    OTHER: t('category.OTHER'),
+  };
+
   const s = STATUS_STYLES[policy.status] ?? STATUS_STYLES.DRAFT;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -154,32 +168,32 @@ function ViewPolicyModal({
         <div className="px-6 py-3 border-b bg-gray-50 flex gap-2 flex-wrap">
           {policy.status === 'DRAFT' && (
             <Button size="sm" variant="outline" onClick={() => onAction('submit')} className="gap-1">
-              <Send className="w-3 h-3" /> Submeter para Revisão
+              <Send className="w-3 h-3" /> {t('submitForReview')}
             </Button>
           )}
           {policy.status === 'IN_REVIEW' && (
             <>
               <Button size="sm" onClick={() => onAction('approve')} className="gap-1 bg-green-600 hover:bg-green-700 text-white">
-                <ThumbsUp className="w-3 h-3" /> Aprovar
+                <ThumbsUp className="w-3 h-3" /> {t('approve')}
               </Button>
               <Button size="sm" variant="outline" onClick={() => onAction('revert')} className="gap-1">
-                <RotateCcw className="w-3 h-3" /> Devolver a Rascunho
+                <RotateCcw className="w-3 h-3" /> {t('revertToDraft')}
               </Button>
             </>
           )}
           {policy.status === 'APPROVED' && (
             <>
               <Button size="sm" onClick={() => onAction('acknowledge')} className="gap-1 bg-blue-600 hover:bg-blue-700 text-white">
-                <CheckCircle2 className="w-3 h-3" /> Confirmar Leitura
+                <CheckCircle2 className="w-3 h-3" /> {t('confirmReading')}
               </Button>
               <Button size="sm" variant="outline" onClick={() => onAction('archive')} className="gap-1">
-                <Archive className="w-3 h-3" /> Arquivar
+                <Archive className="w-3 h-3" /> {t('archive')}
               </Button>
             </>
           )}
           {policy.status === 'ARCHIVED' && (
             <Button size="sm" variant="outline" onClick={() => onAction('revert')} className="gap-1">
-              <RotateCcw className="w-3 h-3" /> Reativar como Rascunho
+              <RotateCcw className="w-3 h-3" /> {t('reactivateAsDraft')}
             </Button>
           )}
         </div>
@@ -189,25 +203,25 @@ function ViewPolicyModal({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
             {policy.owner && (
               <div>
-                <span className="text-gray-500 block">Responsável</span>
+                <span className="text-gray-500 block">{t('metaOwner')}</span>
                 <span className="font-medium">{policy.owner.firstName} {policy.owner.lastName}</span>
               </div>
             )}
             {policy.approver && (
               <div>
-                <span className="text-gray-500 block">Aprovado por</span>
+                <span className="text-gray-500 block">{t('metaApprovedBy')}</span>
                 <span className="font-medium">{policy.approver.firstName} {policy.approver.lastName}</span>
               </div>
             )}
             {policy.reviewDate && (
               <div>
-                <span className="text-gray-500 block">Revisão</span>
+                <span className="text-gray-500 block">{t('metaReview')}</span>
                 <span className="font-medium">{format(new Date(policy.reviewDate), 'dd/MM/yyyy')}</span>
               </div>
             )}
             {policy.effectiveDate && (
               <div>
-                <span className="text-gray-500 block">Vigência</span>
+                <span className="text-gray-500 block">{t('metaEffective')}</span>
                 <span className="font-medium">{format(new Date(policy.effectiveDate), 'dd/MM/yyyy')}</span>
               </div>
             )}
@@ -221,8 +235,8 @@ function ViewPolicyModal({
           {/* Stats */}
           {policy._count && (
             <div className="mt-4 flex gap-4 text-sm text-gray-500">
-              <span>{policy._count.acknowledgments} confirmações de leitura</span>
-              <span>{policy._count.versions} versões guardadas</span>
+              <span>{t('ackCount', { n: policy._count.acknowledgments })}</span>
+              <span>{t('versionCount', { n: policy._count.versions })}</span>
             </div>
           )}
         </div>
@@ -233,12 +247,30 @@ function ViewPolicyModal({
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function PoliciesPage() {
+  const t = useTranslations('policies');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<any>(null);
   const [viewingPolicy, setViewingPolicy] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+
+  const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    DRAFT:     { bg: 'bg-gray-100',   text: 'text-gray-700',   label: t('status.DRAFT') },
+    IN_REVIEW: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: t('status.IN_REVIEW') },
+    APPROVED:  { bg: 'bg-green-100',  text: 'text-green-800',  label: t('status.APPROVED') },
+    ARCHIVED:  { bg: 'bg-red-50',     text: 'text-red-700',    label: t('status.ARCHIVED') },
+  };
+  const CATEGORY_LABELS: Record<string, string> = {
+    INFORMATION_SECURITY: t('category.INFORMATION_SECURITY'),
+    DATA_PROTECTION: t('category.DATA_PROTECTION'),
+    HR: t('category.HUMAN_RESOURCES'),
+    COMPLIANCE: t('category.COMPLIANCE'),
+    OPERATIONS: t('category.OPERATIONAL'),
+    FINANCE: 'Finanças',
+    OTHER: t('category.OTHER'),
+  };
 
   const { data: stats } = useQuery({
     queryKey: ['policies', 'stats'],
@@ -283,11 +315,11 @@ export default function PoliciesPage() {
   });
 
   const statCards = [
-    { label: 'Total', value: stats?.total ?? 0, color: 'bg-blue-50 text-blue-700' },
-    { label: 'Aprovadas', value: stats?.byStatus?.APPROVED ?? 0, color: 'bg-green-50 text-green-700' },
-    { label: 'Em Revisão', value: stats?.byStatus?.IN_REVIEW ?? 0, color: 'bg-yellow-50 text-yellow-700' },
-    { label: 'Rascunhos', value: stats?.byStatus?.DRAFT ?? 0, color: 'bg-gray-50 text-gray-700' },
-    { label: 'A Rever em 30d', value: stats?.expiringSoon ?? 0, color: 'bg-red-50 text-red-700' },
+    { label: t('statTotal'), value: stats?.total ?? 0, color: 'bg-blue-50 text-blue-700' },
+    { label: t('statApproved'), value: stats?.byStatus?.APPROVED ?? 0, color: 'bg-green-50 text-green-700' },
+    { label: t('statInReview'), value: stats?.byStatus?.IN_REVIEW ?? 0, color: 'bg-yellow-50 text-yellow-700' },
+    { label: t('statDraft'), value: stats?.byStatus?.DRAFT ?? 0, color: 'bg-gray-50 text-gray-700' },
+    { label: t('statExpiringSoon'), value: stats?.expiringSoon ?? 0, color: 'bg-red-50 text-red-700' },
   ];
 
   return (
@@ -296,12 +328,12 @@ export default function PoliciesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-blue-600" /> Políticas
+            <BookOpen className="w-6 h-6 text-blue-600" /> {t('title')}
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Gestão do ciclo de vida de políticas e procedimentos da organização</p>
+          <p className="text-gray-500 text-sm mt-1">{t('descriptionSubtitle')}</p>
         </div>
         <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Nova Política
+          <Plus className="w-4 h-4" /> {t('newPolicy')}
         </Button>
       </div>
 
@@ -322,7 +354,7 @@ export default function PoliciesPage() {
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
         >
-          <option value="">Todos os estados</option>
+          <option value="">{t('allStatuses')}</option>
           {Object.entries(STATUS_STYLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         <select
@@ -330,7 +362,7 @@ export default function PoliciesPage() {
           value={categoryFilter}
           onChange={e => setCategoryFilter(e.target.value)}
         >
-          <option value="">Todas as categorias</option>
+          <option value="">{t('allCategories')}</option>
           {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
@@ -338,27 +370,27 @@ export default function PoliciesPage() {
       {/* Table */}
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-400">A carregar...</div>
+          <div className="p-8 text-center text-gray-400">{tCommon('loading')}</div>
         ) : policies.length === 0 ? (
           <div className="p-12 text-center">
             <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">Sem políticas</p>
-            <p className="text-gray-400 text-sm mt-1">Crie a primeira política da organização</p>
+            <p className="text-gray-500 font-medium">{t('noPolicies')}</p>
+            <p className="text-gray-400 text-sm mt-1">{t('noPoliciesDesc')}</p>
             <Button className="mt-4 gap-2" onClick={() => setShowCreate(true)}>
-              <Plus className="w-4 h-4" /> Nova Política
+              <Plus className="w-4 h-4" /> {t('newPolicy')}
             </Button>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Título</th>
-                <th className="text-left px-4 py-3 font-medium">Categoria</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
-                <th className="text-left px-4 py-3 font-medium">Versão</th>
-                <th className="text-left px-4 py-3 font-medium">Responsável</th>
-                <th className="text-left px-4 py-3 font-medium">Revisão</th>
-                <th className="text-left px-4 py-3 font-medium">Acks</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colTitle')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colCategory')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colStatus')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colVersion')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colOwner')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colReview')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colAcks')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -395,21 +427,21 @@ export default function PoliciesPage() {
                         <button
                           onClick={() => setViewingPolicy(p)}
                           className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Ver detalhes"
+                          title={tCommon('view') as string}
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setEditingPolicy(p)}
                           className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors"
-                          title="Editar"
+                          title={tCommon('edit') as string}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => { if (confirm('Eliminar esta política?')) removeMutation.mutate(p.id); }}
+                          onClick={() => { if (confirm(t('deleteConfirm') as string)) removeMutation.mutate(p.id); }}
                           className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
-                          title="Eliminar"
+                          title={tCommon('delete') as string}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
