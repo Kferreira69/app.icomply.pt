@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { evidenceApi } from '@/lib/api';
 import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react';
 import { cn, formatDate, formatBytes, formatRelative, getStatusColor } from '@/lib/utils';
@@ -13,6 +14,8 @@ function StatusIcon({ status }: { status: string }) {
 }
 
 function UploadModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('evidence');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -34,7 +37,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Carregar Evidência</h3>
+          <h3 className="text-lg font-bold text-gray-900">{t('uploadEvidence')}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -47,7 +50,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
             file ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary hover:bg-gray-50',
           )}
         >
-          <input ref={fileRef} type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setTitle(t => t || e.target.files![0].name); }}} />
+          <input ref={fileRef} type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setTitle(prev => prev || e.target.files![0].name); }}} />
           {file ? (
             <>
               <FileText className="w-8 h-8 text-primary mx-auto mb-2" />
@@ -57,32 +60,32 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           ) : (
             <>
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Clique para selecionar ficheiro</p>
-              <p className="text-xs text-gray-400">PDF, DOCX, XLSX, PNG, JPG (máx. 50 MB)</p>
+              <p className="text-sm text-gray-600">{t('clickToSelect')}</p>
+              <p className="text-xs text-gray-400">{t('fileTypes')}</p>
             </>
           )}
         </div>
 
         <div className="space-y-3 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')} *</label>
             <input value={title} onChange={e => setTitle(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="ex: Política de Segurança v2.1" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')}</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
         </div>
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+          <button onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
           <button
             onClick={() => uploadMutation.mutate()}
             disabled={!file || !title || uploadMutation.isPending}
             className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {uploadMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Carregar
+            {t('upload')}
           </button>
         </div>
       </div>
@@ -91,6 +94,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function EvidencePage() {
+  const t = useTranslations('evidence');
   const [showUpload, setShowUpload] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -101,6 +105,8 @@ export default function EvidencePage() {
 
   const evidences = data?.data || [];
 
+  const STATUS_KEYS = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -109,27 +115,27 @@ export default function EvidencePage() {
           onChange={e => setStatusFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
         >
-          <option value="">Todos os estados</option>
-          {['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'].map(s => (
-            <option key={s} value={s}>{s}</option>
+          <option value="">{t('allStatuses')}</option>
+          {STATUS_KEYS.map(s => (
+            <option key={s} value={s}>{t(`status.${s}`)}</option>
           ))}
         </select>
         <button
           onClick={() => setShowUpload(true)}
           className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
         >
-          <Upload className="w-4 h-4" /> Carregar Evidência
+          <Upload className="w-4 h-4" /> {t('uploadEvidence')}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
-        {['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'].map(s => (
+        {STATUS_KEYS.map(s => (
           <div key={s} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <p className="text-2xl font-bold text-gray-900">
               {evidences.filter((e: any) => e.status === s).length}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">{s}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t(`status.${s}`)}</p>
           </div>
         ))}
       </div>
@@ -143,7 +149,7 @@ export default function EvidencePage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Ficheiro', 'Associado a', 'Estado', 'Carregado por', 'Data', 'Tamanho'].map(h => (
+                {[t('colFile'), t('colLinkedTo'), t('colStatus'), t('colUploadedBy'), t('colDate'), t('colSize')].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
                 ))}
               </tr>
@@ -153,7 +159,7 @@ export default function EvidencePage() {
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400">
                     <FileText className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">Nenhuma evidência carregada</p>
+                    <p className="text-sm">{t('noEvidence')}</p>
                   </td>
                 </tr>
               ) : evidences.map((e: any) => (
@@ -173,7 +179,7 @@ export default function EvidencePage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <StatusIcon status={e.status} />
-                      <span className={cn('text-xs px-2 py-0.5 rounded-full', getStatusColor(e.status))}>{e.status}</span>
+                      <span className={cn('text-xs px-2 py-0.5 rounded-full', getStatusColor(e.status))}>{t(`status.${e.status}`)}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">

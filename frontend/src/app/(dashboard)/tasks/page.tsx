@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { tasksApi, projectsApi } from '@/lib/api';
 import { Plus, Search, CheckSquare, Loader2, Calendar, Pencil, LayoutGrid, List, MessageSquare } from 'lucide-react';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
@@ -10,17 +11,16 @@ import { useForm } from 'react-hook-form';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
-const STATUS_LABELS: Record<string, string> = {
-  TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão', DONE: 'Concluído', CANCELLED: 'Cancelado',
-};
 
 // ── List row ──────────────────────────────────────────────────
 
-function TaskRow({ task, onStatusChange, onEdit, onOpenDetail }: {
+function TaskRow({ task, onStatusChange, onEdit, onOpenDetail, statusLabels, editLabel }: {
   task: any;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: any) => void;
   onOpenDetail: (taskId: string) => void;
+  statusLabels: Record<string, string>;
+  editLabel: string;
 }) {
   return (
     <tr className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', isOverdue(task.dueDate) && task.status !== 'DONE' && 'bg-red-50/30')}>
@@ -41,7 +41,7 @@ function TaskRow({ task, onStatusChange, onEdit, onOpenDetail }: {
           onChange={e => onStatusChange(task.id, e.target.value)}
           className={cn('text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer', getStatusColor(task.status))}
         >
-          {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          {STATUSES.map(s => <option key={s} value={s}>{statusLabels[s]}</option>)}
         </select>
       </td>
       <td className="px-4 py-3">
@@ -77,7 +77,7 @@ function TaskRow({ task, onStatusChange, onEdit, onOpenDetail }: {
               <CheckSquare className="w-3 h-3" />{task._count.subtasks}
             </button>
           )}
-          <button onClick={() => onEdit(task)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title="Editar">
+          <button onClick={() => onEdit(task)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title={editLabel}>
             <Pencil className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -89,6 +89,8 @@ function TaskRow({ task, onStatusChange, onEdit, onOpenDetail }: {
 // ── Edit modal ────────────────────────────────────────────────
 
 function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
+  const t = useTranslations('tasks');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const { register, handleSubmit } = useForm({
     defaultValues: {
@@ -107,36 +109,36 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Editar Tarefa</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('editTask')}</h3>
         <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')} *</label>
             <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')}</label>
             <textarea {...register('description')} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('priority')}</label>
               <select {...register('priority')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
                 {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(p => <option key={p}>{p}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('dueDate')}</label>
               <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
           {updateMutation.isError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">Erro ao guardar. Tente novamente.</p>
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{t('saveError')}</p>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
             <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Guardar
+              {tCommon('save')}
             </button>
           </div>
         </form>
@@ -148,6 +150,8 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
 // ── Main page ─────────────────────────────────────────────────
 
 export default function TasksPage() {
+  const t = useTranslations('tasks');
+  const tCommon = useTranslations('common');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [view, setView] = useState<'list' | 'kanban'>('list');
@@ -155,6 +159,14 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const qc = useQueryClient();
+
+  const STATUS_LABELS: Record<string, string> = {
+    TODO: t('status.TODO'),
+    IN_PROGRESS: t('status.IN_PROGRESS'),
+    IN_REVIEW: t('status.IN_REVIEW'),
+    DONE: t('status.DONE'),
+    CANCELLED: t('status.CANCELLED'),
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['tasks', { status: statusFilter }],
@@ -178,11 +190,11 @@ export default function TasksPage() {
 
   const { register, handleSubmit, reset } = useForm();
 
-  const tasks = (data?.data || []).filter((t: any) =>
-    !search || t.title.toLowerCase().includes(search.toLowerCase()),
+  const tasks = (data?.data || []).filter((task: any) =>
+    !search || task.title.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const overdueCount = tasks.filter((t: any) => isOverdue(t.dueDate) && t.status !== 'DONE').length;
+  const overdueCount = tasks.filter((task: any) => isOverdue(task.dueDate) && task.status !== 'DONE').length;
 
   return (
     <div className="space-y-4">
@@ -194,7 +206,7 @@ export default function TasksPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Pesquisar tarefas..."
+              placeholder={t('searchPlaceholder') as string}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -205,7 +217,7 @@ export default function TasksPage() {
               onChange={e => setStatusFilter(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
             >
-              <option value="">Todos os estados</option>
+              <option value="">{t('allStatuses')}</option>
               {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
             </select>
           )}
@@ -214,7 +226,7 @@ export default function TasksPage() {
         <div className="flex items-center gap-2">
           {overdueCount > 0 && (
             <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-              {overdueCount} em atraso
+              {t('overdueCount', { count: overdueCount })}
             </span>
           )}
 
@@ -223,14 +235,14 @@ export default function TasksPage() {
             <button
               onClick={() => setView('list')}
               className={cn('p-1.5 rounded-md transition-all', view === 'list' ? 'bg-white shadow text-primary' : 'text-gray-400 hover:text-gray-600')}
-              title="Vista Lista"
+              title={t('viewList') as string}
             >
               <List className="w-4 h-4" />
             </button>
             <button
               onClick={() => setView('kanban')}
               className={cn('p-1.5 rounded-md transition-all', view === 'kanban' ? 'bg-white shadow text-primary' : 'text-gray-400 hover:text-gray-600')}
-              title="Vista Kanban"
+              title={t('viewKanban') as string}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -240,7 +252,7 @@ export default function TasksPage() {
             onClick={() => { reset(); setShowNew(true); }}
             className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
           >
-            <Plus className="w-4 h-4" /> Nova Tarefa
+            <Plus className="w-4 h-4" /> {t('newTask')}
           </button>
         </div>
       </div>
@@ -248,7 +260,7 @@ export default function TasksPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-5 gap-3">
         {STATUSES.map(s => {
-          const count = (data?.data || []).filter((t: any) => t.status === s).length;
+          const count = (data?.data || []).filter((task: any) => task.status === s).length;
           return (
             <button
               key={s}
@@ -282,7 +294,7 @@ export default function TasksPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Tarefa', 'Estado', 'Prioridade', 'Responsável', 'Prazo', ''].map(h => (
+                {[t('colTask'), t('colStatus'), t('colPriority'), t('colAssignee'), t('colDueDate'), ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -292,22 +304,24 @@ export default function TasksPage() {
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400">
                     <CheckSquare className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">Nenhuma tarefa encontrada</p>
+                    <p className="text-sm">{t('noTasks')}</p>
                   </td>
                 </tr>
-              ) : tasks.map((t: any) => (
+              ) : tasks.map((task: any) => (
                 <TaskRow
-                  key={t.id}
-                  task={t}
+                  key={task.id}
+                  task={task}
                   onStatusChange={(id, status) => updateMutation.mutate({ id, status })}
                   onEdit={setEditingTask}
                   onOpenDetail={setDetailTaskId}
+                  statusLabels={STATUS_LABELS}
+                  editLabel={tCommon('edit') as string}
                 />
               ))}
             </tbody>
           </table>
           <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
-            {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''} · {data?.total ?? 0} total
+            {tasks.length === 1 ? t('taskCount', { n: tasks.length, total: data?.total ?? 0 }) : t('taskCountPlural', { n: tasks.length, total: data?.total ?? 0 })}
           </div>
         </div>
       )}
@@ -328,45 +342,45 @@ export default function TasksPage() {
       {showNew && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Nova Tarefa</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">{t('newTask')}</h3>
             <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Projeto *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('project')} *</label>
                 <select {...register('projectId', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-                  <option value="">Selecionar projeto...</option>
+                  <option value="">{t('selectProject')}</option>
                   {projects?.data?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Título da tarefa..." />
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')} *</label>
+                <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder={t('taskTitlePlaceholder') as string} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')}</label>
                 <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('priority')}</label>
                   <select {...register('priority')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
                     {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dueDate')}</label>
                   <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
                 </div>
               </div>
               {createMutation.isError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  Erro ao criar tarefa. Verifique os campos e tente novamente.
+                  {t('createError')}
                 </p>
               )}
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+                <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
                 <button type="submit" disabled={createMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
                   {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Criar
+                  {tCommon('create')}
                 </button>
               </div>
             </form>

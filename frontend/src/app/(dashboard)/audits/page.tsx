@@ -2,19 +2,12 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { auditsApi, projectsApi } from '@/lib/api';
 import { Plus, Search, ClipboardList, Loader2, Calendar, ChevronRight } from 'lucide-react';
 import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
-
-const AUDIT_TYPE_LABELS: Record<string, string> = {
-  INTERNAL: 'Interno', EXTERNAL: 'Externo', CERTIFICATION: 'Certificação', SURVEILLANCE: 'Vigilância',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  PLANNED: 'Planeado', IN_PROGRESS: 'Em Curso', COMPLETED: 'Concluído', CANCELLED: 'Cancelado',
-};
 
 const STATUS_COLORS: Record<string, string> = {
   PLANNED: 'bg-blue-50 text-blue-700',
@@ -24,8 +17,17 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function NewAuditModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('audits');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm();
+
+  const AUDIT_TYPE_LABELS: Record<string, string> = {
+    INTERNAL: t('type.INTERNAL'),
+    EXTERNAL: t('type.EXTERNAL'),
+    CERTIFICATION: t('type.CERTIFICATION'),
+    SURVEILLANCE: t('type.SURVEILLANCE'),
+  };
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -40,10 +42,10 @@ function NewAuditModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Nova Auditoria</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('newAudit')}</h3>
         <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')} *</label>
             <input
               {...register('title', { required: true })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
@@ -52,60 +54,60 @@ function NewAuditModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('colType')}</label>
               <select {...register('type')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
                 {Object.entries(AUDIT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Projeto</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')}</label>
               <select {...register('projectId')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-                <option value="">Nenhum</option>
+                <option value="">{t('noneProject')}</option>
                 {projects?.data?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Início</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('startDate')}</label>
               <input {...register('startDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Fim</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('endDate')}</label>
               <input {...register('endDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Auditor Líder</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('colLeadAuditor')}</label>
             <input
               {...register('leadAuditor')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
-              placeholder="Nome do auditor líder"
+              placeholder={t('leadAuditorPlaceholder') as string}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Âmbito</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('scope')}</label>
             <textarea
               {...register('scope')}
               rows={2}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-              placeholder="Descreva o âmbito da auditoria..."
+              placeholder={t('scopePlaceholder') as string}
             />
           </div>
           {createMutation.isError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              Erro ao criar auditoria. Verifique os campos e tente novamente.
+              {t('createError')}
             </p>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
             <button
               type="submit"
               disabled={createMutation.isPending}
               className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Criar Auditoria
+              {t('newAudit')}
             </button>
           </div>
         </form>
@@ -115,9 +117,25 @@ function NewAuditModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function AuditsPage() {
+  const t = useTranslations('audits');
+  const tCommon = useTranslations('common');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showNew, setShowNew] = useState(false);
+
+  const AUDIT_TYPE_LABELS: Record<string, string> = {
+    INTERNAL: t('type.INTERNAL'),
+    EXTERNAL: t('type.EXTERNAL'),
+    CERTIFICATION: t('type.CERTIFICATION'),
+    SURVEILLANCE: t('type.SURVEILLANCE'),
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    PLANNED: t('status.PLANNED'),
+    IN_PROGRESS: t('status.IN_PROGRESS'),
+    COMPLETED: t('status.COMPLETED'),
+    CANCELLED: t('status.CANCELLED'),
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['audits', statusFilter],
@@ -139,9 +157,9 @@ export default function AuditsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Planeadas', value: summary.planned, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Em Curso', value: summary.inProgress, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-          { label: 'Concluídas', value: summary.completed, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: t('summaryPlanned'), value: summary.planned, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: t('summaryInProgress'), value: summary.inProgress, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+          { label: t('summaryCompleted'), value: summary.completed, color: 'text-green-600', bg: 'bg-green-50' },
         ].map(c => (
           <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
             <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', c.bg)}>
@@ -163,7 +181,7 @@ export default function AuditsPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Pesquisar auditorias..."
+              placeholder={t('searchPlaceholder') as string}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -172,7 +190,7 @@ export default function AuditsPage() {
             onChange={e => setStatusFilter(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
           >
-            <option value="">Todos os estados</option>
+            <option value="">{t('allStatuses')}</option>
             {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
@@ -180,7 +198,7 @@ export default function AuditsPage() {
           onClick={() => setShowNew(true)}
           className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
         >
-          <Plus className="w-4 h-4" /> Nova Auditoria
+          <Plus className="w-4 h-4" /> {t('newAudit')}
         </button>
       </div>
 
@@ -194,7 +212,7 @@ export default function AuditsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Auditoria', 'Tipo', 'Estado', 'Período', 'Auditor Líder', 'Achados', ''].map(h => (
+                {[t('colAudit'), t('colType'), t('colStatus'), t('colPeriod'), t('colLeadAuditor'), t('colFindings'), ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -204,7 +222,7 @@ export default function AuditsPage() {
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-gray-400">
                     <ClipboardList className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">Nenhuma auditoria encontrada</p>
+                    <p className="text-sm">{t('noAudits')}</p>
                   </td>
                 </tr>
               ) : audits.map((a: any) => (
@@ -236,7 +254,7 @@ export default function AuditsPage() {
                   <td className="px-4 py-3">
                     {a._count?.findings > 0 ? (
                       <span className="text-xs bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded font-medium">
-                        {a._count.findings} achado{a._count.findings !== 1 ? 's' : ''}
+                        {a._count.findings === 1 ? t('findingCount', { n: a._count.findings }) : t('findingCountPlural', { n: a._count.findings })}
                       </span>
                     ) : <span className="text-xs text-gray-400">—</span>}
                   </td>
@@ -250,7 +268,7 @@ export default function AuditsPage() {
             </tbody>
           </table>
           <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
-            {audits.length} auditoria{audits.length !== 1 ? 's' : ''} · {data?.total ?? 0} total
+            {audits.length === 1 ? t('auditCount', { n: audits.length, total: data?.total ?? 0 }) : t('auditCountPlural', { n: audits.length, total: data?.total ?? 0 })}
           </div>
         </div>
       )}
