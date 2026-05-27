@@ -8,7 +8,7 @@ import {
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
-  Activity, MessageSquareWarning, Globe,
+  Activity, MessageSquareWarning, Globe, BotMessageSquare,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -32,6 +32,7 @@ const navItems = [
   { href: '/vendors',      label: 'Fornecedores',     icon: Building2 },
   { href: '/soa',          label: 'SoA ISO 27001',    icon: FileCheck2 },
   { href: '/excel-import', label: 'Importar Excel',   icon: Upload },
+  { href: '/ai-assistant', label: 'Assistente IA',   icon: BotMessageSquare },
 ];
 
 const settingsItems = [

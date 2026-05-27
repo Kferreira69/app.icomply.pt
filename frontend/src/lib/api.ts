@@ -335,6 +335,11 @@ export const trustCenterApi = {
   updateSettings: (data: any) => api.patch('/trust-center/settings', data),
 };
 
+export const aiAssistantApi = {
+  chat: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) =>
+    api.post('/ai-assistant/chat', { messages }),
+};
+
 export const translationsApi = {
   listOverrides: (locale?: string) =>
     api.get('/translations', { params: locale ? { locale } : {} }),

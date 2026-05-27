@@ -26,6 +26,7 @@ const pageTitles: Record<string, string> = {
   '/policies': 'Políticas',
   '/gdpr': 'GDPR / ROPA',
   '/nis2': 'NIS2',
+  '/ai-assistant': 'Assistente IA de Conformidade',
 };
 
 export function Topbar() {

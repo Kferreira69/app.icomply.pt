@@ -31,6 +31,7 @@ import { DoraModule } from './dora/dora.module';
 import { TranslationsModule } from './translations/translations.module';
 import { WhistleblowModule } from './whistleblow/whistleblow.module';
 import { TrustCenterModule } from './trust-center/trust-center.module';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { TrustCenterModule } from './trust-center/trust-center.module';
     TranslationsModule,
     WhistleblowModule,
     TrustCenterModule,
+    AiAssistantModule,
   ],
 })
 export class AppModule {}
