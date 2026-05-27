@@ -3,9 +3,11 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
 import * as path from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -17,7 +19,10 @@ async function bootstrap() {
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isProd = nodeEnv === 'production';
 
-  // ── Security headers (Helmet) ─────────────────────────────
+  // ── Cookie parser (required for HttpOnly cookie JWT) ──────────
+  app.use(cookieParser());
+
+  // ── Security headers (Helmet) ─────────────────────────────────
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -29,40 +34,39 @@ async function bootstrap() {
           connectSrc: ["'self'"],
         },
       },
-      crossOriginEmbedderPolicy: false, // allow Swagger UI to load
+      crossOriginEmbedderPolicy: false, // allow Swagger UI
       hsts: isProd
         ? { maxAge: 31536000, includeSubDomains: true, preload: true }
         : false,
     }),
   );
 
-  // ── Global prefix ────────────────────────────────────────
+  // ── Global prefix ─────────────────────────────────────────────
   app.setGlobalPrefix('api/v1');
 
-  // ── CORS ─────────────────────────────────────────────────
+  // ── CORS ──────────────────────────────────────────────────────
   const corsOrigins = [
     'http://localhost:3000',
-    // Production
     'https://app.icomply.pt',
     'https://icomply.pt',
-    // Staging
     'https://staging.icomply.pt',
-    // Dev on VPS
     'https://dev.icomply.pt',
   ];
-  // Allow additional origins from env (comma-separated)
   const extraOrigins = configService.get<string>('CORS_ORIGINS', '');
   if (extraOrigins) {
     corsOrigins.push(...extraOrigins.split(',').map(o => o.trim()));
   }
   app.enableCors({
     origin: corsOrigins,
-    credentials: true,
+    credentials: true, // required for cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
   });
 
-  // ── Global pipes ─────────────────────────────────────────
+  // ── Global exception filter (no stack traces in prod) ─────────
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // ── Global pipes ──────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -72,12 +76,12 @@ async function bootstrap() {
     }),
   );
 
-  // ── Global interceptors ──────────────────────────────────
+  // ── Global interceptors ───────────────────────────────────────
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector)),
   );
 
-  // ── Swagger ───────────────────────────────────────────────
+  // ── Swagger ───────────────────────────────────────────────────
   if (configService.get<string>('ENABLE_SWAGGER') !== 'false') {
     const config = new DocumentBuilder()
       .setTitle('iComply API')
@@ -87,6 +91,7 @@ async function bootstrap() {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'JWT',
       )
+      .addCookieAuth('access_token')
       .addTag('Auth', 'Authentication & authorization')
       .addTag('Organizations', 'Tenant management')
       .addTag('Users', 'User management')
@@ -110,13 +115,12 @@ async function bootstrap() {
     });
   }
 
-  // ── Local file uploads serving (fallback when S3 not configured) ─
+  // ── Static uploads ────────────────────────────────────────────
   const uploadDir = configService.get<string>(
     'LOCAL_UPLOAD_DIR',
     path.join(process.cwd(), 'uploads'),
   );
   fs.mkdirSync(uploadDir, { recursive: true });
-  // Use express static via the underlying http adapter (express is bundled with @nestjs/platform-express)
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   app.use('/api/v1/uploads', require('express').static(uploadDir));
 

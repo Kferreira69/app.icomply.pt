@@ -1,7 +1,9 @@
 import {
-  Controller, Post, Get, Body, Patch, UseGuards, HttpCode, HttpStatus, Request,
+  Controller, Post, Get, Body, Patch, UseGuards,
+  HttpCode, HttpStatus, Request, Response,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Response as Res, Request as Req } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -11,6 +13,20 @@ import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 8 * 60 * 60 * 1000, // 8h — matches JWT_EXPIRES_IN default
+};
+
+const REFRESH_COOKIE_OPTIONS = {
+  ...COOKIE_OPTIONS,
+  path: '/api/v1/auth/refresh',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
+};
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -19,17 +35,56 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login and obtain JWT token' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  @ApiOperation({ summary: 'Login — sets HttpOnly cookie and returns tokens' })
+  async login(
+    @Body() dto: LoginDto,
+    @Response({ passthrough: true }) res: Res,
+  ) {
+    const result = await this.authService.login(dto);
+
+    // Set tokens in HttpOnly cookies (SPA can also use the returned tokens)
+    res.cookie('access_token', result.accessToken, COOKIE_OPTIONS);
+    res.cookie('refresh_token', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+
+    return result;
+  }
+
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logout — revokes token and clears cookies' })
+  async logout(
+    @Request() req: Req,
+    @Response({ passthrough: true }) res: Res,
+  ) {
+    // Revoke the token (from cookie or Authorization header)
+    const token =
+      req.cookies?.access_token ||
+      req.headers.authorization?.replace('Bearer ', '');
+
+    if (token) await this.authService.logout(token);
+
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/api/v1/auth/refresh' });
+
+    return { message: 'Logged out successfully' };
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
-  refresh(@Body('refreshToken') token: string) {
-    return this.authService.refreshToken(token);
+  async refresh(
+    @Request() req: Req,
+    @Body('refreshToken') bodyToken: string,
+    @Response({ passthrough: true }) res: Res,
+  ) {
+    const token = req.cookies?.refresh_token || bodyToken;
+    const result = await this.authService.refreshToken(token);
+
+    res.cookie('access_token', result.accessToken, COOKIE_OPTIONS);
+
+    return result;
   }
 
   @Public()
@@ -52,8 +107,16 @@ export class AuthController {
   @Post('accept-invite')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept email invitation and set password' })
-  acceptInvite(@Body() dto: AcceptInviteDto) {
-    return this.authService.acceptInvite(dto.token, dto.password, dto.firstName, dto.lastName);
+  async acceptInvite(
+    @Body() dto: AcceptInviteDto,
+    @Response({ passthrough: true }) res: Res,
+  ) {
+    const result = await this.authService.acceptInvite(
+      dto.token, dto.password, dto.firstName, dto.lastName,
+    );
+    res.cookie('access_token', result.accessToken, COOKIE_OPTIONS);
+    res.cookie('refresh_token', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+    return result;
   }
 
   @ApiBearerAuth('JWT')

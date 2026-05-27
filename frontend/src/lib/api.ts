@@ -7,6 +7,7 @@ export const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
+  withCredentials: true, // send & receive HttpOnly cookies
 });
 
 // ── Request interceptor: attach JWT ─────────────────────────
@@ -56,6 +57,7 @@ api.interceptors.response.use(
 export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
+  logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
   forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
   resetPassword: (data: { token: string; newPassword: string }) =>

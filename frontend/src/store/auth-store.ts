@@ -20,23 +20,44 @@ interface AuthState {
   setUser: (user: User) => void;
   setTokens: (access: string, refresh: string) => void;
   logout: () => void;
+  logoutWithServer: () => Promise<void>;
 }
+
+const clearAuth = {
+  user: null,
+  accessToken: null,
+  refreshToken: null,
+  isAuthenticated: false,
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
+    (set, get) => ({
+      ...clearAuth,
 
       setUser: (user) => set({ user, isAuthenticated: true }),
 
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken, isAuthenticated: true }),
 
-      logout: () =>
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      /** Silent local-only logout (used by interceptor on 401). */
+      logout: () => set(clearAuth),
+
+      /**
+       * Full logout: calls /auth/logout to revoke the server-side token
+       * and clear HttpOnly cookies, then clears local state.
+       */
+      logoutWithServer: async () => {
+        try {
+          // Import lazily to avoid circular dep at module load time
+          const { authApi } = await import('@/lib/api');
+          await authApi.logout();
+        } catch {
+          // Best-effort — clear local state regardless
+        } finally {
+          set(clearAuth);
+        }
+      },
     }),
     {
       name: 'icomply-auth',

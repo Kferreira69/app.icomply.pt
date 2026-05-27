@@ -136,7 +136,7 @@ function DomainGroup({
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const { user, logoutWithServer } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const t = useTranslations('nav');
 
@@ -449,7 +449,7 @@ export function Sidebar() {
         )}
         <LocaleSwitcher collapsed={collapsed} />
         <button
-          onClick={logout}
+          onClick={logoutWithServer}
           className="flex items-center gap-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg px-3 py-2 text-sm w-full transition-colors mt-1"
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
