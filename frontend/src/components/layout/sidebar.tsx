@@ -9,7 +9,7 @@ import {
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
-  Activity, MessageSquareWarning, Globe, BotMessageSquare,
+  Activity, MessageSquareWarning, Globe, Bot,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -39,7 +39,7 @@ export function Sidebar() {
     { href: '/vendors',      label: t('vendors'),     icon: Building2 },
     { href: '/soa',          label: t('soa'),         icon: FileCheck2 },
     { href: '/excel-import', label: t('import'),      icon: Upload },
-    { href: '/ai-assistant', label: t('aiAssistant'), icon: BotMessageSquare },
+    { href: '/ai-assistant', label: t('aiAssistant'), icon: Bot },
   ];
 
   const settingsItems = [

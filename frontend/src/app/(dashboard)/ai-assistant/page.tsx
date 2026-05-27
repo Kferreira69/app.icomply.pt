@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { aiAssistantApi } from '@/lib/api';
 import {
-  BotMessageSquare, Send, User, Sparkles, RefreshCw,
+  Bot, Send, User, Sparkles, RefreshCw,
   Shield, AlertTriangle, ClipboardCheck, FileText,
   BookOpen, Activity,
 } from 'lucide-react';
@@ -55,7 +55,7 @@ function MessageBubble({ message }: { message: Message }) {
     <div className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 mt-1">
-          <BotMessageSquare className="w-4 h-4 text-white" />
+          <Bot className="w-4 h-4 text-white" />
         </div>
       )}
       <div
@@ -133,7 +133,7 @@ function TypingIndicator() {
   return (
     <div className="flex gap-3 justify-start">
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0">
-        <BotMessageSquare className="w-4 h-4 text-white" />
+        <Bot className="w-4 h-4 text-white" />
       </div>
       <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
         <div className="flex gap-1 items-center h-5">
@@ -214,7 +214,7 @@ export default function AiAssistantPage() {
       <div className="bg-white border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-            <BotMessageSquare className="w-5 h-5 text-white" />
+            <Bot className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
