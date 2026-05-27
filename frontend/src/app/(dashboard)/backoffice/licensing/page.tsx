@@ -124,7 +124,7 @@ function ClientDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }
         notes: license.notes || '',
       });
       const map: Record<string, any> = {};
-      for (const m of licence?.modules || []) {
+      for (const m of license?.modules || []) {
         map[m.module] = { ...m };
       }
       setModuleMap(map);
