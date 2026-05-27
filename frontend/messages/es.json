@@ -111,7 +111,10 @@
     "confirmPassword": "Confirmar contraseña",
     "setNewPassword": "Establecer nueva contraseña",
     "passwordMismatch": "Las contraseñas no coinciden",
-    "invalidCredentials": "Credenciales inválidas"
+    "invalidCredentials": "Credenciales inválidas",
+    "invalidEmail": "Correo electrónico inválido",
+    "minPassword": "Mínimo 8 caracteres",
+    "signingIn": "Iniciando sesión..."
   },
   "dashboard": {
     "title": "Panel de control",

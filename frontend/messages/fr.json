@@ -111,7 +111,10 @@
     "confirmPassword": "Confirmer le mot de passe",
     "setNewPassword": "Définir un nouveau mot de passe",
     "passwordMismatch": "Les mots de passe ne correspondent pas",
-    "invalidCredentials": "Identifiants invalides"
+    "invalidCredentials": "Identifiants invalides",
+    "invalidEmail": "E-mail invalide",
+    "minPassword": "8 caractères minimum",
+    "signingIn": "Connexion en cours..."
   },
   "dashboard": {
     "title": "Tableau de bord",

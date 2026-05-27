@@ -111,7 +111,10 @@
     "confirmPassword": "Confirm password",
     "setNewPassword": "Set new password",
     "passwordMismatch": "Passwords do not match",
-    "invalidCredentials": "Invalid credentials"
+    "invalidCredentials": "Invalid credentials",
+    "invalidEmail": "Invalid email",
+    "minPassword": "Minimum 8 characters",
+    "signingIn": "Signing in..."
   },
   "dashboard": {
     "title": "Dashboard",
