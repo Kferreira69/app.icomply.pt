@@ -36,6 +36,7 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { LicensingModule } from './licensing/licensing.module';
 import { HrComplianceModule } from './hr-compliance/hr-compliance.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
+import { UnifiedControlsModule } from './unified-controls/unified-controls.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { AiGovernanceModule } from './ai-governance/ai-governance.module';
     LicensingModule,
     HrComplianceModule,
     AiGovernanceModule,
+    UnifiedControlsModule,
   ],
 })
 export class AppModule {}

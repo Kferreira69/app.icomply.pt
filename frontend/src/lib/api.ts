@@ -426,3 +426,28 @@ export const aiGovernanceApi = {
   updateControl:    (id: string, data: any) => api.put(`/ai-governance/iso42001/${id}`, data),
   bulkUpdateControls: (updates: any[])      => api.put('/ai-governance/iso42001/bulk', { updates }),
 };
+
+// ── Unified Controls (Cross-Framework Engine) ─────────────────
+
+export const unifiedControlsApi = {
+  // Analytics
+  dashboard:       ()                      => api.get('/unified-controls/dashboard'),
+  coverageMatrix:  ()                      => api.get('/unified-controls/coverage-matrix'),
+  gapImpact:       ()                      => api.get('/unified-controls/gap-impact'),
+  // Controls
+  list:            (params?: any)          => api.get('/unified-controls', { params }),
+  create:          (data: any)             => api.post('/unified-controls', data),
+  update:          (id: string, data: any) => api.put(`/unified-controls/${id}`, data),
+  bulkUpdateStatus:(updates: any[])        => api.put('/unified-controls/bulk/status', { updates }),
+  // Seed from catalogue
+  seed:            (domains: string[])     => api.post('/unified-controls/seed', { domains }),
+  // Evidence linking
+  linkEvidence:    (id: string, evidenceId: string, notes?: string) =>
+    api.post(`/unified-controls/${id}/evidence/${evidenceId}`, { notes }),
+  unlinkEvidence:  (id: string, evidenceId: string) =>
+    api.delete(`/unified-controls/${id}/evidence/${evidenceId}`),
+  // Regulatory obligations
+  listObligations:   (params?: any)          => api.get('/unified-controls/obligations', { params }),
+  createObligation:  (data: any)             => api.post('/unified-controls/obligations', data),
+  updateObligation:  (id: string, data: any) => api.put(`/unified-controls/obligations/${id}`, data),
+};

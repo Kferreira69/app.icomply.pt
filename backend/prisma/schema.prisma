@@ -289,6 +289,8 @@ model Organization {
   whistleblowTrainings   WhistleblowTraining[]
   trustCenter            TrustCenterSettings?
   license                License?
+  unifiedControls        UnifiedControl[]
+  regulatoryObligations  RegulatoryObligation[]
   hrSalaryBands          HrSalaryBand[]
   hrShstIncidents        HrShstIncident[]
   hrContracts            HrContract[]
@@ -659,6 +661,7 @@ model Risk {
   project      Project?     @relation(fields: [projectId], references: [id])
   owner        User?        @relation(fields: [ownerId], references: [id])
   evidences    Evidence[]
+  unifiedControlLinks UnifiedControlRisk[]
 
   @@map("risks")
 }
@@ -694,6 +697,7 @@ model Evidence {
   control    Control?  @relation(fields: [controlId], references: [id])
   risk       Risk?     @relation(fields: [riskId], references: [id])
   uploadedBy User      @relation(fields: [uploadedById], references: [id])
+  unifiedControlLinks UnifiedControlEvidence[]
 
   @@map("evidences")
 }
@@ -1514,6 +1518,133 @@ model WhistleblowTrainingAttendee {
   @@unique([trainingId, userId])
   @@index([trainingId])
   @@map("whistleblow_training_attendees")
+}
+
+// ─────────────────────────────────────────────────────────────
+// UNIFIED CONTROL FRAMEWORK ENGINE
+// Core world-class architecture: control-centric, cross-framework
+// One control → many frameworks → one evidence base
+// ─────────────────────────────────────────────────────────────
+
+// Governance domains (top-level organizational construct)
+enum GovernanceDomain {
+  SECURITY           // ISO 27001, NIS2, DORA, SOC2, CIS
+  PRIVACY            // GDPR, ISO 27701, ePrivacy
+  AI_GOVERNANCE      // EU AI Act, ISO 42001, NIST AI RMF
+  ETHICS_SPEAKUP     // RGPC, Whistleblowing, Code of Conduct
+  WORKFORCE          // HR Compliance, Pay Transparency, SHST
+  THIRD_PARTY        // Vendor Risk, TPRM, Outsourcing
+  AUDIT_ASSURANCE    // Internal Audit, CAPA, Continuous Monitoring
+  REGULATORY_CHANGE  // Horizon scanning, Obligation tracking
+  AML_FINANCIAL      // AML/KYC, Anti-Bribery, Sanctions
+  ESG                // CSRD, ESG Reporting, Sustainability
+  DATA_RECORDS       // Retention, Data Lifecycle, Records Management
+  RESILIENCE         // BCP, ISO 22301, Crisis Management
+  QUALITY            // ISO 9001, Process Governance
+  CORPORATE          // Policies, Board Governance, Delegations
+}
+
+// Master control library — framework-agnostic, cross-mapped
+model UnifiedControl {
+  id             String           @id @default(uuid())
+  organizationId String
+  domain         GovernanceDomain
+  controlId      String           // e.g. "PAM-001", "DATA-003"
+  title          String
+  description    String?
+  objective      String?          // What this control achieves
+
+  // Cross-framework mapping: which standards require this control
+  // e.g. ["ISO27001:A.8.1", "NIS2:Art21.2a", "DORA:Art9", "SOC2:CC6.1"]
+  frameworkMappings String[]      @default([])
+
+  // Implementation
+  status         String           @default("NOT_STARTED")
+  // NOT_STARTED | PLANNED | IN_PROGRESS | IMPLEMENTED | VERIFIED | NOT_APPLICABLE
+  implementationNotes String?
+  automationLevel String?         // MANUAL | PARTIAL | AUTOMATED
+  testingFrequency String?        // CONTINUOUS | MONTHLY | QUARTERLY | ANNUAL
+  owner          String?
+  targetDate     DateTime?
+  lastTestedAt   DateTime?
+  nextReviewAt   DateTime?
+
+  // Justification if N/A
+  applicable     Boolean          @default(true)
+  naJustification String?
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  evidenceLinks  UnifiedControlEvidence[]
+  riskLinks      UnifiedControlRisk[]
+
+  @@unique([organizationId, controlId])
+  @@index([organizationId, domain])
+  @@index([organizationId, status])
+  @@map("unified_controls")
+}
+
+// Evidence reuse: one piece of evidence can satisfy many controls
+model UnifiedControlEvidence {
+  id          String        @id @default(uuid())
+  controlId   String
+  evidenceId  String
+  notes       String?
+  linkedAt    DateTime      @default(now())
+  linkedBy    String?
+
+  control     UnifiedControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  evidence    Evidence       @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, evidenceId])
+  @@map("unified_control_evidences")
+}
+
+// Risk linkage: risks map to controls (not to frameworks)
+model UnifiedControlRisk {
+  id        String         @id @default(uuid())
+  controlId String
+  riskId    String
+  notes     String?
+  linkedAt  DateTime       @default(now())
+
+  control   UnifiedControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  risk      Risk           @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, riskId])
+  @@map("unified_control_risks")
+}
+
+// Regulatory obligation tracking — horizon scanning
+model RegulatoryObligation {
+  id              String   @id @default(uuid())
+  organizationId  String
+  domain          GovernanceDomain
+  regulation      String   // e.g. "EU AI Act", "NIS2", "CSRD"
+  jurisdiction    String   @default("EU") // EU, PT, ES, FR, EN, ...
+  obligationCode  String?  // e.g. "Art.21(2)(a)"
+  title           String
+  description     String?
+  effectiveDate   DateTime?
+  complianceDate  DateTime? // deadline for compliance
+  status          String   @default("MONITORING")
+  // MONITORING | IN_PROGRESS | COMPLIANT | NON_COMPLIANT | NOT_APPLICABLE
+  priority        String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  sourceUrl       String?
+  internalNotes   String?
+  ownerId         String?
+  lastUpdatedBy   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, domain])
+  @@index([organizationId, status])
+  @@index([organizationId, complianceDate])
+  @@map("regulatory_obligations")
 }
 
 // ─────────────────────────────────────────────────────────────
