@@ -2,17 +2,15 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { usersApi } from '@/lib/api';
-import { UserPlus, Search, Loader2, Mail, Shield } from 'lucide-react';
+import { UserPlus, Search, Loader2, Mail, Shield, SlidersHorizontal, X } from 'lucide-react';
 import { cn, formatRelative, getStatusColor, getInitials } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: 'Super Admin', ADMIN: 'Administrador',
-  COMPLIANCE_MANAGER: 'Gestor Compliance', CONSULTANT: 'Consultor', VIEWER: 'Visualizador',
-};
+import { UserPermissionsPanel } from '@/components/permissions/user-permissions-panel';
 
 function InviteModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('usersPage');
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
   const inviteMutation = useMutation({
@@ -20,36 +18,69 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); onClose(); },
   });
 
+  const ROLE_LABELS: Record<string, string> = {
+    SUPER_ADMIN: 'Super Admin',
+    ADMIN: t('roleAdmin'),
+    COMPLIANCE_MANAGER: t('roleComplianceManager'),
+    CONSULTANT: t('roleConsultant'),
+    VIEWER: t('roleViewer'),
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Convidar Utilizador</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('inviteUser')}</h3>
         <form onSubmit={handleSubmit(d => inviteMutation.mutate(d))} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-            <input {...register('email', { required: true })} type="email" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="nome@empresa.pt" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('email')} *</label>
+            <input
+              {...register('email', { required: true })}
+              type="email"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+              placeholder="nome@empresa.pt"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-              <input {...register('firstName', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Nome" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('firstName')} *</label>
+              <input
+                {...register('firstName', { required: true })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                placeholder={t('firstNamePlaceholder')}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Apelido *</label>
-              <input {...register('lastName', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Apelido" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('lastName')} *</label>
+              <input
+                {...register('lastName', { required: true })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                placeholder={t('lastNamePlaceholder')}
+              />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Papel</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('role')}</label>
             <select {...register('role')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-              {Object.entries(ROLE_LABELS).slice(1).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              {Object.entries(ROLE_LABELS).slice(1).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
             </select>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={inviteMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50"
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={inviteMutation.isPending}
+              className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
               {inviteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              <Mail className="w-4 h-4" /> Enviar Convite
+              <Mail className="w-4 h-4" /> {t('sendInvite')}
             </button>
           </div>
         </form>
@@ -58,10 +89,46 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+interface PermissionsDrawerProps {
+  user: { id: string; firstName: string; lastName: string; role: string };
+  onClose: () => void;
+}
+
+function PermissionsDrawer({ user, onClose }: PermissionsDrawerProps) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 z-40 transition-opacity"
+        onClick={onClose}
+      />
+      {/* Slide-over panel */}
+      <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+        <UserPermissionsPanel
+          userId={user.id}
+          userName={`${user.firstName} ${user.lastName}`}
+          userRole={user.role}
+          onClose={onClose}
+        />
+      </div>
+    </>
+  );
+}
+
 export default function UsersSettingsPage() {
+  const t = useTranslations('usersPage');
   const [search, setSearch] = useState('');
   const [showInvite, setShowInvite] = useState(false);
+  const [permissionsUser, setPermissionsUser] = useState<any>(null);
   const qc = useQueryClient();
+
+  const ROLE_LABELS: Record<string, string> = {
+    SUPER_ADMIN: 'Super Admin',
+    ADMIN: t('roleAdmin'),
+    COMPLIANCE_MANAGER: t('roleComplianceManager'),
+    CONSULTANT: t('roleConsultant'),
+    VIEWER: t('roleViewer'),
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', search],
@@ -80,10 +147,18 @@ export default function UsersSettingsPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar utilizadores..." className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t('searchPlaceholder')}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
+          />
         </div>
-        <button onClick={() => setShowInvite(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
-          <UserPlus className="w-4 h-4" /> Convidar
+        <button
+          onClick={() => setShowInvite(true)}
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
+        >
+          <UserPlus className="w-4 h-4" /> {t('invite')}
         </button>
       </div>
 
@@ -96,7 +171,7 @@ export default function UsersSettingsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Utilizador', 'Papel', 'Estado', 'Último acesso', 'Ações'].map(h => (
+                {[t('colUser'), t('colRole'), t('colStatus'), t('colLastAccess'), t('colPermissions'), t('colActions')].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
                 ))}
               </tr>
@@ -122,10 +197,22 @@ export default function UsersSettingsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={cn('text-xs px-2 py-1 rounded-full font-medium', getStatusColor(u.status))}>{u.status}</span>
+                    <span className={cn('text-xs px-2 py-1 rounded-full font-medium', getStatusColor(u.status))}>
+                      {u.status}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">
-                    {u.lastLoginAt ? formatRelative(u.lastLoginAt) : 'Nunca'}
+                    {u.lastLoginAt ? formatRelative(u.lastLoginAt) : t('never')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setPermissionsUser(u)}
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                      title={t('managePermissions')}
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      {t('managePermissions')}
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     {u.status === 'ACTIVE' && (
@@ -133,7 +220,7 @@ export default function UsersSettingsPage() {
                         onClick={() => suspendMutation.mutate(u.id)}
                         className="text-xs text-red-600 hover:underline"
                       >
-                        Suspender
+                        {t('suspend')}
                       </button>
                     )}
                     {u.status === 'INVITED' && (
@@ -141,7 +228,7 @@ export default function UsersSettingsPage() {
                         onClick={() => usersApi.resendInvite(u.id)}
                         className="text-xs text-primary hover:underline"
                       >
-                        Reenviar Convite
+                        {t('resendInvite')}
                       </button>
                     )}
                   </td>
@@ -150,12 +237,19 @@ export default function UsersSettingsPage() {
             </tbody>
           </table>
           <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
-            {users.length} utilizador{users.length !== 1 ? 'es' : ''} · {data?.total ?? 0} total
+            {t('userCount', { count: users.length, total: data?.total ?? 0 })}
           </div>
         </div>
       )}
 
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+
+      {permissionsUser && (
+        <PermissionsDrawer
+          user={permissionsUser}
+          onClose={() => setPermissionsUser(null)}
+        />
+      )}
     </div>
   );
 }

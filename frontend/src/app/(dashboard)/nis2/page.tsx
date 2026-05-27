@@ -8,26 +8,7 @@ import {
   Network, CheckCircle2, XCircle, AlertCircle,
   Circle, MinusCircle, ChevronDown, ChevronRight, Pencil, X,
 } from 'lucide-react';
-
-// ── Status config ─────────────────────────────────────────────
-const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
-  NOT_ASSESSED:   { icon: Circle,        color: 'text-gray-400',   bg: 'bg-gray-50',    label: 'Não Avaliado' },
-  NON_COMPLIANT:  { icon: XCircle,       color: 'text-red-600',    bg: 'bg-red-50',     label: 'Não Conforme' },
-  PARTIAL:        { icon: AlertCircle,   color: 'text-orange-500', bg: 'bg-orange-50',  label: 'Parcial' },
-  COMPLIANT:      { icon: CheckCircle2,  color: 'text-green-600',  bg: 'bg-green-50',   label: 'Conforme' },
-  NOT_APPLICABLE: { icon: MinusCircle,   color: 'text-gray-300',   bg: 'bg-gray-50',    label: 'N/A' },
-};
-
-const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  RISK_MANAGEMENT:   { label: 'Gestão de Risco',         color: 'bg-blue-100 text-blue-800' },
-  INCIDENT_RESPONSE: { label: 'Resposta a Incidentes',   color: 'bg-red-100 text-red-800' },
-  SUPPLY_CHAIN:      { label: 'Cadeia de Abastecimento', color: 'bg-purple-100 text-purple-800' },
-  BCP:               { label: 'Continuidade de Negócio', color: 'bg-green-100 text-green-800' },
-  CRYPTOGRAPHY:      { label: 'Criptografia',            color: 'bg-indigo-100 text-indigo-800' },
-  HR_SECURITY:       { label: 'Segurança de RH',         color: 'bg-yellow-100 text-yellow-800' },
-  ACCESS_CONTROL:    { label: 'Controlo de Acessos',     color: 'bg-orange-100 text-orange-800' },
-  VULNERABILITY:     { label: 'Vulnerabilidades',        color: 'bg-pink-100 text-pink-800' },
-};
+import { useTranslations } from 'next-intl';
 
 // ── Edit Measure Modal ────────────────────────────────────────
 function EditMeasureModal({
@@ -35,6 +16,17 @@ function EditMeasureModal({
   onClose,
   onSave,
 }: { measure: any; onClose: () => void; onSave: (data: any) => void }) {
+  const t = useTranslations('nis2');
+  const tCommon = useTranslations('common');
+
+  const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
+    NOT_ASSESSED:   { icon: Circle,       color: 'text-gray-400',   bg: 'bg-gray-50',   label: t('status.NOT_ASSESSED') },
+    NON_COMPLIANT:  { icon: XCircle,      color: 'text-red-600',    bg: 'bg-red-50',    label: t('status.NON_COMPLIANT') },
+    PARTIAL:        { icon: AlertCircle,  color: 'text-orange-500', bg: 'bg-orange-50', label: t('status.PARTIAL') },
+    COMPLIANT:      { icon: CheckCircle2, color: 'text-green-600',  bg: 'bg-green-50',  label: t('status.COMPLIANT') },
+    NOT_APPLICABLE: { icon: MinusCircle,  color: 'text-gray-300',   bg: 'bg-gray-50',   label: t('status.NOT_APPLICABLE') },
+  };
+
   const [form, setForm] = useState({
     status: measure.status,
     evidence: measure.evidence ?? '',
@@ -60,7 +52,7 @@ function EditMeasureModal({
             <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">{measure.description}</p>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Estado de Conformidade</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('conformityStatus')}</label>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(STATUS_CONFIG).map(([k, v]) => {
                 const Icon = v.icon;
@@ -82,27 +74,27 @@ function EditMeasureModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Evidências</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('evidenceLabel')}</label>
             <textarea
               className="w-full border rounded-lg px-3 py-2 text-sm resize-none"
               rows={3}
               value={form.evidence}
               onChange={e => set('evidence', e.target.value)}
-              placeholder="Descreva as evidências que suportam a conformidade..."
+              placeholder={t('evidencePlaceholder') as string}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notas / Plano de Ação</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('notesLabel')}</label>
             <textarea
               className="w-full border rounded-lg px-3 py-2 text-sm resize-none"
               rows={2}
               value={form.notes}
               onChange={e => set('notes', e.target.value)}
-              placeholder="Notas adicionais ou plano de ação para atingir conformidade..."
+              placeholder={t('notesPlaceholder') as string}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Data Alvo</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('targetDateLabel')}</label>
             <input
               type="date"
               className="border rounded-lg px-3 py-2 text-sm"
@@ -112,7 +104,7 @@ function EditMeasureModal({
           </div>
         </div>
         <div className="p-5 border-t flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
           <Button onClick={() => {
             const d: any = { status: form.status };
             if (form.evidence) d.evidence = form.evidence;
@@ -120,7 +112,7 @@ function EditMeasureModal({
             if (form.targetDate) d.targetDate = form.targetDate;
             onSave(d);
           }}>
-            Guardar
+            {tCommon('save')}
           </Button>
         </div>
       </div>
@@ -160,9 +152,26 @@ function CategoryGroup({
   category,
   measures,
   onEdit,
-}: { category: string; measures: any[]; onEdit: (m: any) => void }) {
+  categoryLabel,
+  categoryColor,
+  statusConfig,
+  measureCountLabel,
+  compliantCountLabel,
+  targetPrefix,
+  evidencePrefix,
+}: {
+  category: string;
+  measures: any[];
+  onEdit: (m: any) => void;
+  categoryLabel: string;
+  categoryColor: string;
+  statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }>;
+  measureCountLabel: string;
+  compliantCountLabel: string;
+  targetPrefix: string;
+  evidencePrefix: string;
+}) {
   const [open, setOpen] = useState(true);
-  const cat = CATEGORY_LABELS[category] ?? { label: category, color: 'bg-gray-100 text-gray-800' };
   const compliant = measures.filter(m => m.status === 'COMPLIANT').length;
   const total = measures.filter(m => m.status !== 'NOT_APPLICABLE').length;
 
@@ -173,9 +182,9 @@ function CategoryGroup({
         className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
       >
         {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cat.color}`}>{cat.label}</span>
-        <span className="text-sm text-gray-600 flex-1 text-left">{measures.length} medida{measures.length !== 1 ? 's' : ''}</span>
-        <span className="text-xs text-gray-500">{compliant}/{total} conforme{compliant !== 1 ? 's' : ''}</span>
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${categoryColor}`}>{categoryLabel}</span>
+        <span className="text-sm text-gray-600 flex-1 text-left">{measureCountLabel}</span>
+        <span className="text-xs text-gray-500">{compliantCountLabel}</span>
         {/* Mini progress */}
         <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden ml-2">
           <div
@@ -188,7 +197,7 @@ function CategoryGroup({
       {open && (
         <div className="divide-y">
           {measures.map(m => {
-            const s = STATUS_CONFIG[m.status] ?? STATUS_CONFIG.NOT_ASSESSED;
+            const s = statusConfig[m.status] ?? statusConfig.NOT_ASSESSED;
             const Icon = s.icon;
             return (
               <div key={m.measureCode} className="px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors">
@@ -199,13 +208,13 @@ function CategoryGroup({
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${s.bg} ${s.color}`}>{s.label}</span>
                     {m.targetDate && (
                       <span className="text-xs text-gray-400">
-                        Alvo: {new Date(m.targetDate).toLocaleDateString('pt-PT')}
+                        {targetPrefix} {new Date(m.targetDate).toLocaleDateString('pt-PT')}
                       </span>
                     )}
                   </div>
                   <p className="text-sm text-gray-800 mt-0.5">{m.title}</p>
                   {m.evidence && (
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">Evidência: {m.evidence}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{evidencePrefix} {m.evidence}</p>
                   )}
                   {m.notes && (
                     <p className="text-xs text-gray-400 mt-0.5 italic truncate">{m.notes}</p>
@@ -227,12 +236,44 @@ function CategoryGroup({
   );
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  RISK_MANAGEMENT:   'bg-blue-100 text-blue-800',
+  INCIDENT_RESPONSE: 'bg-red-100 text-red-800',
+  SUPPLY_CHAIN:      'bg-purple-100 text-purple-800',
+  BCP:               'bg-green-100 text-green-800',
+  CRYPTOGRAPHY:      'bg-indigo-100 text-indigo-800',
+  HR_SECURITY:       'bg-yellow-100 text-yellow-800',
+  ACCESS_CONTROL:    'bg-orange-100 text-orange-800',
+  VULNERABILITY:     'bg-pink-100 text-pink-800',
+};
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function Nis2Page() {
+  const t = useTranslations('nis2');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const [editingMeasure, setEditingMeasure] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
+    NOT_ASSESSED:   { icon: Circle,       color: 'text-gray-400',   bg: 'bg-gray-50',   label: t('status.NOT_ASSESSED') },
+    NON_COMPLIANT:  { icon: XCircle,      color: 'text-red-600',    bg: 'bg-red-50',    label: t('status.NON_COMPLIANT') },
+    PARTIAL:        { icon: AlertCircle,  color: 'text-orange-500', bg: 'bg-orange-50', label: t('status.PARTIAL') },
+    COMPLIANT:      { icon: CheckCircle2, color: 'text-green-600',  bg: 'bg-green-50',  label: t('status.COMPLIANT') },
+    NOT_APPLICABLE: { icon: MinusCircle,  color: 'text-gray-300',   bg: 'bg-gray-50',   label: t('status.NOT_APPLICABLE') },
+  };
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    RISK_MANAGEMENT:   t('category.RISK_MANAGEMENT'),
+    INCIDENT_RESPONSE: t('category.INCIDENT_RESPONSE'),
+    SUPPLY_CHAIN:      t('category.SUPPLY_CHAIN'),
+    BCP:               t('category.BCP'),
+    CRYPTOGRAPHY:      t('category.CRYPTOGRAPHY'),
+    HR_SECURITY:       t('category.HR_SECURITY'),
+    ACCESS_CONTROL:    t('category.ACCESS_CONTROL'),
+    VULNERABILITY:     t('category.VULNERABILITY'),
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['nis2', 'dashboard'],
@@ -271,10 +312,10 @@ export default function Nis2Page() {
   }, {});
 
   const statCards = [
-    { label: 'Conformes', value: data?.compliant ?? 0, color: 'bg-green-50 text-green-700', status: 'COMPLIANT' },
-    { label: 'Parciais', value: data?.partial ?? 0, color: 'bg-orange-50 text-orange-700', status: 'PARTIAL' },
-    { label: 'Não Conformes', value: data?.nonCompliant ?? 0, color: 'bg-red-50 text-red-700', status: 'NON_COMPLIANT' },
-    { label: 'Por Avaliar', value: data?.notAssessed ?? 0, color: 'bg-gray-50 text-gray-700', status: 'NOT_ASSESSED' },
+    { label: t('statCompliant'),    value: data?.compliant ?? 0,    color: 'bg-green-50 text-green-700',   status: 'COMPLIANT' },
+    { label: t('statPartial'),      value: data?.partial ?? 0,      color: 'bg-orange-50 text-orange-700', status: 'PARTIAL' },
+    { label: t('statNonCompliant'), value: data?.nonCompliant ?? 0, color: 'bg-red-50 text-red-700',       status: 'NON_COMPLIANT' },
+    { label: t('statNotAssessed'),  value: data?.notAssessed ?? 0,  color: 'bg-gray-50 text-gray-700',     status: 'NOT_ASSESSED' },
   ];
 
   return (
@@ -282,10 +323,10 @@ export default function Nis2Page() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Network className="w-6 h-6 text-blue-600" /> NIS2 — Conformidade
+          <Network className="w-6 h-6 text-blue-600" /> {t('title')}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Diretiva (UE) 2022/2555 — Avaliação das 15 medidas do Artigo 21.º e obrigações de notificação
+          {t('subtitle')}
         </p>
       </div>
 
@@ -294,10 +335,10 @@ export default function Nis2Page() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
           <ScoreRing score={data?.score ?? 0} />
           <div>
-            <p className="text-sm font-semibold text-gray-800">Score NIS2</p>
+            <p className="text-sm font-semibold text-gray-800">{t('scoreNis2')}</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              {data?.compliant ?? 0} conformes + {data?.partial ?? 0} parciais<br />
-              de {(data?.total ?? 0) - (data?.notApplicable ?? 0)} aplicáveis
+              {t('scoreDesc', { compliant: data?.compliant ?? 0, partial: data?.partial ?? 0 })}<br />
+              {t('scoreDescOf', { total: (data?.total ?? 0) - (data?.notApplicable ?? 0) })}
             </p>
           </div>
         </div>
@@ -325,15 +366,15 @@ export default function Nis2Page() {
           value={categoryFilter}
           onChange={e => setCategoryFilter(e.target.value)}
         >
-          <option value="">Todas as categorias</option>
-          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          <option value="">{t('allCategories')}</option>
+          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <select
           className="border rounded-lg px-3 py-2 text-sm"
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
         >
-          <option value="">Todos os estados</option>
+          <option value="">{t('allStatuses')}</option>
           {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
         {(categoryFilter || statusFilter) && (
@@ -341,7 +382,7 @@ export default function Nis2Page() {
             onClick={() => { setCategoryFilter(''); setStatusFilter(''); }}
             className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 border rounded-lg hover:bg-gray-50 transition-colors"
           >
-            Limpar filtros
+            {t('clearFilters')}
           </button>
         )}
       </div>
@@ -351,23 +392,36 @@ export default function Nis2Page() {
         {Object.keys(byCategory).length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <Network className="w-12 h-12 mx-auto mb-3 text-gray-200" />
-            <p>Sem medidas a apresentar</p>
+            <p>{t('noMeasures')}</p>
           </div>
         ) : (
-          Object.entries(byCategory).map(([cat, measures]) => (
-            <CategoryGroup
-              key={cat}
-              category={cat}
-              measures={measures}
-              onEdit={setEditingMeasure}
-            />
-          ))
+          Object.entries(byCategory).map(([cat, measures]) => {
+            const compliant = measures.filter((m: any) => m.status === 'COMPLIANT').length;
+            const total = measures.filter((m: any) => m.status !== 'NOT_APPLICABLE').length;
+            const measureCountLabel = measures.length === 1 ? t('measureCount', { n: measures.length }) : t('measureCountPlural', { n: measures.length });
+            const compliantCountLabel = compliant === 1 ? t('compliantCount', { n: compliant }) + `/${total}` : t('compliantCountPlural', { n: compliant }) + `/${total}`;
+            return (
+              <CategoryGroup
+                key={cat}
+                category={cat}
+                measures={measures}
+                onEdit={setEditingMeasure}
+                categoryLabel={CATEGORY_LABELS[cat] ?? cat}
+                categoryColor={CATEGORY_COLORS[cat] ?? 'bg-gray-100 text-gray-800'}
+                statusConfig={STATUS_CONFIG}
+                measureCountLabel={measureCountLabel}
+                compliantCountLabel={compliantCountLabel}
+                targetPrefix={t('targetPrefix') as string}
+                evidencePrefix={t('evidencePrefix') as string}
+              />
+            );
+          })
         )}
       </div>
 
       {/* Legal notice */}
       <div className="bg-blue-50 rounded-xl p-4 text-xs text-blue-700 border border-blue-100">
-        <strong>Âmbito NIS2:</strong> A Diretiva NIS2 aplica-se a entidades essenciais e importantes nos setores de energia, transportes, banca, infraestrutura de mercados financeiros, saúde, água, infraestrutura digital, serviços TIC, administração pública e espaço. Em Portugal, a transposição é feita pelo Decreto-Lei n.º 65/2021 (Lei da Cibersegurança) e regulamentação complementar da CNCS.
+        {t('legalNotice')}
       </div>
 
       {/* Edit modal */}
