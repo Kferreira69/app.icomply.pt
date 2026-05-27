@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -46,11 +47,12 @@ import { UnifiedControlsModule } from './unified-controls/unified-controls.modul
       envFilePath: ['.env.local', '.env'],
     }),
 
-    // ── Rate limiting ───────────────────────────────────────
+    // ── Rate limiting (global defaults) ────────────────────
+    // Auth endpoints override via @Throttle() in auth.controller.ts
     ThrottlerModule.forRoot([
-      { name: 'short', ttl: 1000, limit: 20 },
-      { name: 'medium', ttl: 10000, limit: 100 },
-      { name: 'long', ttl: 60000, limit: 500 },
+      { name: 'short',  ttl: 1000,    limit: 10  },  // 10 req/s  per IP
+      { name: 'medium', ttl: 60000,   limit: 100 },  // 100 req/min per IP
+      { name: 'long',   ttl: 3600000, limit: 1000 }, // 1000 req/h per IP
     ]),
 
     // ── Scheduler (cron jobs) ────────────────────────────────
@@ -94,6 +96,13 @@ import { UnifiedControlsModule } from './unified-controls/unified-controls.modul
     HrComplianceModule,
     AiGovernanceModule,
     UnifiedControlsModule,
+  ],
+  providers: [
+    // ── ThrottlerGuard global — enforces @Throttle() on all routes ──
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
