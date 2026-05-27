@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Put, Param, Body, UseGuards, Request,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { LicensingService } from './licensing.service';
 
 @UseGuards(JwtAuthGuard)
