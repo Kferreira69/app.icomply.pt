@@ -261,6 +261,8 @@ model Organization {
   plan         String   @default("FREE") // FREE, STARTER, PROFESSIONAL, ENTERPRISE
   maxUsers     Int      @default(5)
   isActive     Boolean  @default(true)
+  aiProvider   String   @default("AUTO") // ANTHROPIC, OPENAI, AUTO
+  aiModel      String?  // e.g. "claude-sonnet-4-5", "gpt-4o", "gpt-4o-mini"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -286,6 +288,16 @@ model Organization {
   codesOfConduct         CodeOfConduct[]
   whistleblowTrainings   WhistleblowTraining[]
   trustCenter            TrustCenterSettings?
+  license                License?
+  hrSalaryBands          HrSalaryBand[]
+  hrShstIncidents        HrShstIncident[]
+  hrContracts            HrContract[]
+  hrRemoteWorkers        HrRemoteWorker[]
+  hrTrainings            HrTraining[]
+  aiSystems              AiSystem[]
+  aiRisks                AiRisk[]
+  aiImpactAssessments    AiImpactAssessment[]
+  ai42001Controls        Ai42001Control[]
 
   @@map("organizations")
 }
@@ -363,6 +375,10 @@ model User {
   codeOfConductAcks     CodeOfConductAck[]
   trainingAttendances   WhistleblowTrainingAttendee[]
   permissions           UserPermission[]
+  hrContracts           HrContract[]
+  hrRemoteWorkerProfile HrRemoteWorker[]
+  hrTrainingEnrollments HrTrainingEnrollment[]
+  aiImpactAssessments   AiImpactAssessment[]
 
   @@map("users")
 }
@@ -1498,4 +1514,474 @@ model WhistleblowTrainingAttendee {
   @@unique([trainingId, userId])
   @@index([trainingId])
   @@map("whistleblow_training_attendees")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PONTO 16 — Licensing Management
+// Backoffice exclusivo Contemporary Constellation
+// ─────────────────────────────────────────────────────────────
+
+model License {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  plan           String   @default("FREE")    // FREE, STARTER, PROFESSIONAL, ENTERPRISE, CUSTOM
+  status         String   @default("ACTIVE")  // ACTIVE, TRIAL, SUSPENDED, CANCELLED
+  billingCycle   String   @default("MONTHLY") // MONTHLY, ANNUAL
+  trialEndsAt    DateTime?
+  startDate      DateTime @default(now())
+  endDate        DateTime?
+  aiProvider     String   @default("AUTO")   // ANTHROPIC, OPENAI, AUTO
+  aiModel        String?
+  maxUsers       Int      @default(5)
+  contactName    String?
+  contactEmail   String?
+  notes          String?
+  moloniClientId String?  // Moloni API client reference
+  modules        LicenseModule[]
+  invoices       LicenseInvoice[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("licenses")
+}
+
+model LicenseModule {
+  id           String   @id @default(uuid())
+  licenseId    String
+  license      License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  module       String   // gdpr, nis2, dora, hr_compliance, ai_governance, whistleblow, vendors, soa, etc.
+  enabled      Boolean  @default(true)
+  monthlyPrice Decimal  @default(0) @db.Decimal(10,2)
+  annualPrice  Decimal  @default(0) @db.Decimal(10,2)
+  submodules   String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([licenseId, module])
+  @@map("license_modules")
+}
+
+model LicenseInvoice {
+  id          String   @id @default(uuid())
+  licenseId   String
+  license     License  @relation(fields: [licenseId], references: [id])
+  moloniId    String?       // Moloni document ID
+  moloniDocNo String?       // Moloni document number (e.g. "FT 2025/1")
+  amount      Decimal  @db.Decimal(10,2)
+  taxRate     Decimal  @default(23) @db.Decimal(5,2)
+  taxAmount   Decimal  @default(0)  @db.Decimal(10,2)
+  totalAmount Decimal  @db.Decimal(10,2)
+  currency    String   @default("EUR")
+  status      String   @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
+  description String?
+  periodStart DateTime?
+  periodEnd   DateTime?
+  dueDate     DateTime?
+  paidAt      DateTime?
+  pdfUrl      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([licenseId, status])
+  @@map("license_invoices")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PONTO 17 — HR Compliance & Workforce Governance
+// 10 sub-módulos: Pay Transparency, SHST, HR Speak-Up,
+// Training, HR Policies, ESG Social, GDPR HR,
+// Employment Contracts, Remote Workers, HR Audit
+// ─────────────────────────────────────────────────────────────
+
+// ── 17.1 Pay Transparency / Salary Band Governance ───────────
+
+model HrSalaryBand {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  jobFamily      String   // e.g. "Engineering", "Sales", "HR"
+  jobLevel       String   // e.g. "Junior", "Mid", "Senior", "Lead", "Manager"
+  minSalary      Decimal  @db.Decimal(12,2)
+  midSalary      Decimal? @db.Decimal(12,2)
+  maxSalary      Decimal  @db.Decimal(12,2)
+  currency       String   @default("EUR")
+  country        String   @default("PT")
+  effectiveFrom  DateTime @default(now())
+  effectiveTo    DateTime?
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payGapAnalyses HrPayGapAnalysis[]
+
+  @@index([organizationId, isActive])
+  @@map("hr_salary_bands")
+}
+
+model HrPayGapAnalysis {
+  id             String   @id @default(uuid())
+  salaryBandId   String
+  salaryBand     HrSalaryBand @relation(fields: [salaryBandId], references: [id], onDelete: Cascade)
+  year           Int
+  maleCount      Int      @default(0)
+  femaleCount    Int      @default(0)
+  otherCount     Int      @default(0)
+  maleAvgSalary  Decimal? @db.Decimal(12,2)
+  femaleAvgSalary Decimal? @db.Decimal(12,2)
+  gapPercentage  Decimal? @db.Decimal(5,2) // positive = women earn less
+  gapCause       String?
+  actionPlan     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([salaryBandId, year])
+  @@map("hr_pay_gap_analyses")
+}
+
+// ── 17.2 SHST — Saúde, Higiene e Segurança no Trabalho ───────
+
+enum HrShstIncidentSeverity {
+  NEAR_MISS
+  MINOR
+  MODERATE
+  SERIOUS
+  FATAL
+}
+
+enum HrShstIncidentStatus {
+  REPORTED
+  INVESTIGATING
+  CORRECTIVE_ACTION
+  CLOSED
+}
+
+model HrShstIncident {
+  id              String                  @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  title           String
+  description     String
+  incidentDate    DateTime
+  location        String?
+  severity        HrShstIncidentSeverity  @default(MINOR)
+  status          HrShstIncidentStatus    @default(REPORTED)
+  injuredWorkers  Int                     @default(0)
+  lostDays        Int                     @default(0)
+  rootCause       String?
+  correctiveAction String?
+  reportedToACT   Boolean                 @default(false) // ACT = Autoridade para as Condições do Trabalho
+  actReportRef    String?
+  reportedAt      DateTime                @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@map("hr_shst_incidents")
+}
+
+// ── 17.3 HR Training & Awareness ────────────────────────────
+
+model HrTraining {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  title           String
+  description     String?
+  category        String   @default("GENERAL") // GENERAL, ONBOARDING, COMPLIANCE, SAFETY, LEADERSHIP, TECHNICAL
+  trainingDate    DateTime
+  durationHours   Decimal  @default(1) @db.Decimal(5,2)
+  instructor      String?
+  location        String?
+  mandatory       Boolean  @default(false)
+  certificationRequired Boolean @default(false)
+  expiresAfterMonths Int?
+  materialUrl     String?
+  maxAttendees    Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  enrollments HrTrainingEnrollment[]
+
+  @@index([organizationId, trainingDate])
+  @@map("hr_trainings")
+}
+
+model HrTrainingEnrollment {
+  id            String    @id @default(uuid())
+  trainingId    String
+  training      HrTraining @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  status        String    @default("ENROLLED") // ENROLLED, COMPLETED, FAILED, ABSENT
+  completedAt   DateTime?
+  score         Int?      // 0-100
+  certificateUrl String?
+  notes         String?
+  expiresAt     DateTime?
+
+  @@unique([trainingId, userId])
+  @@map("hr_training_enrollments")
+}
+
+// ── 17.4 Employment Contracts ────────────────────────────────
+
+enum HrContractType {
+  PERMANENT          // Contrato sem termo
+  FIXED_TERM         // Contrato a termo certo
+  TEMPORARY          // Contrato a termo incerto
+  INTERNSHIP         // Estágio
+  SERVICE_AGREEMENT  // Prestação de serviços
+  PART_TIME
+  REMOTE
+}
+
+enum HrContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  SUSPENDED
+}
+
+model HrContract {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  employeeName    String       // in case user not yet registered
+  employeeEmail   String?
+  contractType    HrContractType  @default(PERMANENT)
+  status          HrContractStatus @default(ACTIVE)
+  department      String?
+  jobTitle        String
+  startDate       DateTime
+  endDate         DateTime?
+  probationEndDate DateTime?
+  salary          Decimal?     @db.Decimal(12,2)
+  currency        String       @default("EUR")
+  weeklyHours     Decimal      @default(40) @db.Decimal(5,2)
+  noticePeriodDays Int         @default(30)
+  collectiveAgreement String?  // IRCT
+  fileUrl         String?
+  notes           String?
+  signedAt        DateTime?
+  terminatedAt    DateTime?
+  terminationReason String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, contractType])
+  @@map("hr_contracts")
+}
+
+// ── 17.5 Remote Workers Policy & Register ────────────────────
+
+model HrRemoteWorker {
+  id               String   @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id])
+  employeeName     String
+  jobTitle         String?
+  remoteType       String   @default("HYBRID") // FULL_REMOTE, HYBRID, OCCASIONAL
+  country          String   @default("PT")
+  city             String?
+  workspaceAssessed Boolean @default(false)
+  dseSelfAssessmentAt DateTime?
+  equipmentProvided Boolean @default(false)
+  equipmentList    String?
+  internetAllowance Decimal? @db.Decimal(8,2)
+  taxCompliant     Boolean  @default(false)
+  socialSecurityCompliant Boolean @default(false)
+  startDate        DateTime
+  endDate          DateTime?
+  agreementFileUrl String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId, remoteType])
+  @@map("hr_remote_workers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PONTO 18 — AI Governance Suite
+// ISO 42001 | EU AI Act | AI Risk | AI Inventory |
+// AI Vendor Governance | Human Oversight | AI Impact Assessment
+// ─────────────────────────────────────────────────────────────
+
+// ── 18.1 AI System Inventory ─────────────────────────────────
+
+enum AiSystemRiskLevel {
+  MINIMAL
+  LIMITED
+  HIGH
+  UNACCEPTABLE
+}
+
+enum AiSystemStatus {
+  PLANNED
+  IN_DEVELOPMENT
+  DEPLOYED
+  DEPRECATED
+  PROHIBITED
+}
+
+model AiSystem {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  description     String?
+  vendor          String?         // 3rd party or "Internal"
+  version         String?
+  purpose         String          // What it does
+  useCase         String?         // Specific business use case
+  department      String?
+  owner           String?         // Responsible person/team
+  aiActRiskLevel  AiSystemRiskLevel @default(LIMITED)
+  status          AiSystemStatus    @default(DEPLOYED)
+  trainingData    String?         // Description of training data
+  inputData       String?
+  outputData      String?
+  affectedPersons String[]        @default([]) // EMPLOYEES, CUSTOMERS, PUBLIC, etc.
+  humanOversight  Boolean         @default(true)
+  oversightDescription String?
+  accuracyMetrics String?
+  biasAssessed    Boolean         @default(false)
+  biasAssessmentAt DateTime?
+  documentationUrl String?
+  apiEndpoint     String?
+  isThirdParty    Boolean         @default(false)
+  contractUrl     String?
+  lastReviewAt    DateTime?
+  nextReviewAt    DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  risks              AiRisk[]
+  impactAssessments  AiImpactAssessment[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, aiActRiskLevel])
+  @@map("ai_systems")
+}
+
+// ── 18.2 AI Risk Register ────────────────────────────────────
+
+enum AiRiskCategory {
+  BIAS_DISCRIMINATION
+  PRIVACY_VIOLATION
+  SECURITY_VULNERABILITY
+  TRANSPARENCY_LACK
+  ACCOUNTABILITY_GAP
+  SAFETY_RISK
+  LEGAL_COMPLIANCE
+  REPUTATIONAL
+  OPERATIONAL
+  OTHER
+}
+
+model AiRisk {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  aiSystemId      String?
+  aiSystem        AiSystem?    @relation(fields: [aiSystemId], references: [id])
+  title           String
+  description     String
+  category        AiRiskCategory  @default(OTHER)
+  likelihood      Int             @default(3) // 1-5
+  impact          Int             @default(3) // 1-5
+  riskScore       Int             // likelihood * impact
+  residualScore   Int?
+  status          String          @default("IDENTIFIED") // IDENTIFIED, MITIGATING, MITIGATED, ACCEPTED, CLOSED
+  mitigationPlan  String?
+  owner           String?
+  dueDate         DateTime?
+  reviewDate      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([organizationId, status])
+  @@map("ai_risks")
+}
+
+// ── 18.3 AI Impact Assessment (AIIA / DPIA-AI) ───────────────
+
+model AiImpactAssessment {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id])
+  aiSystemId            String?
+  aiSystem              AiSystem? @relation(fields: [aiSystemId], references: [id])
+  title                 String
+  scope                 String?
+  status                String   @default("DRAFT") // DRAFT, IN_REVIEW, COMPLETED
+  // Assessment steps
+  purposeDescription    String?
+  necessityTest         String?
+  proportionalityTest   String?
+  riskAssessment        String?
+  mitigationMeasures    String?
+  humanOversightPlan    String?
+  fundamentalRightsImpact String?
+  // EU AI Act specifics
+  aiActClassification   String?  // MINIMAL, LIMITED, HIGH, PROHIBITED
+  conformityAssessment  String?  // For HIGH risk: notified body assessment
+  euDeclaration         Boolean  @default(false)
+  // Outcome
+  outcome               String?  // LOW_RISK, MEDIUM_RISK, HIGH_RISK_PROCEED, DO_NOT_DEPLOY
+  approvedAt            DateTime?
+  approvedBy            String?
+  reviewDate            DateTime?
+  ownerId               String?
+  owner                 User?    @relation(fields: [ownerId], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@map("ai_impact_assessments")
+}
+
+// ── 18.4 ISO 42001 Controls ──────────────────────────────────
+
+enum Ai42001Status {
+  NOT_STARTED
+  PLANNED
+  IN_PROGRESS
+  IMPLEMENTED
+  NOT_APPLICABLE
+}
+
+model Ai42001Control {
+  id                  String        @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  controlCode         String        // e.g. "6.1", "8.4", "A.6.2.3"
+  clause              String        // e.g. "6 Planning", "8 Operation", "Annex A"
+  title               String
+  description         String?
+  applicable          Boolean       @default(true)
+  justification       String?       // why N/A if not applicable
+  status              Ai42001Status @default(NOT_STARTED)
+  implementationNotes String?
+  owner               String?
+  evidence            String?
+  targetDate          DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, status])
+  @@map("ai_42001_controls")
 }

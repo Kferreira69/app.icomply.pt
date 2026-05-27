@@ -9,7 +9,8 @@ import {
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
-  Activity, MessageSquareWarning, Globe, Bot,
+  Activity, MessageSquareWarning, Globe, Bot, Users, Brain,
+  Briefcase,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -38,8 +39,10 @@ export function Sidebar() {
     { href: '/denuncias',    label: t('denuncias'),   icon: MessageSquareWarning },
     { href: '/vendors',      label: t('vendors'),     icon: Building2 },
     { href: '/soa',          label: t('soa'),         icon: FileCheck2 },
-    { href: '/excel-import', label: t('import'),      icon: Upload },
-    { href: '/ai-assistant', label: t('aiAssistant'), icon: Bot },
+    { href: '/hr-compliance',  label: t('hrCompliance'),  icon: Briefcase },
+    { href: '/ai-governance',  label: t('aiGovernance'),  icon: Brain },
+    { href: '/excel-import',   label: t('import'),        icon: Upload },
+    { href: '/ai-assistant',   label: t('aiAssistant'),   icon: Bot },
   ];
 
   const settingsItems = [

@@ -361,3 +361,68 @@ export const translationsApi = {
   translateBatch: (texts: string[], targetLang: string, sourceLang = 'PT') =>
     api.post('/translations/translate/batch', { texts, targetLang, sourceLang }),
 };
+
+// ── Licensing (backoffice) ────────────────────────────────────
+
+export const licensingApi = {
+  catalogue:     ()              => api.get('/licensing/catalogue'),
+  stats:         ()              => api.get('/licensing/stats'),
+  listClients:   ()              => api.get('/licensing/clients'),
+  getClient:     (orgId: string) => api.get(`/licensing/clients/${orgId}`),
+  upsert:        (orgId: string, data: any) => api.put(`/licensing/clients/${orgId}`, data),
+  createInvoice: (orgId: string, data: any) => api.post(`/licensing/clients/${orgId}/invoices`, data),
+  markPaid:      (invoiceId: string)        => api.put(`/licensing/invoices/${invoiceId}/paid`, {}),
+};
+
+// ── HR Compliance ─────────────────────────────────────────────
+
+export const hrComplianceApi = {
+  dashboard:       ()                               => api.get('/hr-compliance/dashboard'),
+  // Salary bands
+  listBands:       ()                               => api.get('/hr-compliance/salary-bands'),
+  createBand:      (data: any)                      => api.post('/hr-compliance/salary-bands', data),
+  updateBand:      (id: string, data: any)          => api.put(`/hr-compliance/salary-bands/${id}`, data),
+  deleteBand:      (id: string)                     => api.delete(`/hr-compliance/salary-bands/${id}`),
+  upsertPayGap:    (id: string, data: any)          => api.put(`/hr-compliance/salary-bands/${id}/pay-gap`, data),
+  // SHST
+  listShst:        (params?: any)                   => api.get('/hr-compliance/shst-incidents', { params }),
+  createShst:      (data: any)                      => api.post('/hr-compliance/shst-incidents', data),
+  updateShst:      (id: string, data: any)          => api.put(`/hr-compliance/shst-incidents/${id}`, data),
+  // Training
+  listTrainings:   (params?: any)                   => api.get('/hr-compliance/trainings', { params }),
+  createTraining:  (data: any)                      => api.post('/hr-compliance/trainings', data),
+  updateTraining:  (id: string, data: any)          => api.put(`/hr-compliance/trainings/${id}`, data),
+  enroll:          (trainingId: string, userId: string) => api.post(`/hr-compliance/trainings/${trainingId}/enroll/${userId}`, {}),
+  complete:        (enrollmentId: string, data: any) => api.put(`/hr-compliance/enrollments/${enrollmentId}/complete`, data),
+  // Contracts
+  listContracts:   (params?: any)                   => api.get('/hr-compliance/contracts', { params }),
+  createContract:  (data: any)                      => api.post('/hr-compliance/contracts', data),
+  updateContract:  (id: string, data: any)          => api.put(`/hr-compliance/contracts/${id}`, data),
+  // Remote workers
+  listRemote:      ()                               => api.get('/hr-compliance/remote-workers'),
+  createRemote:    (data: any)                      => api.post('/hr-compliance/remote-workers', data),
+  updateRemote:    (id: string, data: any)          => api.put(`/hr-compliance/remote-workers/${id}`, data),
+};
+
+// ── AI Governance ─────────────────────────────────────────────
+
+export const aiGovernanceApi = {
+  dashboard:        ()                      => api.get('/ai-governance/dashboard'),
+  // AI Systems
+  listSystems:      (params?: any)          => api.get('/ai-governance/systems', { params }),
+  createSystem:     (data: any)             => api.post('/ai-governance/systems', data),
+  updateSystem:     (id: string, data: any) => api.put(`/ai-governance/systems/${id}`, data),
+  deleteSystem:     (id: string)            => api.delete(`/ai-governance/systems/${id}`),
+  // AI Risks
+  listRisks:        (params?: any)          => api.get('/ai-governance/risks', { params }),
+  createRisk:       (data: any)             => api.post('/ai-governance/risks', data),
+  updateRisk:       (id: string, data: any) => api.put(`/ai-governance/risks/${id}`, data),
+  // Impact Assessments
+  listAssessments:  ()                      => api.get('/ai-governance/assessments'),
+  createAssessment: (data: any)             => api.post('/ai-governance/assessments', data),
+  updateAssessment: (id: string, data: any) => api.put(`/ai-governance/assessments/${id}`, data),
+  // ISO 42001
+  getControls:      ()                      => api.get('/ai-governance/iso42001'),
+  updateControl:    (id: string, data: any) => api.put(`/ai-governance/iso42001/${id}`, data),
+  bulkUpdateControls: (updates: any[])      => api.put('/ai-governance/iso42001/bulk', { updates }),
+};
