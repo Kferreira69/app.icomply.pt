@@ -54,16 +54,21 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Redis ───────────────────────────────────────────────────
+  # ── Redis (token blacklist / rate limiting) ─────────────────
   redis:
     image: redis:7-alpine
     container_name: icomply_redis
     restart: unless-stopped
     networks:
       - icomply-internal          # NOT on traefik-public
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - icomply_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ── MinIO ───────────────────────────────────────────────────
   minio:
@@ -121,6 +126,8 @@ services:
       postgres:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
