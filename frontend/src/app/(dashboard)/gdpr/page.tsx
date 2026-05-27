@@ -9,63 +9,28 @@ import {
   Pencil, Trash2, Eye, CheckCircle2, Clock, XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-// ── Helpers ───────────────────────────────────────────────────
-const LEGAL_BASIS_LABELS: Record<string, string> = {
-  CONSENT:               'Consentimento',
-  CONTRACT:              'Contrato',
-  LEGAL_OBLIGATION:      'Obrigação Legal',
-  VITAL_INTERESTS:       'Interesses Vitais',
-  PUBLIC_TASK:           'Tarefa Pública',
-  LEGITIMATE_INTERESTS:  'Interesses Legítimos',
-};
-
-const ACTIVITY_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  ACTIVE:      { bg: 'bg-green-100', text: 'text-green-800', label: 'Ativa' },
-  INACTIVE:    { bg: 'bg-gray-100',  text: 'text-gray-700',  label: 'Inativa' },
-  UNDER_REVIEW:{ bg: 'bg-yellow-100',text: 'text-yellow-800',label: 'Em Revisão' },
-};
-
-const DPIA_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  DRAFT:      { bg: 'bg-gray-100',   text: 'text-gray-700',   label: 'Rascunho' },
-  IN_PROGRESS:{ bg: 'bg-blue-100',   text: 'text-blue-800',   label: 'Em Curso' },
-  COMPLETED:  { bg: 'bg-green-100',  text: 'text-green-800',  label: 'Concluída' },
-  APPROVED:   { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Aprovada' },
-};
-
-const BREACH_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  IDENTIFIED:  { bg: 'bg-red-100',    text: 'text-red-800',    label: 'Identificada' },
-  ASSESSING:   { bg: 'bg-orange-100', text: 'text-orange-800', label: 'A Avaliar' },
-  NOTIFIED:    { bg: 'bg-blue-100',   text: 'text-blue-800',   label: 'Notificada' },
-  CLOSED:      { bg: 'bg-gray-100',   text: 'text-gray-700',   label: 'Fechada' },
-};
-
-const BREACH_SEVERITY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  LOW:      { bg: 'bg-gray-100',   text: 'text-gray-700',   label: 'Baixa' },
-  MEDIUM:   { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Média' },
-  HIGH:     { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Alta' },
-  CRITICAL: { bg: 'bg-red-100',    text: 'text-red-800',    label: 'Crítica' },
-};
+import { useTranslations } from 'next-intl';
 
 // ── Dashboard stats panel ─────────────────────────────────────
 function GdprDashboard({ stats }: { stats: any }) {
+  const t = useTranslations('gdpr');
   if (!stats) return null;
   return (
     <div className="grid grid-cols-3 gap-4">
       <div className="bg-blue-50 rounded-xl p-4">
-        <div className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-2">Atividades (ROPA)</div>
+        <div className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-2">{t('statsActivities')}</div>
         <div className="text-3xl font-bold text-blue-700">{stats.activities?.total ?? 0}</div>
-        <div className="text-sm text-blue-600 mt-1">{stats.activities?.active ?? 0} ativas</div>
+        <div className="text-sm text-blue-600 mt-1">{t('statsActivitiesActive', { n: stats.activities?.active ?? 0 })}</div>
       </div>
       <div className="bg-purple-50 rounded-xl p-4">
-        <div className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-2">DPIAs</div>
+        <div className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-2">{t('statsDpias')}</div>
         <div className="text-3xl font-bold text-purple-700">{stats.dpias?.total ?? 0}</div>
-        <div className="text-sm text-purple-600 mt-1">{stats.dpias?.byStatus?.COMPLETED ?? 0} concluídas</div>
+        <div className="text-sm text-purple-600 mt-1">{t('statsDpiasCompleted', { n: stats.dpias?.byStatus?.COMPLETED ?? 0 })}</div>
       </div>
       <div className="bg-red-50 rounded-xl p-4">
-        <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-2">Violações</div>
+        <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-2">{t('statsBreaches')}</div>
         <div className="text-3xl font-bold text-red-700">{stats.breaches?.total ?? 0}</div>
-        <div className="text-sm text-red-600 mt-1">{stats.breaches?.open ?? 0} em aberto</div>
+        <div className="text-sm text-red-600 mt-1">{t('statsBreachesOpen', { n: stats.breaches?.open ?? 0 })}</div>
       </div>
     </div>
   );
@@ -73,6 +38,18 @@ function GdprDashboard({ stats }: { stats: any }) {
 
 // ── Modal: Processing Activity ────────────────────────────────
 function ActivityModal({ onClose, onSave, initial }: { onClose: () => void; onSave: (d: any) => void; initial?: any }) {
+  const t = useTranslations('gdpr');
+  const tCommon = useTranslations('common');
+
+  const LEGAL_BASIS_LABELS: Record<string, string> = {
+    CONSENT:              t('legalBasisValues.CONSENT'),
+    CONTRACT:             t('legalBasisValues.CONTRACT'),
+    LEGAL_OBLIGATION:     t('legalBasisValues.LEGAL_OBLIGATION'),
+    VITAL_INTERESTS:      t('legalBasisValues.VITAL_INTERESTS'),
+    PUBLIC_TASK:          t('legalBasisValues.PUBLIC_TASK'),
+    LEGITIMATE_INTERESTS: t('legalBasisValues.LEGITIMATE_INTERESTS'),
+  };
+
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     purpose: initial?.purpose ?? '',
@@ -113,66 +90,66 @@ function ActivityModal({ onClose, onSave, initial }: { onClose: () => void; onSa
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{initial ? 'Editar Atividade' : 'Nova Atividade de Tratamento'}</h2>
+          <h2 className="text-lg font-semibold">{initial ? t('editActivity') : t('newActivity')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Atividade *</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ex: Gestão de Recursos Humanos" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('activityName')} *</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.name} onChange={e => set('name', e.target.value)} placeholder={t('activityNamePlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Finalidade *</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.purpose} onChange={e => set('purpose', e.target.value)} placeholder="Descreva a finalidade do tratamento" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('purposeLabel')} *</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.purpose} onChange={e => set('purpose', e.target.value)} placeholder={t('purposePlaceholder') as string} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Base Legal *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('legalBasisLabel')} *</label>
               <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.legalBasis} onChange={e => set('legalBasis', e.target.value)}>
                 {Object.entries(LEGAL_BASIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prazo de Conservação *</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.retentionPeriod} onChange={e => set('retentionPeriod', e.target.value)} placeholder="Ex: 5 anos" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('retentionPeriodLabel')} *</label>
+              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.retentionPeriod} onChange={e => set('retentionPeriod', e.target.value)} placeholder={t('retentionPeriodPlaceholder') as string} />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Categorias de Dados (separar por vírgula)</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.dataCategories} onChange={e => set('dataCategories', e.target.value)} placeholder="Ex: Nome, Email, NIF, Morada" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('dataCategoriesLabel')}</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.dataCategories} onChange={e => set('dataCategories', e.target.value)} placeholder={t('dataCategoriesPlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Titulares (separar por vírgula)</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.dataSubjects} onChange={e => set('dataSubjects', e.target.value)} placeholder="Ex: Colaboradores, Clientes" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('dataSubjectsLabel')}</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.dataSubjects} onChange={e => set('dataSubjects', e.target.value)} placeholder={t('dataSubjectsPlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Destinatários (separar por vírgula)</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.recipients} onChange={e => set('recipients', e.target.value)} placeholder="Ex: Segurança Social, Autoridade Fiscal" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('recipientsLabel')}</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.recipients} onChange={e => set('recipients', e.target.value)} placeholder={t('recipientsPlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Subcontratante</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.processorName} onChange={e => set('processorName', e.target.value)} placeholder="Ex: AWS, Salesforce" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('processorNameLabel')}</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.processorName} onChange={e => set('processorName', e.target.value)} placeholder={t('processorNamePlaceholder') as string} />
           </div>
           <div className="flex gap-4">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={form.internationalTransfers} onChange={e => set('internationalTransfers', e.target.checked)} />
-              Transferências Internacionais
+              {t('internationalTransfersLabel')}
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={form.dpoConsulted} onChange={e => set('dpoConsulted', e.target.checked)} />
-              DPO Consultado
+              {t('dpoConsulted')}
             </label>
           </div>
           {form.internationalTransfers && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Países (separar por vírgula)</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.transferCountries} onChange={e => set('transferCountries', e.target.value)} placeholder="Ex: EUA, Brasil" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('transferCountriesLabel')}</label>
+              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.transferCountries} onChange={e => set('transferCountries', e.target.value)} placeholder={t('transferCountriesPlaceholder') as string} />
             </div>
           )}
         </div>
         <div className="p-6 border-t flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave}>{initial ? 'Guardar' : 'Criar Atividade'}</Button>
+          <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
+          <Button onClick={handleSave}>{initial ? tCommon('save') : t('createActivity')}</Button>
         </div>
       </div>
     </div>
@@ -181,6 +158,16 @@ function ActivityModal({ onClose, onSave, initial }: { onClose: () => void; onSa
 
 // ── Modal: DPIA ───────────────────────────────────────────────
 function DpiaModal({ onClose, onSave, initial }: { onClose: () => void; onSave: (d: any) => void; initial?: any }) {
+  const t = useTranslations('gdpr');
+  const tCommon = useTranslations('common');
+
+  const DPIA_STATUS_LABELS: Record<string, string> = {
+    DRAFT:       t('dpiaStatus.DRAFT'),
+    IN_PROGRESS: t('dpiaStatus.IN_PROGRESS'),
+    COMPLETED:   t('dpiaStatus.COMPLETED'),
+    APPROVED:    t('dpiaStatus.APPROVED'),
+  };
+
   const [form, setForm] = useState({
     title: initial?.title ?? '',
     description: initial?.description ?? '',
@@ -196,47 +183,47 @@ function DpiaModal({ onClose, onSave, initial }: { onClose: () => void; onSave: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{initial ? 'Editar DPIA' : 'Nova DPIA'}</h2>
+          <h2 className="text-lg font-semibold">{initial ? t('editDpia') : t('newDpia')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Ex: DPIA — Sistema de Videovigilância" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('dpiaTitle')} *</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={e => set('title', e.target.value)} placeholder={t('dpiaTitlePlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('dpiaDescription2')} *</label>
             <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.description} onChange={e => set('description', e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Teste de Necessidade</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.necessityTest} onChange={e => set('necessityTest', e.target.value)} placeholder="Justifique a necessidade do tratamento..." />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('necessityTest')}</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.necessityTest} onChange={e => set('necessityTest', e.target.value)} placeholder={t('necessityTestPlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Teste de Proporcionalidade</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.proportionalityTest} onChange={e => set('proportionalityTest', e.target.value)} placeholder="Analise a proporcionalidade dos meios..." />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('proportionalityTest')}</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.proportionalityTest} onChange={e => set('proportionalityTest', e.target.value)} placeholder={t('proportionalityTestPlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Avaliação de Riscos</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.riskAssessment} onChange={e => set('riskAssessment', e.target.value)} placeholder="Identifique e avalie os riscos..." />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('riskAssessment')}</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.riskAssessment} onChange={e => set('riskAssessment', e.target.value)} placeholder={t('riskAssessmentPlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Medidas de Mitigação</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.mitigationMeasures} onChange={e => set('mitigationMeasures', e.target.value)} placeholder="Descreva as medidas para mitigar os riscos..." />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('mitigationMeasures')}</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.mitigationMeasures} onChange={e => set('mitigationMeasures', e.target.value)} placeholder={t('mitigationMeasuresPlaceholder') as string} />
           </div>
           {initial && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('statusLabel')}</label>
               <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.status} onChange={e => set('status', e.target.value)}>
-                {Object.entries(DPIA_STATUS_STYLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                {Object.entries(DPIA_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
           )}
         </div>
         <div className="p-6 border-t flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
           <Button onClick={() => { if (!form.title || !form.description) return; onSave(form); }}>
-            {initial ? 'Guardar' : 'Criar DPIA'}
+            {initial ? tCommon('save') : t('createDpia')}
           </Button>
         </div>
       </div>
@@ -246,6 +233,23 @@ function DpiaModal({ onClose, onSave, initial }: { onClose: () => void; onSave: 
 
 // ── Modal: Breach Notification ────────────────────────────────
 function BreachModal({ onClose, onSave, initial }: { onClose: () => void; onSave: (d: any) => void; initial?: any }) {
+  const t = useTranslations('gdpr');
+  const tCommon = useTranslations('common');
+
+  const BREACH_STATUS_LABELS: Record<string, string> = {
+    IDENTIFIED: t('breachStatus.IDENTIFIED'),
+    ASSESSING:  t('breachStatus.ASSESSING'),
+    NOTIFIED:   t('breachStatus.NOTIFIED'),
+    CLOSED:     t('breachStatus.CLOSED'),
+  };
+
+  const BREACH_SEVERITY_LABELS: Record<string, string> = {
+    LOW:      t('breachSeverity.LOW'),
+    MEDIUM:   t('breachSeverity.MEDIUM'),
+    HIGH:     t('breachSeverity.HIGH'),
+    CRITICAL: t('breachSeverity.CRITICAL'),
+  };
+
   const [form, setForm] = useState({
     title: initial?.title ?? '',
     description: initial?.description ?? '',
@@ -279,58 +283,58 @@ function BreachModal({ onClose, onSave, initial }: { onClose: () => void; onSave
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{initial ? 'Editar Violação' : 'Registar Violação de Dados'}</h2>
+          <h2 className="text-lg font-semibold">{initial ? t('editBreach') : t('newBreach')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Ex: Exposição indevida de dados de clientes" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('title')} *</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.title} onChange={e => set('title', e.target.value)} placeholder={t('breachTitlePlaceholder') as string} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')} *</label>
             <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.description} onChange={e => set('description', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data de Descoberta *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('discoveredAt')} *</label>
               <input type="datetime-local" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.discoveredAt} onChange={e => set('discoveredAt', e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Severidade</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('severityLabel')}</label>
               <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.severity} onChange={e => set('severity', e.target.value)}>
-                {Object.entries(BREACH_SEVERITY_STYLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                {Object.entries(BREACH_SEVERITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nº de Titulares Afetados</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('affectedSubjectsLabel')}</label>
               <input type="number" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.affectedDataSubjects} onChange={e => set('affectedDataSubjects', e.target.value)} placeholder="0" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categorias Afetadas (vírgula)</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.affectedDataCategories} onChange={e => set('affectedDataCategories', e.target.value)} placeholder="Ex: Nome, Email, NIF" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('affectedCategoriesLabel')}</label>
+              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.affectedDataCategories} onChange={e => set('affectedDataCategories', e.target.value)} placeholder={t('affectedCategoriesPlaceholder') as string} />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Medidas de Contenção</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('containmentMeasures')}</label>
             <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} value={form.containmentMeasures} onChange={e => set('containmentMeasures', e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Causa Raiz</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('rootCause')}</label>
             <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} value={form.rootCause} onChange={e => set('rootCause', e.target.value)} />
           </div>
           {initial && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('statusLabel')}</label>
               <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.status} onChange={e => set('status', e.target.value)}>
-                {Object.entries(BREACH_STATUS_STYLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                {Object.entries(BREACH_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
           )}
         </div>
         <div className="p-6 border-t flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave}>{initial ? 'Guardar' : 'Registar Violação'}</Button>
+          <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
+          <Button onClick={handleSave}>{initial ? tCommon('save') : t('registerBreach')}</Button>
         </div>
       </div>
     </div>
@@ -339,9 +343,26 @@ function BreachModal({ onClose, onSave, initial }: { onClose: () => void; onSave
 
 // ── Tab: ROPA ─────────────────────────────────────────────────
 function RopaTab() {
+  const t = useTranslations('gdpr');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+
+  const LEGAL_BASIS_LABELS: Record<string, string> = {
+    CONSENT:              t('legalBasisValues.CONSENT'),
+    CONTRACT:             t('legalBasisValues.CONTRACT'),
+    LEGAL_OBLIGATION:     t('legalBasisValues.LEGAL_OBLIGATION'),
+    VITAL_INTERESTS:      t('legalBasisValues.VITAL_INTERESTS'),
+    PUBLIC_TASK:          t('legalBasisValues.PUBLIC_TASK'),
+    LEGITIMATE_INTERESTS: t('legalBasisValues.LEGITIMATE_INTERESTS'),
+  };
+
+  const ACTIVITY_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    ACTIVE:       { bg: 'bg-green-100', text: 'text-green-800', label: t('activityStatus.ACTIVE') },
+    INACTIVE:     { bg: 'bg-gray-100',  text: 'text-gray-700',  label: t('activityStatus.INACTIVE') },
+    UNDER_REVIEW: { bg: 'bg-yellow-100',text: 'text-yellow-800',label: t('activityStatus.UNDER_REVIEW') },
+  };
 
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['gdpr', 'activities'],
@@ -368,21 +389,21 @@ function RopaTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Registo de Atividades de Tratamento (Artigo 30.º RGPD)</p>
+        <p className="text-sm text-gray-500">{t('ropaDescription')}</p>
         <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
-          <Plus className="w-4 h-4" /> Adicionar Atividade
+          <Plus className="w-4 h-4" /> {t('addActivity')}
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-gray-400">A carregar...</div>
+        <div className="text-center py-8 text-gray-400">{t('loading')}</div>
       ) : activities.length === 0 ? (
         <div className="text-center py-12">
           <Database className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Sem atividades registadas</p>
-          <p className="text-gray-400 text-sm mt-1">Registe as atividades de tratamento de dados da organização</p>
+          <p className="text-gray-500 font-medium">{t('noActivities')}</p>
+          <p className="text-gray-400 text-sm mt-1">{t('noActivitiesDesc')}</p>
           <Button className="mt-4 gap-2" size="sm" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4" /> Adicionar Atividade
+            <Plus className="w-4 h-4" /> {t('addActivity')}
           </Button>
         </div>
       ) : (
@@ -390,11 +411,11 @@ function RopaTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Nome</th>
-                <th className="text-left px-4 py-3 font-medium">Base Legal</th>
-                <th className="text-left px-4 py-3 font-medium">Titulares</th>
-                <th className="text-left px-4 py-3 font-medium">Conservação</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colName')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colLegalBasis')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colSubjects')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colRetention')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colStatus')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -421,7 +442,7 @@ function RopaTab() {
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => { if (confirm('Eliminar esta atividade?')) removeMutation.mutate(a.id); }}
+                          onClick={() => { if (confirm(t('deleteActivityConfirm') as string)) removeMutation.mutate(a.id); }}
                           className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -444,9 +465,17 @@ function RopaTab() {
 
 // ── Tab: DPIAs ────────────────────────────────────────────────
 function DpiasTab() {
+  const t = useTranslations('gdpr');
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+
+  const DPIA_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    DRAFT:       { bg: 'bg-gray-100',   text: 'text-gray-700',   label: t('dpiaStatus.DRAFT') },
+    IN_PROGRESS: { bg: 'bg-blue-100',   text: 'text-blue-800',   label: t('dpiaStatus.IN_PROGRESS') },
+    COMPLETED:   { bg: 'bg-green-100',  text: 'text-green-800',  label: t('dpiaStatus.COMPLETED') },
+    APPROVED:    { bg: 'bg-purple-100', text: 'text-purple-800', label: t('dpiaStatus.APPROVED') },
+  };
 
   const { data: dpias = [], isLoading } = useQuery({
     queryKey: ['gdpr', 'dpias'],
@@ -473,21 +502,21 @@ function DpiasTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Avaliações de Impacto sobre a Proteção de Dados (AIPD)</p>
+        <p className="text-sm text-gray-500">{t('dpiaDescription')}</p>
         <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
-          <Plus className="w-4 h-4" /> Nova DPIA
+          <Plus className="w-4 h-4" /> {t('addDpia')}
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-gray-400">A carregar...</div>
+        <div className="text-center py-8 text-gray-400">{t('loading')}</div>
       ) : dpias.length === 0 ? (
         <div className="text-center py-12">
           <ClipboardList className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Sem DPIAs</p>
-          <p className="text-gray-400 text-sm mt-1">Crie uma avaliação de impacto para tratamentos de alto risco</p>
+          <p className="text-gray-500 font-medium">{t('noDpias')}</p>
+          <p className="text-gray-400 text-sm mt-1">{t('noDpiasDesc')}</p>
           <Button className="mt-4 gap-2" size="sm" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4" /> Nova DPIA
+            <Plus className="w-4 h-4" /> {t('addDpia')}
           </Button>
         </div>
       ) : (
@@ -495,11 +524,11 @@ function DpiasTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Título</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
-                <th className="text-left px-4 py-3 font-medium">Resultado</th>
-                <th className="text-left px-4 py-3 font-medium">Responsável</th>
-                <th className="text-left px-4 py-3 font-medium">Data</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colTitle')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colStatus')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colOutcome')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colOwner')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colDate')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -528,7 +557,7 @@ function DpiasTab() {
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => { if (confirm('Eliminar esta DPIA?')) removeMutation.mutate(d.id); }}
+                          onClick={() => { if (confirm(t('deleteDpiaConfirm') as string)) removeMutation.mutate(d.id); }}
                           className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -551,9 +580,24 @@ function DpiasTab() {
 
 // ── Tab: Breaches ─────────────────────────────────────────────
 function BreachesTab() {
+  const t = useTranslations('gdpr');
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+
+  const BREACH_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    IDENTIFIED: { bg: 'bg-red-100',    text: 'text-red-800',    label: t('breachStatus.IDENTIFIED') },
+    ASSESSING:  { bg: 'bg-orange-100', text: 'text-orange-800', label: t('breachStatus.ASSESSING') },
+    NOTIFIED:   { bg: 'bg-blue-100',   text: 'text-blue-800',   label: t('breachStatus.NOTIFIED') },
+    CLOSED:     { bg: 'bg-gray-100',   text: 'text-gray-700',   label: t('breachStatus.CLOSED') },
+  };
+
+  const BREACH_SEVERITY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    LOW:      { bg: 'bg-gray-100',   text: 'text-gray-700',   label: t('breachSeverity.LOW') },
+    MEDIUM:   { bg: 'bg-yellow-100', text: 'text-yellow-800', label: t('breachSeverity.MEDIUM') },
+    HIGH:     { bg: 'bg-orange-100', text: 'text-orange-800', label: t('breachSeverity.HIGH') },
+    CRITICAL: { bg: 'bg-red-100',    text: 'text-red-800',    label: t('breachSeverity.CRITICAL') },
+  };
 
   const { data: breaches = [], isLoading } = useQuery({
     queryKey: ['gdpr', 'breaches'],
@@ -580,31 +624,31 @@ function BreachesTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Violações de dados pessoais — obrigação de notificação em 72h (Art. 33.º RGPD)</p>
+        <p className="text-sm text-gray-500">{t('breachesDescription')}</p>
         <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
-          <Plus className="w-4 h-4" /> Registar Violação
+          <Plus className="w-4 h-4" /> {t('addBreach')}
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-gray-400">A carregar...</div>
+        <div className="text-center py-8 text-gray-400">{t('loading')}</div>
       ) : breaches.length === 0 ? (
         <div className="text-center py-12">
           <AlertOctagon className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Sem violações registadas</p>
-          <p className="text-gray-400 text-sm mt-1">Registe violações de dados para cumprir o Art. 33.º do RGPD</p>
+          <p className="text-gray-500 font-medium">{t('noBreaches')}</p>
+          <p className="text-gray-400 text-sm mt-1">{t('noBreachesDesc')}</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Título</th>
-                <th className="text-left px-4 py-3 font-medium">Severidade</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
-                <th className="text-left px-4 py-3 font-medium">Titulares</th>
-                <th className="text-left px-4 py-3 font-medium">Descoberta</th>
-                <th className="text-left px-4 py-3 font-medium">Notif. CNPD</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colTitle')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colSeverity')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colStatus')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colSubjects')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colDiscovered')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('colNotifCnpd')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -620,7 +664,7 @@ function BreachesTab() {
                   <tr key={b.id} className={`hover:bg-gray-50 transition-colors ${over72h ? 'bg-red-50/30' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{b.title}</div>
-                      {over72h && <div className="text-xs text-red-600 font-medium mt-0.5">⚠ {hoursElapsed}h — prazo 72h excedido!</div>}
+                      {over72h && <div className="text-xs text-red-600 font-medium mt-0.5">⚠ {t('over72h', { h: hoursElapsed })}</div>}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sev.bg} ${sev.text}`}>{sev.label}</span>
@@ -638,7 +682,7 @@ function BreachesTab() {
                         </span>
                       ) : (
                         <span className={over72h ? 'text-red-600 font-medium' : 'text-gray-400'}>
-                          {over72h ? 'PENDENTE' : 'Pendente'}
+                          {over72h ? t('notified') : t('pending')}
                         </span>
                       )}
                     </td>
@@ -648,7 +692,7 @@ function BreachesTab() {
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => { if (confirm('Eliminar este registo?')) removeMutation.mutate(b.id); }}
+                          onClick={() => { if (confirm(t('deleteBreachConfirm') as string)) removeMutation.mutate(b.id); }}
                           className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -670,14 +714,15 @@ function BreachesTab() {
 }
 
 // ── Main Page ─────────────────────────────────────────────────
-const TABS = [
-  { id: 'ropa',     label: 'ROPA',           icon: Database },
-  { id: 'dpias',    label: 'DPIAs',          icon: ClipboardList },
-  { id: 'breaches', label: 'Violações',      icon: AlertOctagon },
-];
-
 export default function GdprPage() {
+  const t = useTranslations('gdpr');
   const [activeTab, setActiveTab] = useState('ropa');
+
+  const TABS = [
+    { id: 'ropa',     label: t('tabRopa'),     icon: Database },
+    { id: 'dpias',    label: t('tabDpias'),    icon: ClipboardList },
+    { id: 'breaches', label: t('tabBreaches'), icon: AlertOctagon },
+  ];
 
   const { data: stats } = useQuery({
     queryKey: ['gdpr', 'dashboard'],
@@ -689,10 +734,10 @@ export default function GdprPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-blue-600" /> GDPR / Proteção de Dados
+          <ShieldCheck className="w-6 h-6 text-blue-600" /> {t('title')}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Conformidade com o Regulamento Geral sobre a Proteção de Dados (RGPD / GDPR)
+          {t('subtitle')}
         </p>
       </div>
 
