@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { orgApi, tasksApi, risksApi, reportsApi, policiesApi, gdprApi, auditLogsApi } from '@/lib/api';
 import {
   FolderOpen, CheckSquare, AlertTriangle, FileText,
@@ -17,7 +18,7 @@ import { pt } from 'date-fns/locale';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 
 // ── Compliance Score Ring ─────────────────────────────────────
-function ComplianceScoreRing({ score }: { score: number }) {
+function ComplianceScoreRing({ score, label }: { score: number; label: string }) {
   const r = 52;
   const circumference = 2 * Math.PI * r;
   const offset = circumference - (score / 100) * circumference;
@@ -37,14 +38,14 @@ function ComplianceScoreRing({ score }: { score: number }) {
       />
       <text x="65" y="65" textAnchor="middle" dominantBaseline="middle">
         <tspan x="65" dy="-6" fontSize="26" fontWeight="bold" fill={color}>{score}%</tspan>
-        <tspan x="65" dy="20" fontSize="10" fill="#6b7280">Conformidade</tspan>
+        <tspan x="65" dy="20" fontSize="10" fill="#6b7280">{label}</tspan>
       </text>
     </svg>
   );
 }
 
 // ── KPI Card ──────────────────────────────────────────────────
-function KpiCard({ title, value, icon: Icon, color, sub, href, trend }: any) {
+function KpiCard({ title, value, icon: Icon, color, sub, href, trend, vsLastMonth }: any) {
   const content = (
     <div className={cn(
       'bg-white rounded-2xl p-5 border border-gray-100 shadow-sm transition-all',
@@ -66,7 +67,7 @@ function KpiCard({ title, value, icon: Icon, color, sub, href, trend }: any) {
           trend >= 0 ? 'text-red-500' : 'text-green-600',
         )}>
           {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-          {Math.abs(trend)} vs. mês anterior
+          {Math.abs(trend)} {vsLastMonth}
         </div>
       )}
     </div>
@@ -77,6 +78,7 @@ function KpiCard({ title, value, icon: Icon, color, sub, href, trend }: any) {
 // ── My Tasks Widget ───────────────────────────────────────────
 function MyTasksWidget({ onOpenDetail }: { onOpenDetail: (id: string) => void }) {
   const { user } = useAuthStore();
+  const t = useTranslations('dashboard');
 
   const { data } = useQuery({
     queryKey: ['tasks', 'mine'],
@@ -85,7 +87,7 @@ function MyTasksWidget({ onOpenDetail }: { onOpenDetail: (id: string) => void })
   });
 
   const tasks = data?.data ?? [];
-  const active = tasks.filter((t: any) => t.status !== 'DONE' && t.status !== 'CANCELLED');
+  const active = tasks.filter((task: any) => task.status !== 'DONE' && task.status !== 'CANCELLED');
 
   const STATUS_DOT: Record<string, string> = {
     TODO:        'bg-gray-300',
@@ -94,26 +96,23 @@ function MyTasksWidget({ onOpenDetail }: { onOpenDetail: (id: string) => void })
     DONE:        'bg-green-500',
     CANCELLED:   'bg-gray-200',
   };
-  const STATUS_LABEL: Record<string, string> = {
-    TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão', DONE: 'Concluída', CANCELLED: 'Cancelada',
-  };
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-          <CheckSquare className="w-4 h-4 text-blue-600" /> O Meu Trabalho
+          <CheckSquare className="w-4 h-4 text-blue-600" /> {t('myWork')}
         </h3>
         <Link href="/tasks" className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
-          Ver todas <ChevronRight className="w-3 h-3" />
+          {t('viewAll')} <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
 
       {active.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
           <CheckCircle2 className="w-8 h-8 text-green-400 mb-2" />
-          <p className="text-sm text-gray-500">Tudo em dia!</p>
-          <p className="text-xs text-gray-400">Sem tarefas atribuídas.</p>
+          <p className="text-sm text-gray-500">{t('allUpToDate')}</p>
+          <p className="text-xs text-gray-400">{t('noTasksAssigned')}</p>
         </div>
       ) : (
         <div className="space-y-1 flex-1">
@@ -152,6 +151,8 @@ function MyTasksWidget({ onOpenDetail }: { onOpenDetail: (id: string) => void })
 
 // ── Recent Activity Feed ──────────────────────────────────────
 function ActivityFeed() {
+  const t = useTranslations('dashboard');
+
   const { data } = useQuery({
     queryKey: ['audit-logs', 'recent'],
     queryFn: () => auditLogsApi.list({ limit: 15 }).then(r => r.data),
@@ -172,24 +173,37 @@ function ActivityFeed() {
 
   const entityLabel = (entity: string) => {
     const map: Record<string, string> = {
-      task: 'Tarefa', risk: 'Risco', project: 'Projeto', policy: 'Política',
-      dpia: 'DPIA', breach: 'Violação', audit: 'Auditoria', capa: 'CAPA',
-      evidence: 'Evidência', user: 'Utilizador',
+      task: t('entity.task'),
+      risk: t('entity.risk'),
+      project: t('entity.project'),
+      policy: t('entity.policy'),
+      dpia: t('entity.dpia'),
+      breach: t('entity.breach'),
+      audit: t('entity.audit'),
+      capa: t('entity.capa'),
+      evidence: t('entity.evidence'),
+      user: t('entity.user'),
     };
     return map[entity?.toLowerCase()] ?? entity;
+  };
+
+  const actionLabel = (action: string) => {
+    if (action?.toLowerCase() === 'create') return t('action.created');
+    if (action?.toLowerCase() === 'update') return t('action.updated');
+    return t('action.deleted');
   };
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-purple-600" /> Atividade Recente
+          <Activity className="w-4 h-4 text-purple-600" /> {t('recentActivity')}
         </h3>
       </div>
 
       {logs.length === 0 ? (
         <div className="flex-1 flex items-center justify-center py-6">
-          <p className="text-sm text-gray-400">Sem atividade recente</p>
+          <p className="text-sm text-gray-400">{t('noActivity')}</p>
         </div>
       ) : (
         <div className="space-y-3 flex-1 overflow-hidden">
@@ -202,7 +216,7 @@ function ActivityFeed() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-700 leading-snug">
                     <span className="font-medium">{log.user?.firstName ?? 'Sistema'}</span>
-                    {' '}{log.action?.toLowerCase() === 'create' ? 'criou' : log.action?.toLowerCase() === 'update' ? 'atualizou' : 'eliminou'}{' '}
+                    {' '}{actionLabel(log.action)}{' '}
                     <span className="font-medium">{entityLabel(log.entity)}</span>
                     {log.entityName && <span className="text-gray-500"> — {log.entityName}</span>}
                   </p>
@@ -221,6 +235,9 @@ function ActivityFeed() {
 
 // ── Risk Heatmap Summary ──────────────────────────────────────
 function RiskSummary() {
+  const t = useTranslations('dashboard');
+  const tCommon = useTranslations('common');
+
   const { data: risks } = useQuery({
     queryKey: ['risks', 'list', {}],
     queryFn: () => risksApi.list({ limit: 50 }).then(r => r.data),
@@ -235,17 +252,17 @@ function RiskSummary() {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-500" /> Riscos por Nível
+          <AlertTriangle className="w-4 h-4 text-orange-500" /> {t('risksByLevel')}
         </h3>
         <Link href="/risks" className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
-          Ver mapa <ChevronRight className="w-3 h-3" />
+          {t('viewMap')} <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
       <div className="space-y-2">
         {[
-          { label: 'Críticos / Altos', count: high.length, color: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
-          { label: 'Médios', count: medium.length, color: 'bg-orange-400', text: 'text-orange-700', bg: 'bg-orange-50' },
-          { label: 'Baixos', count: low.length, color: 'bg-green-400', text: 'text-green-700', bg: 'bg-green-50' },
+          { label: t('criticalHigh'), count: high.length, color: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
+          { label: tCommon('medium'), count: medium.length, color: 'bg-orange-400', text: 'text-orange-700', bg: 'bg-orange-50' },
+          { label: tCommon('low'), count: low.length, color: 'bg-green-400', text: 'text-green-700', bg: 'bg-green-50' },
         ].map(r => (
           <div key={r.label} className={cn('flex items-center gap-3 px-3 py-2 rounded-lg', r.bg)}>
             <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', r.color)} />
@@ -254,7 +271,7 @@ function RiskSummary() {
           </div>
         ))}
         {list.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-2">Sem riscos registados</p>
+          <p className="text-xs text-gray-400 text-center py-2">{t('noRisksRegistered')}</p>
         )}
       </div>
       {high.length > 0 && (
@@ -274,53 +291,55 @@ function RiskSummary() {
 
 // ── Module Status Grid ────────────────────────────────────────
 function ModuleStatus({ policyStats, gdprStats, dashData, summary }: any) {
+  const t = useTranslations('dashboard');
+
   const modules = [
     {
-      label: 'Políticas',
+      label: t('moduleLabel.policies'),
       icon: BookOpen,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
       href: '/policies',
       stat: policyStats?.byStatus?.APPROVED ?? 0,
       total: policyStats?.total ?? 0,
-      statLabel: 'aprovadas',
+      statLabel: t('moduleStat.approved'),
     },
     {
-      label: 'GDPR / ROPA',
+      label: t('moduleLabel.gdpr'),
       icon: ShieldCheck,
       color: 'text-green-600',
       bg: 'bg-green-50',
       href: '/gdpr',
       stat: gdprStats?.activities?.active ?? 0,
       total: gdprStats?.activities?.total ?? 0,
-      statLabel: 'atividades',
+      statLabel: t('moduleStat.activities'),
     },
     {
-      label: 'Auditorias',
+      label: t('moduleLabel.audits'),
       icon: Target,
       color: 'text-purple-600',
       bg: 'bg-purple-50',
       href: '/audits',
       stat: summary?.auditsCompleted ?? 0,
       total: summary?.totalAudits ?? 0,
-      statLabel: 'concluídas',
+      statLabel: t('moduleStat.completed'),
     },
     {
-      label: 'CAPA',
+      label: t('moduleLabel.capa'),
       icon: AlertCircle,
       color: 'text-orange-600',
       bg: 'bg-orange-50',
       href: '/capa',
       stat: summary?.openCapas ?? 0,
       total: summary?.totalCapas ?? 0,
-      statLabel: 'em aberto',
+      statLabel: t('moduleStat.open'),
     },
   ];
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <BarChart3 className="w-4 h-4 text-gray-500" /> Estado dos Módulos
+        <BarChart3 className="w-4 h-4 text-gray-500" /> {t('moduleStatus')}
       </h3>
       <div className="grid grid-cols-2 gap-3">
         {modules.map(m => {
@@ -353,17 +372,19 @@ function ModuleStatus({ policyStats, gdprStats, dashData, summary }: any) {
 
 // ── Quick Actions ─────────────────────────────────────────────
 function QuickActions() {
+  const t = useTranslations('dashboard');
+
   const actions = [
-    { href: '/diagnostic',  label: 'Diagnóstico',      icon: Target,      color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100' },
-    { href: '/risks',       label: 'Registar Risco',   icon: AlertTriangle, color: 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-100' },
-    { href: '/policies',    label: 'Nova Política',    icon: BookOpen,    color: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-100' },
-    { href: '/gdpr',        label: 'ROPA / GDPR',      icon: ShieldCheck, color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-100' },
-    { href: '/evidence',    label: 'Evidência',        icon: FileText,    color: 'bg-pink-50 text-pink-700 hover:bg-pink-100 border-pink-100' },
-    { href: '/reports',     label: 'Relatório',        icon: BarChart3,   color: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100' },
+    { href: '/diagnostic',  label: t('quickAction.diagnostic'),    icon: Target,      color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100' },
+    { href: '/risks',       label: t('quickAction.registerRisk'),  icon: AlertTriangle, color: 'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-100' },
+    { href: '/policies',    label: t('quickAction.newPolicy'),     icon: BookOpen,    color: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-100' },
+    { href: '/gdpr',        label: t('quickAction.ropaGdpr'),      icon: ShieldCheck, color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-100' },
+    { href: '/evidence',    label: t('quickAction.evidence'),      icon: FileText,    color: 'bg-pink-50 text-pink-700 hover:bg-pink-100 border-pink-100' },
+    { href: '/reports',     label: t('quickAction.report'),        icon: BarChart3,   color: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100' },
   ];
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
+      <h3 className="text-sm font-semibold text-gray-900 mb-4">{t('quickActions')}</h3>
       <div className="grid grid-cols-3 gap-2">
         {actions.map(({ href, label, icon: Icon, color }) => (
           <Link key={href} href={href} className={cn('flex flex-col items-center gap-2 p-3 rounded-xl border transition-colors text-center', color)}>
@@ -380,6 +401,8 @@ function QuickActions() {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const t = useTranslations('dashboard');
+  const tCommon = useTranslations('common');
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -411,9 +434,9 @@ export default function DashboardPage() {
 
   const greeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return 'Bom dia';
-    if (h < 19) return 'Boa tarde';
-    return 'Boa noite';
+    if (h < 12) return t('greeting.morning');
+    if (h < 19) return t('greeting.afternoon');
+    return t('greeting.evening');
   };
 
   if (isLoading) {
@@ -433,13 +456,13 @@ export default function DashboardPage() {
             {greeting()}, {user?.firstName} 👋
           </h2>
           <p className="text-gray-500 text-sm mt-1">
-            Resumo de conformidade — {format(new Date(), "EEEE, d 'de' MMMM", { locale: pt })}
+            {t('complianceSummary')} — {format(new Date(), "EEEE, d 'de' MMMM", { locale: pt })}
           </p>
         </div>
         {openBreaches > 0 && (
           <Link href="/gdpr" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-xl hover:bg-red-100 transition-colors">
             <AlertTriangle className="w-4 h-4" />
-            {openBreaches} violação{openBreaches !== 1 ? 'ões' : ''} em aberto
+            {openBreaches === 1 ? t('openBreaches', { count: openBreaches }) : t('openBreachesPlural', { count: openBreaches })}
           </Link>
         )}
       </div>
@@ -448,72 +471,80 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Compliance ring */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-2">
-          <ComplianceScoreRing score={complianceScore} />
-          <p className="text-xs text-gray-400 text-center">Média dos projetos ativos</p>
+          <ComplianceScoreRing score={complianceScore} label={t('complianceScore')} />
+          <p className="text-xs text-gray-400 text-center">{t('avgActiveProjects')}</p>
         </div>
 
         {/* KPIs 2×2 */}
         <div className="lg:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard
-            title="Projetos Ativos"
+            title={t('kpi.activeProjects')}
             value={activeProjects}
             icon={FolderOpen}
             color="bg-blue-100 text-blue-600"
-            sub={`${dashData?.projects?.total ?? 0} total`}
+            sub={`${dashData?.projects?.total ?? 0} ${tCommon('total')}`}
             href="/projects"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="Tarefas em Atraso"
+            title={t('kpi.overdueTasks')}
             value={overdueTasks}
             icon={Clock}
             color={overdueTasks > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}
-            sub={overdueTasks > 0 ? 'necessitam atenção' : 'tudo em dia!'}
+            sub={overdueTasks > 0 ? t('kpiSub.needAttention') : t('kpiSub.allUpToDate')}
             href="/tasks"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="Riscos Abertos"
+            title={t('kpi.openRisks')}
             value={openRisks}
             icon={AlertTriangle}
             color={highRisks > 0 ? 'bg-orange-100 text-orange-600' : 'bg-yellow-100 text-yellow-600'}
             sub={`${highRisks} alto/crítico${highRisks !== 1 ? 's' : ''}`}
             href="/risks"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="Políticas Aprovadas"
+            title={t('kpi.approvedPolicies')}
             value={policyStats?.byStatus?.APPROVED ?? 0}
             icon={BookOpen}
             color="bg-green-100 text-green-600"
-            sub={`${policyStats?.total ?? 0} total`}
+            sub={`${policyStats?.total ?? 0} ${tCommon('total')}`}
             href="/policies"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="ROPA — Atividades"
+            title={t('kpi.ropaActivities')}
             value={gdprStats?.activities?.active ?? 0}
             icon={ShieldCheck}
             color="bg-purple-100 text-purple-600"
-            sub="ativas (Art. 30)"
+            sub={t('kpiSub.activeArt30')}
             href="/gdpr"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="Evidências Pendentes"
+            title={t('kpi.pendingEvidence')}
             value={pendingEvidence}
             icon={FileText}
             color="bg-pink-100 text-pink-600"
             href="/evidence"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="CAPA em Aberto"
+            title={t('kpi.openCapa')}
             value={summary?.openCapas ?? 0}
             icon={AlertCircle}
             color="bg-red-100 text-red-600"
             href="/capa"
+            vsLastMonth={t('vsLastMonth')}
           />
           <KpiCard
-            title="Auditorias Concluídas"
+            title={t('kpi.completedAudits')}
             value={summary?.auditsCompleted ?? 0}
             icon={Target}
             color="bg-indigo-100 text-indigo-600"
             href="/audits"
+            vsLastMonth={t('vsLastMonth')}
           />
         </div>
       </div>

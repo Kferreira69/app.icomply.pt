@@ -130,11 +130,90 @@
     "criticalRisks": "Riesgos críticos",
     "openAudits": "Auditorías abiertas",
     "complianceByFramework": "Cumplimiento por marco",
-    "noActivity": "Sin actividad reciente"
+    "noActivity": "Sin actividad reciente",
+    "greeting": {
+      "morning": "Buenos días",
+      "afternoon": "Buenas tardes",
+      "evening": "Buenas noches"
+    },
+    "complianceSummary": "Resumen de cumplimiento",
+    "avgActiveProjects": "Media de proyectos activos",
+    "viewAll": "Ver todos",
+    "viewMap": "Ver mapa",
+    "allUpToDate": "¡Todo al día!",
+    "noTasksAssigned": "Sin tareas asignadas.",
+    "noRisksRegistered": "Sin riesgos registrados",
+    "moduleStatus": "Estado de módulos",
+    "quickActions": "Acciones rápidas",
+    "openBreaches": "{count} violación abierta",
+    "openBreachesPlural": "{count} violaciones abiertas",
+    "vsLastMonth": "vs. mes anterior",
+    "kpi": {
+      "activeProjects": "Proyectos activos",
+      "overdueTasks": "Tareas vencidas",
+      "openRisks": "Riesgos abiertos",
+      "approvedPolicies": "Políticas aprobadas",
+      "ropaActivities": "ROPA — Actividades",
+      "pendingEvidence": "Evidencias pendientes",
+      "openCapa": "CAPA abiertos",
+      "completedAudits": "Auditorías completadas"
+    },
+    "kpiSub": {
+      "needAttention": "requieren atención",
+      "allUpToDate": "¡todo al día!",
+      "activeArt30": "activas (Art. 30)"
+    },
+    "risksByLevel": "Riesgos por nivel",
+    "criticalHigh": "Críticos / Altos",
+    "moduleLabel": {
+      "policies": "Políticas",
+      "gdpr": "RGPD / ROPA",
+      "audits": "Auditorías",
+      "capa": "CAPA"
+    },
+    "moduleStat": {
+      "approved": "aprobadas",
+      "activities": "actividades",
+      "completed": "completadas",
+      "open": "abiertas"
+    },
+    "quickAction": {
+      "diagnostic": "Diagnóstico",
+      "registerRisk": "Registrar riesgo",
+      "newPolicy": "Nueva política",
+      "ropaGdpr": "ROPA / RGPD",
+      "evidence": "Evidencia",
+      "report": "Informe"
+    },
+    "entity": {
+      "task": "Tarea",
+      "risk": "Riesgo",
+      "project": "Proyecto",
+      "policy": "Política",
+      "dpia": "EIPD",
+      "breach": "Violación",
+      "audit": "Auditoría",
+      "capa": "CAPA",
+      "evidence": "Evidencia",
+      "user": "Usuario"
+    },
+    "action": {
+      "created": "creó",
+      "updated": "actualizó",
+      "deleted": "eliminó"
+    },
+    "taskStatus": {
+      "TODO": "Por hacer",
+      "IN_PROGRESS": "En curso",
+      "IN_REVIEW": "En revisión",
+      "DONE": "Completada",
+      "CANCELLED": "Cancelada"
+    }
   },
   "risks": {
     "title": "Registro de riesgos",
     "addRisk": "Añadir riesgo",
+    "registerRisk": "Registrar riesgo",
     "riskName": "Nombre del riesgo",
     "category": "Categoría",
     "likelihood": "Probabilidad",
@@ -143,6 +222,35 @@
     "residualScore": "Puntuación residual",
     "treatment": "Tratamiento",
     "mitigationPlan": "Plan de mitigación",
+    "titleField": "Título",
+    "editRisk": "Editar riesgo",
+    "noRisks": "No hay riesgos registrados",
+    "saveError": "Error al guardar. Inténtelo de nuevo.",
+    "heatmap": "Mapa de calor de riesgos",
+    "heatmapAxis": "Probabilidad ↓ / Impacto →",
+    "viewList": "Lista",
+    "viewHeatmap": "Mapa de calor",
+    "colRisk": "Riesgo",
+    "colCategory": "Categoría",
+    "colLikelihood": "Probabilidad",
+    "colImpact": "Impacto",
+    "colLevel": "Nivel",
+    "colStatus": "Estado",
+    "colDueDate": "Fecha límite",
+    "likelihood_values": {
+      "RARE": "Raro",
+      "UNLIKELY": "Improbable",
+      "POSSIBLE": "Posible",
+      "LIKELY": "Probable",
+      "ALMOST_CERTAIN": "Casi seguro"
+    },
+    "impact_values": {
+      "NEGLIGIBLE": "Insignificante",
+      "MINOR": "Menor",
+      "MODERATE": "Moderado",
+      "MAJOR": "Mayor",
+      "CATASTROPHIC": "Catastrófico"
+    },
     "level": {
       "LOW": "Bajo",
       "MEDIUM": "Medio",
