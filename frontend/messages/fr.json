@@ -91,6 +91,8 @@
     "security": "Sécurité",
     "translations": "Traductions",
     "denuncias": "Signalement",
+    "aiAssistant": "Assistant IA",
+    "trustCenter": "Trust Center",
     "logout": "Déconnexion"
   },
   "auth": {

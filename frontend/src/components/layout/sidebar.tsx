@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
@@ -14,38 +15,39 @@ import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
 
-const navItems = [
-  { href: '/dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
-  { href: '/diagnostic',   label: 'Diagnóstico',     icon: ClipboardCheck },
-  { href: '/projects',     label: 'Projetos',         icon: FolderOpen },
-  { href: '/tasks',        label: 'Tarefas',          icon: CheckSquare },
-  { href: '/risks',        label: 'Riscos',           icon: AlertTriangle },
-  { href: '/evidence',     label: 'Evidências',       icon: FileText },
-  { href: '/audits',       label: 'Auditorias',       icon: Shield },
-  { href: '/capa',         label: 'CAPA',             icon: AlertCircle },
-  { href: '/reports',      label: 'Relatórios',       icon: BarChart2 },
-  { href: '/policies',     label: 'Políticas',        icon: BookOpen },
-  { href: '/gdpr',         label: 'GDPR / ROPA',      icon: ShieldCheck },
-  { href: '/nis2',         label: 'NIS2',             icon: Network },
-  { href: '/dora',         label: 'DORA',             icon: Activity },
-  { href: '/denuncias',    label: 'Canal Denúncias',  icon: MessageSquareWarning },
-  { href: '/vendors',      label: 'Fornecedores',     icon: Building2 },
-  { href: '/soa',          label: 'SoA ISO 27001',    icon: FileCheck2 },
-  { href: '/excel-import', label: 'Importar Excel',   icon: Upload },
-  { href: '/ai-assistant', label: 'Assistente IA',   icon: BotMessageSquare },
-];
-
-const settingsItems = [
-  { href: '/settings/organization',  label: 'Organização',  icon: Settings },
-  { href: '/settings/users',         label: 'Utilizadores', icon: Settings },
-  { href: '/settings/trust-center',  label: 'Trust Center', icon: Globe },
-  { href: '/settings/translations',  label: 'Traduções',    icon: Settings },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const t = useTranslations('nav');
+
+  const navItems = [
+    { href: '/dashboard',    label: t('dashboard'),   icon: LayoutDashboard },
+    { href: '/diagnostic',   label: t('diagnostic'),  icon: ClipboardCheck },
+    { href: '/projects',     label: t('projects'),    icon: FolderOpen },
+    { href: '/tasks',        label: t('tasks'),       icon: CheckSquare },
+    { href: '/risks',        label: t('risks'),       icon: AlertTriangle },
+    { href: '/evidence',     label: t('evidence'),    icon: FileText },
+    { href: '/audits',       label: t('audits'),      icon: Shield },
+    { href: '/capa',         label: t('capa'),        icon: AlertCircle },
+    { href: '/reports',      label: t('reports'),     icon: BarChart2 },
+    { href: '/policies',     label: t('policies'),    icon: BookOpen },
+    { href: '/gdpr',         label: t('gdpr'),        icon: ShieldCheck },
+    { href: '/nis2',         label: t('nis2'),        icon: Network },
+    { href: '/dora',         label: t('dora'),        icon: Activity },
+    { href: '/denuncias',    label: t('denuncias'),   icon: MessageSquareWarning },
+    { href: '/vendors',      label: t('vendors'),     icon: Building2 },
+    { href: '/soa',          label: t('soa'),         icon: FileCheck2 },
+    { href: '/excel-import', label: t('import'),      icon: Upload },
+    { href: '/ai-assistant', label: t('aiAssistant'), icon: BotMessageSquare },
+  ];
+
+  const settingsItems = [
+    { href: '/settings/organization',  label: t('organization'),  icon: Settings },
+    { href: '/settings/users',         label: t('users'),         icon: Settings },
+    { href: '/settings/trust-center',  label: t('trustCenter'),   icon: Globe },
+    { href: '/settings/translations',  label: t('translations'),  icon: Settings },
+  ];
 
   return (
     <aside
@@ -108,7 +110,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="mt-6 px-2">
             <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-              Configurações
+              {t('settings')}
             </p>
             {settingsItems.map(({ href, label, icon: Icon }) => (
               <Link
@@ -155,7 +157,7 @@ export function Sidebar() {
           )}
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>Sair</span>}
+          {!collapsed && <span>{t('logout')}</span>}
         </button>
       </div>
 

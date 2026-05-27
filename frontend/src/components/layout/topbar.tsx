@@ -1,41 +1,46 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAuthStore } from '@/store/auth-store';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 
-const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/diagnostic': 'Diagnóstico de Conformidade',
-  '/projects': 'Projetos de Conformidade',
-  '/tasks': 'Gestão de Tarefas',
-  '/risks': 'Registo de Riscos',
-  '/evidence': 'Gestão de Evidências',
-  '/audits': 'Auditorias',
-  '/capa': 'Ações Corretivas (CAPA)',
-  '/reports': 'Relatórios',
-  '/excel-import': 'Importar Excel',
-  '/settings/organization': 'Organização',
-  '/settings/users': 'Utilizadores',
-  '/settings/trust-center': 'Trust Center',
-  '/settings/translations': 'Traduções',
-  '/denuncias': 'Canal de Denúncias',
-  '/vendors': 'Fornecedores',
-  '/soa': 'SoA ISO 27001',
-  '/dora': 'DORA',
-  '/policies': 'Políticas',
-  '/gdpr': 'GDPR / ROPA',
-  '/nis2': 'NIS2',
-  '/ai-assistant': 'Assistente IA de Conformidade',
+// Map URL path segments to nav translation keys
+const PATH_TO_KEY: Record<string, string> = {
+  '/dashboard': 'dashboard',
+  '/diagnostic': 'diagnostic',
+  '/projects': 'projects',
+  '/tasks': 'tasks',
+  '/risks': 'risks',
+  '/evidence': 'evidence',
+  '/audits': 'audits',
+  '/capa': 'capa',
+  '/reports': 'reports',
+  '/excel-import': 'import',
+  '/policies': 'policies',
+  '/gdpr': 'gdpr',
+  '/nis2': 'nis2',
+  '/dora': 'dora',
+  '/vendors': 'vendors',
+  '/soa': 'soa',
+  '/denuncias': 'denuncias',
+  '/ai-assistant': 'aiAssistant',
+  '/settings/organization': 'organization',
+  '/settings/users': 'users',
+  '/settings/trust-center': 'trustCenter',
+  '/settings/translations': 'translations',
 };
 
 export function Topbar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
+  const t = useTranslations('nav');
 
-  const title = Object.entries(pageTitles).find(([k]) =>
-    pathname === k || pathname.startsWith(k + '/')
-  )?.[1] || 'iComply';
+  const navKey = Object.entries(PATH_TO_KEY).find(
+    ([k]) => pathname === k || pathname.startsWith(k + '/'),
+  )?.[1];
+
+  const title = navKey ? t(navKey as any) : 'iComply';
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">

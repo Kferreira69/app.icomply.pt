@@ -91,6 +91,8 @@
     "security": "Security",
     "translations": "Translations",
     "denuncias": "Whistleblowing",
+    "aiAssistant": "AI Assistant",
+    "trustCenter": "Trust Center",
     "logout": "Sign Out"
   },
   "auth": {
