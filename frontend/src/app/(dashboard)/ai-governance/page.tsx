@@ -332,7 +332,7 @@ function Iso42001Tab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ai-42001'] }),
   });
 
-  const clauses = [...new Set((controls || []).map((c: any) => c.clause))];
+  const clauses = [...new Set((controls || []).map((c: any) => c.clause as string))];
   const implemented = (controls || []).filter((c: any) => c.status === 'IMPLEMENTED').length;
   const total = (controls || []).filter((c: any) => c.applicable).length;
 
