@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { reportsApi } from '@/lib/api';
-import { BarChart2, Download, Plus, Loader2, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { cn, formatDateTime, getStatusColor } from '@/lib/utils';
+import { BarChart2, Download, Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { formatDateTime } from '@/lib/utils';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 
 function StatusIcon({ status }: { status: string }) {
@@ -14,7 +15,7 @@ function StatusIcon({ status }: { status: string }) {
 }
 
 export default function ReportsPage() {
-  const [generating, setGenerating] = useState(false);
+  const t = useTranslations('reports');
   const qc = useQueryClient();
 
   const { data: summary, isLoading } = useQuery({
@@ -46,6 +47,13 @@ export default function ReportsPage() {
 
   const COLORS = ['#1B4F8A', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
+  const REPORT_TYPES = [
+    { type: 'COMPLIANCE_SUMMARY', label: t('typeComplianceSummary'), format: 'PDF' },
+    { type: 'RISK_REGISTER',      label: t('typeRiskRegister'),      format: 'EXCEL' },
+    { type: 'TASK_STATUS',        label: t('typeTaskStatus'),        format: 'EXCEL' },
+    { type: 'EVIDENCE_GAP',       label: t('typeEvidenceGap'),       format: 'PDF' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Compliance overview */}
@@ -68,11 +76,11 @@ export default function ReportsPage() {
               <span className="text-xs text-gray-500">Score</span>
             </div>
           </div>
-          <p className="text-sm font-medium text-gray-700 mt-2">Índice de Conformidade</p>
+          <p className="text-sm font-medium text-gray-700 mt-2">{t('complianceIndex')}</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Estado das Tarefas</h4>
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">{t('tasksStatus')}</h4>
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={tasksData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -87,7 +95,7 @@ export default function ReportsPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Estado dos Riscos</h4>
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">{t('risksStatus')}</h4>
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={risksData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -103,9 +111,9 @@ export default function ReportsPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Projetos Total', value: summary?.projects?.total ?? 0 },
-          { label: 'Auditorias Concluídas', value: summary?.auditsCompleted ?? 0 },
-          { label: 'CAPA em Aberto', value: summary?.openCapas ?? 0 },
+          { label: t('kpiProjects'), value: summary?.projects?.total ?? 0 },
+          { label: t('kpiAudits'), value: summary?.auditsCompleted ?? 0 },
+          { label: t('kpiCapa'), value: summary?.openCapas ?? 0 },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <p className="text-2xl font-bold text-gray-900">{s.value}</p>
@@ -119,21 +127,16 @@ export default function ReportsPage() {
             className="flex flex-col items-center gap-1 w-full"
           >
             {generateMutation.isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
-            <span className="text-sm font-medium">Exportar PDF</span>
+            <span className="text-sm font-medium">{t('exportPdf')}</span>
           </button>
         </div>
       </div>
 
       {/* Generate report */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Gerar Relatório</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">{t('generate')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { type: 'COMPLIANCE_SUMMARY', label: 'Resumo de Conformidade', format: 'PDF' },
-            { type: 'RISK_REGISTER', label: 'Registo de Riscos', format: 'EXCEL' },
-            { type: 'TASK_STATUS', label: 'Estado das Tarefas', format: 'EXCEL' },
-            { type: 'EVIDENCE_GAP', label: 'Lacunas de Evidência', format: 'PDF' },
-          ].map(r => (
+          {REPORT_TYPES.map(r => (
             <button
               key={r.type}
               onClick={() => generateMutation.mutate({ type: r.type, format: r.format })}
@@ -155,9 +158,9 @@ export default function ReportsPage() {
 
       {/* Report history */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Histórico de Relatórios</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">{t('history')}</h3>
         {!reportsList?.length ? (
-          <p className="text-sm text-gray-400 text-center py-8">Nenhum relatório gerado ainda</p>
+          <p className="text-sm text-gray-400 text-center py-8">{t('noReports')}</p>
         ) : (
           <div className="space-y-2">
             {reportsList.slice(0, 10).map((r: any) => (

@@ -2,17 +2,20 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { Mail, Loader2, ArrowLeft } from 'lucide-react';
 import { authApi } from '@/lib/api';
 
-const schema = z.object({ email: z.string().email('Email inválido') });
-type FormData = z.infer<typeof schema>;
-
 export default function ForgotPasswordPage() {
+  const t = useTranslations('auth');
   const [sent, setSent] = useState(false);
+
+  const schema = z.object({ email: z.string().email(t('invalidEmail')) });
+  type FormData = z.infer<typeof schema>;
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
@@ -28,12 +31,10 @@ export default function ForgotPasswordPage() {
         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Mail className="w-6 h-6 text-green-600" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Verifique o seu email</h2>
-        <p className="text-gray-500 text-sm mb-6">
-          Se o email existir na plataforma, receberá um link para redefinir a password.
-        </p>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">{t('checkEmail')}</h2>
+        <p className="text-gray-500 text-sm mb-6">{t('checkEmailDesc')}</p>
         <Link href="/login" className="text-primary hover:underline text-sm">
-          Voltar ao login
+          {t('backToLogin')}
         </Link>
       </div>
     );
@@ -43,14 +44,14 @@ export default function ForgotPasswordPage() {
     <>
       <Link href="/login" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6">
         <ArrowLeft className="w-4 h-4" />
-        Voltar
+        {t('back')}
       </Link>
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Recuperar password</h1>
-      <p className="text-gray-500 text-sm mb-6">Introduza o seu email para receber o link de recuperação.</p>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">{t('forgotPasswordTitle')}</h1>
+      <p className="text-gray-500 text-sm mb-6">{t('forgotPasswordDesc')}</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('email')}</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -68,7 +69,7 @@ export default function ForgotPasswordPage() {
           className="w-full bg-primary text-white py-2.5 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          Enviar link
+          {t('sendResetLink')}
         </button>
       </form>
     </>
