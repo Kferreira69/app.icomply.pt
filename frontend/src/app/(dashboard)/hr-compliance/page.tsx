@@ -431,8 +431,12 @@ function RemoteTab() {
               </div>
               <div className="flex items-center gap-3 text-xs">
                 <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">{w.remoteType}</span>
-                {w.workspaceAssessed ? <CheckCircle className="w-4 h-4 text-green-500" title="Local de trabalho avaliado" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" title="Avaliação pendente" />}
-                {w.equipmentProvided ? <CheckCircle className="w-4 h-4 text-green-500" title="Equipamento fornecido" /> : <XCircle className="w-4 h-4 text-gray-300" title="Sem equipamento" />}
+                <span title={w.workspaceAssessed ? 'Local de trabalho avaliado' : 'Avaliação pendente'}>
+                  {w.workspaceAssessed ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                </span>
+                <span title={w.equipmentProvided ? 'Equipamento fornecido' : 'Sem equipamento'}>
+                  {w.equipmentProvided ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-gray-300" />}
+                </span>
               </div>
             </div>
           ))}
