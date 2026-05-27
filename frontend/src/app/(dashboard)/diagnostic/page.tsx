@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { diagnosticsApi, projectsApi } from '@/lib/api';
 import { ChevronRight, ChevronLeft, CheckCircle2, Loader2, Play, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,9 +10,8 @@ import Link from 'next/link';
 
 type DiagnosticStep = 'intro' | 'questionnaire' | 'results';
 
-const CATEGORIES = ['DATA_PROCESSING', 'INFORMATION_SECURITY', 'SECTOR', 'JURISDICTION', 'QUALITY_MANAGEMENT', 'CERTIFICATIONS'];
-
 export default function DiagnosticPage() {
+  const t = useTranslations('diagnostic');
   const [step, setStep] = useState<DiagnosticStep>('intro');
   const [runId, setRunId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -61,10 +61,7 @@ export default function DiagnosticPage() {
     if (currentQ < questions.length - 1) {
       setCurrentQ(c => c + 1);
     } else {
-      // Submit final
-      const answersList = Object.entries(answers).map(([questionId, value]) => ({
-        questionId, value,
-      }));
+      const answersList = Object.entries(answers).map(([questionId, value]) => ({ questionId, value }));
       submitMutation.mutate({ answers: answersList, complete: true });
     }
   }
@@ -76,41 +73,37 @@ export default function DiagnosticPage() {
           <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <BarChart3 className="w-8 h-8 text-blue-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Diagnóstico de Conformidade</h2>
-          <p className="text-gray-500 max-w-lg mx-auto mb-8">
-            O nosso motor de diagnóstico analisa o perfil da sua organização e recomenda os
-            frameworks de conformidade mais adequados — ISO 27001, GDPR, NIS2, RGPC e outros.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('title')}</h2>
+          <p className="text-gray-500 max-w-lg mx-auto mb-8">{t('intro')}</p>
           <button
             onClick={() => startMutation.mutate()}
             disabled={startMutation.isPending}
             className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
           >
             {startMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            Iniciar Diagnóstico
+            {t('start')}
           </button>
         </div>
 
-        {/* Past runs */}
         {runsData && runsData.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Diagnósticos Anteriores</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">{t('pastRuns')}</h3>
             <div className="space-y-3">
               {runsData.slice(0, 5).map((run: any) => (
                 <div key={run.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {new Date(run.createdAt).toLocaleDateString('pt-PT')}
+                      {new Date(run.createdAt).toLocaleDateString()}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {run._count?.answers} respostas · {run._count?.projects} projetos
+                      {run._count?.answers} {t('answers')} · {run._count?.projects} {t('projects')}
                     </p>
                   </div>
                   <span className={cn(
                     'text-xs px-2 py-1 rounded-full',
                     run.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700',
                   )}>
-                    {run.status === 'COMPLETED' ? 'Concluído' : 'Em Progresso'}
+                    {run.status === 'COMPLETED' ? t('statusCompleted') : t('statusInProgress')}
                   </span>
                 </div>
               ))}
@@ -134,21 +127,16 @@ export default function DiagnosticPage() {
 
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Progress */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Questão {currentQ + 1} de {questions.length}</span>
+            <span className="text-sm text-gray-500">{t('questionOf', { current: currentQ + 1, total: questions.length })}</span>
             <span className="text-sm font-medium text-primary">{Math.round(progress)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        {/* Question card */}
         {question && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
@@ -160,10 +148,9 @@ export default function DiagnosticPage() {
             )}
 
             <div className="space-y-3">
-              {/* BOOLEAN */}
               {question.type === 'BOOLEAN' && (
                 <div className="grid grid-cols-2 gap-3">
-                  {[{ value: true, label: 'Sim' }, { value: false, label: 'Não' }].map(opt => (
+                  {[{ value: true, label: t('yes') }, { value: false, label: t('no') }].map(opt => (
                     <button
                       key={String(opt.value)}
                       onClick={() => handleAnswer(opt.value)}
@@ -180,7 +167,6 @@ export default function DiagnosticPage() {
                 </div>
               )}
 
-              {/* SINGLE_CHOICE — options can be plain strings or {value,label} objects */}
               {question.type === 'SINGLE_CHOICE' && question.options?.map((opt: any) => {
                 const val = typeof opt === 'object' ? opt.value : opt;
                 const lbl = typeof opt === 'object' ? (opt.label ?? opt.value) : opt;
@@ -200,14 +186,13 @@ export default function DiagnosticPage() {
                 );
               })}
 
-              {/* TEXT */}
               {question.type === 'TEXT' && (
                 <textarea
                   value={answers[question.id] || ''}
                   onChange={e => handleAnswer(e.target.value)}
                   rows={3}
                   className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none resize-none"
-                  placeholder="Responda aqui..."
+                  placeholder={t('answerHere')}
                 />
               )}
             </div>
@@ -220,7 +205,7 @@ export default function DiagnosticPage() {
             disabled={currentQ === 0}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <ChevronLeft className="w-4 h-4" /> Anterior
+            <ChevronLeft className="w-4 h-4" /> {t('previous')}
           </button>
           <button
             onClick={handleNext}
@@ -228,7 +213,7 @@ export default function DiagnosticPage() {
             className="flex items-center gap-2 bg-primary text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-40"
           >
             {submitMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {currentQ === questions.length - 1 ? 'Concluir' : 'Seguinte'}
+            {currentQ === questions.length - 1 ? t('finish') : t('next')}
             {currentQ < questions.length - 1 && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>
@@ -243,8 +228,8 @@ export default function DiagnosticPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
           <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Diagnóstico Concluído!</h2>
-          <p className="text-gray-500">Com base nas suas respostas, recomendamos os seguintes frameworks:</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('resultsTitle')}</h2>
+          <p className="text-gray-500">{t('resultsSubtitle')}</p>
         </div>
 
         <div className="space-y-4">
@@ -271,7 +256,7 @@ export default function DiagnosticPage() {
                     rec.priority === 'HIGH' ? 'bg-red-100 text-red-700' :
                     rec.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700',
                   )}>
-                    {rec.priority === 'HIGH' ? 'Alta prioridade' : rec.priority === 'MEDIUM' ? 'Média prioridade' : 'Baixa prioridade'}
+                    {rec.priority === 'HIGH' ? t('priorityHigh') : rec.priority === 'MEDIUM' ? t('priorityMedium') : t('priorityLow')}
                   </span>
                 </div>
               </div>
@@ -296,7 +281,7 @@ export default function DiagnosticPage() {
                   href={`/projects?framework=${rec.frameworkId}&diagnostic=${results.id}`}
                   className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium"
                 >
-                  Criar projeto {rec.frameworkName} <ChevronRight className="w-4 h-4" />
+                  {t('createProject', { name: rec.frameworkName })} <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>
@@ -305,13 +290,13 @@ export default function DiagnosticPage() {
 
         <div className="flex gap-3">
           <Link href="/projects" className="flex-1 text-center bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">
-            Ir para Projetos
+            {t('goToProjects')}
           </Link>
           <button
             onClick={() => { setStep('intro'); setAnswers({}); setCurrentQ(0); setRunId(null); }}
             className="px-6 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
           >
-            Novo Diagnóstico
+            {t('newDiagnostic')}
           </button>
         </div>
       </div>

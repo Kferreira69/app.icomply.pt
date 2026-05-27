@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { vendorsApi } from '@/lib/api';
 import {
-  Building2, Plus, Search, AlertTriangle, CheckCircle,
-  Clock, TrendingUp, X, ChevronRight, Star, Shield,
+  Building2, Plus, Search, X, ChevronRight, Star,
   ExternalLink, Trash2, Edit2,
 } from 'lucide-react';
 
@@ -19,10 +19,10 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIVE:      'bg-green-100 text-green-700',
-  INACTIVE:    'bg-gray-100 text-gray-600',
-  UNDER_REVIEW:'bg-yellow-100 text-yellow-700',
-  TERMINATED:  'bg-red-100 text-red-700',
+  ACTIVE:       'bg-green-100 text-green-700',
+  INACTIVE:     'bg-gray-100 text-gray-600',
+  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700',
+  TERMINATED:   'bg-red-100 text-red-700',
 };
 
 const CATEGORIES = [
@@ -76,6 +76,7 @@ function ScoreRing({ score }: { score: number }) {
 // ── Vendor Form Modal ─────────────────────────────────────────────
 
 function VendorModal({ vendor, onClose }: { vendor?: any; onClose: () => void }) {
+  const t = useTranslations('vendors');
   const qc = useQueryClient();
   const isEdit = !!vendor?.id;
   const [form, setForm] = useState(vendor ? {
@@ -126,74 +127,74 @@ function VendorModal({ vendor, onClose }: { vendor?: any; onClose: () => void })
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-lg font-bold text-gray-900">
-            {isEdit ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+            {isEdit ? t('editVendor') : t('addVendor')}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            {field('Nome *', 'name', 'text', true)}
-            {field('Website', 'website')}
+            {field(`${t('vendorName')} *`, 'name', 'text', true)}
+            {field(t('website'), 'website')}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('category')}</label>
               <select value={form.category} onChange={e => set('category', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 {CATEGORIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('statusLabel')}</label>
               <select value={form.status} onChange={e => set('status', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="ACTIVE">Ativo</option>
-                <option value="INACTIVE">Inativo</option>
-                <option value="UNDER_REVIEW">Em Revisão</option>
-                <option value="TERMINATED">Terminado</option>
+                <option value="ACTIVE">{t('status.ACTIVE')}</option>
+                <option value="INACTIVE">{t('status.INACTIVE')}</option>
+                <option value="UNDER_REVIEW">{t('status.UNDER_REVIEW')}</option>
+                <option value="TERMINATED">{t('status.TERMINATED')}</option>
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {field('Nome do Contacto', 'contactName')}
-            {field('Email do Contacto', 'contactEmail', 'email')}
+            {field(t('contactName'), 'contactName')}
+            {field(t('contactEmail'), 'contactEmail', 'email')}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {field('Início do Contrato', 'contractStart', 'date')}
-            {field('Fim do Contrato', 'contractEnd', 'date')}
+            {field(t('contractStart'), 'contractStart', 'date')}
+            {field(t('contractEnd'), 'contractEnd', 'date')}
           </div>
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
               <input type="checkbox" checked={form.dataProcessor} onChange={e => set('dataProcessor', e.target.checked)}
                 className="w-4 h-4 rounded" />
-              Subcontratante de dados (Art. 28 RGPD)
+              {t('dataProcessorLabel')}
             </label>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Dados partilhados</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('dataShared')}</label>
             <input value={form.dataShared} onChange={e => set('dataShared', e.target.value)}
-              placeholder="ex: nome, email, dados de saúde"
+              placeholder={t('dataSharedPlaceholder')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Países de transferência</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('transferCountries')}</label>
             <input value={form.countries} onChange={e => set('countries', e.target.value)}
-              placeholder="ex: Portugal, Alemanha, EUA"
+              placeholder={t('transferCountriesPlaceholder')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('notes')}</label>
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose}
               className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Cancelar
+              {t('cancel')}
             </button>
             <button type="submit" disabled={mutation.isPending}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              {mutation.isPending ? 'A guardar...' : isEdit ? 'Guardar' : 'Registar Fornecedor'}
+              {mutation.isPending ? t('saving') : isEdit ? t('save') : t('register')}
             </button>
           </div>
         </form>
@@ -205,6 +206,7 @@ function VendorModal({ vendor, onClose }: { vendor?: any; onClose: () => void })
 // ── Assessment Modal ──────────────────────────────────────────────
 
 function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void }) {
+  const t = useTranslations('vendors');
   const qc = useQueryClient();
   const [score, setScore] = useState(70);
   const [findings, setFindings] = useState('');
@@ -224,40 +226,41 @@ function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-lg font-bold">Avaliação de Risco — {vendor.name}</h2>
+          <h2 className="text-lg font-bold">{t('assessmentTitle')} — {vendor.name}</h2>
           <button onClick={onClose}><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-5">
           <div>
             <div className="flex justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">Score de Conformidade</label>
+              <label className="text-sm font-medium text-gray-700">{t('assessmentScore')}</label>
               <span className="text-2xl font-bold text-gray-900">{score}</span>
             </div>
             <input type="range" min={0} max={100} value={score} onChange={e => setScore(+e.target.value)}
               className="w-full accent-blue-600" />
             <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>0 — Crítico</span><span>100 — Baixo risco</span>
+              <span>0 — {t('riskLevels.CRITICAL')}</span>
+              <span>100 — {t('riskLevels.LOW')}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Nível calculado:</span>
+            <span className="text-sm text-gray-600">{t('calculatedLevel')}:</span>
             <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[riskLevel]}`}>
-              {riskLevel}
+              {t(`riskLevels.${riskLevel}`)}
             </span>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Conclusões / Findings</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('findings')}</label>
             <textarea value={findings} onChange={e => setFindings(e.target.value)} rows={4}
-              placeholder="Descreva os principais achados da avaliação..."
+              placeholder={t('findingsPlaceholder')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex justify-end gap-3">
             <button onClick={onClose} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
-              Cancelar
+              {t('cancel')}
             </button>
             <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              {mutation.isPending ? 'A guardar...' : 'Registar Avaliação'}
+              {mutation.isPending ? t('saving') : t('addAssessment')}
             </button>
           </div>
         </div>
@@ -271,6 +274,7 @@ function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void
 function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
   vendor: any; onClose: () => void; onEdit: () => void; onAssess: () => void;
 }) {
+  const t = useTranslations('vendors');
   const { data } = useQuery({
     queryKey: ['vendor', vendor.id],
     queryFn: () => vendorsApi.get(vendor.id).then(r => r.data),
@@ -296,77 +300,71 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
           </div>
         </div>
         <div className="p-5 space-y-5 flex-1">
-          {/* Risk score */}
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
             <ScoreRing score={v.riskScore ?? 0} />
             <div>
-              <p className="text-sm text-gray-500">Score de Risco</p>
+              <p className="text-sm text-gray-500">{t('riskScore')}</p>
               <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[v.riskLevel]}`}>
-                {v.riskLevel}
+                {v.riskLevel && t(`riskLevels.${v.riskLevel}`)}
               </span>
               {v.lastAssessedAt && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Última avaliação: {new Date(v.lastAssessedAt).toLocaleDateString('pt-PT')}
+                  {t('lastAssessment')}: {new Date(v.lastAssessedAt).toLocaleDateString()}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Status + GDPR flags */}
           <div className="flex flex-wrap gap-2">
             <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLORS[v.status]}`}>
-              {v.status}
+              {v.status && t(`status.${v.status}`)}
             </span>
             {v.dataProcessor && (
               <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-800">
-                Subcontratante RGPD
+                {t('subcontractorGdpr')}
               </span>
             )}
           </div>
 
-          {/* Contract */}
           {(v.contractStart || v.contractEnd) && (
             <div className="border border-gray-100 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Contrato</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('contract')}</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {v.contractStart && (
                   <div>
-                    <span className="text-gray-500">Início: </span>
-                    {new Date(v.contractStart).toLocaleDateString('pt-PT')}
+                    <span className="text-gray-500">{t('contractStart')}: </span>
+                    {new Date(v.contractStart).toLocaleDateString()}
                   </div>
                 )}
                 {v.contractEnd && (
                   <div>
-                    <span className="text-gray-500">Fim: </span>
-                    {new Date(v.contractEnd).toLocaleDateString('pt-PT')}
+                    <span className="text-gray-500">{t('contractEnd')}: </span>
+                    {new Date(v.contractEnd).toLocaleDateString()}
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Contact */}
           {(v.contactName || v.contactEmail) && (
             <div className="border border-gray-100 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Contacto</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('contact')}</h3>
               {v.contactName && <p className="text-sm">{v.contactName}</p>}
               {v.contactEmail && <a href={`mailto:${v.contactEmail}`} className="text-sm text-blue-600 hover:underline">{v.contactEmail}</a>}
             </div>
           )}
 
-          {/* Data */}
           {(v.dataShared || v.countries) && (
             <div className="border border-gray-100 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Dados Pessoais</h3>
-              {v.dataShared && <p className="text-sm text-gray-600"><span className="font-medium">Dados: </span>{v.dataShared}</p>}
-              {v.countries && <p className="text-sm text-gray-600 mt-1"><span className="font-medium">Países: </span>{v.countries}</p>}
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('personalData')}</h3>
+              {v.dataShared && <p className="text-sm text-gray-600"><span className="font-medium">{t('dataShared')}: </span>{v.dataShared}</p>}
+              {v.countries && <p className="text-sm text-gray-600 mt-1"><span className="font-medium">{t('countries')}: </span>{v.countries}</p>}
             </div>
           )}
 
-          {/* Assessments history */}
           {v.assessments?.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Histórico de Avaliações</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('assessmentHistory')}</h3>
               <div className="space-y-2">
                 {v.assessments.map((a: any) => (
                   <div key={a.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg text-sm">
@@ -374,18 +372,18 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{a.score}/100</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${RISK_COLORS[a.riskLevel ?? 'LOW']}`}>
-                          {a.riskLevel}
+                          {a.riskLevel && t(`riskLevels.${a.riskLevel}`)}
                         </span>
                       </div>
                       {a.findings && <p className="text-gray-500 mt-1">{a.findings}</p>}
                       {a.assessedBy && (
                         <p className="text-xs text-gray-400 mt-1">
-                          Por {a.assessedBy.firstName} {a.assessedBy.lastName}
+                          {t('by')} {a.assessedBy.firstName} {a.assessedBy.lastName}
                         </p>
                       )}
                     </div>
                     <span className="text-xs text-gray-400">
-                      {new Date(a.createdAt).toLocaleDateString('pt-PT')}
+                      {new Date(a.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 ))}
@@ -395,7 +393,7 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
 
           {v.notes && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Notas</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">{t('notes')}</h3>
               <p className="text-sm text-gray-600">{v.notes}</p>
             </div>
           )}
@@ -403,7 +401,7 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
         <div className="p-4 border-t">
           <button onClick={onAssess}
             className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-            + Nova Avaliação de Risco
+            + {t('addAssessment')}
           </button>
         </div>
       </div>
@@ -414,6 +412,7 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
 // ── Main Page ─────────────────────────────────────────────────────
 
 export default function VendorsPage() {
+  const t = useTranslations('vendors');
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [filterRisk, setFilterRisk] = useState('');
@@ -460,23 +459,23 @@ export default function VendorsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Building2 className="w-7 h-7 text-blue-600" />
-            Gestão de Fornecedores
+            {t('title')}
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">Controlo de risco de terceiros e subcontratantes RGPD</p>
+          <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
         </div>
         <button onClick={() => { setEditVendor(null); setShowModal(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-          <Plus className="w-4 h-4" /> Novo Fornecedor
+          <Plus className="w-4 h-4" /> {t('addVendor')}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Total" value={d.total} color="blue" />
-        <StatCard label="Ativos" value={d.active} color="green" />
-        <StatCard label="Alto Risco" value={d.highRisk} color="red" sub="HIGH + CRITICAL" />
-        <StatCard label="Contratos a Expirar" value={d.expiring} color="yellow" sub="próximos 60 dias" />
-        <StatCard label="Subcontratantes RGPD" value={d.dataProcessors} color="blue" sub="Art. 28 RGPD" />
+        <StatCard label={t('statTotal')} value={d.total} color="blue" />
+        <StatCard label={t('statActive')} value={d.active} color="green" />
+        <StatCard label={t('statHighRisk')} value={d.highRisk} color="red" sub="HIGH + CRITICAL" />
+        <StatCard label={t('statExpiring')} value={d.expiring} color="yellow" sub={t('statExpiringNote')} />
+        <StatCard label={t('statDataProcessors')} value={d.dataProcessors} color="blue" sub="Art. 28 RGPD" />
       </div>
 
       {/* Filters */}
@@ -484,28 +483,28 @@ export default function VendorsPage() {
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar fornecedores..."
+            placeholder={t('searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">Todos os riscos</option>
-          <option value="CRITICAL">CRITICAL</option>
-          <option value="HIGH">HIGH</option>
-          <option value="MEDIUM">MEDIUM</option>
-          <option value="LOW">LOW</option>
+          <option value="">{t('allRisks')}</option>
+          <option value="CRITICAL">{t('riskLevels.CRITICAL')}</option>
+          <option value="HIGH">{t('riskLevels.HIGH')}</option>
+          <option value="MEDIUM">{t('riskLevels.MEDIUM')}</option>
+          <option value="LOW">{t('riskLevels.LOW')}</option>
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">Todos os estados</option>
-          <option value="ACTIVE">Ativo</option>
-          <option value="INACTIVE">Inativo</option>
-          <option value="UNDER_REVIEW">Em Revisão</option>
-          <option value="TERMINATED">Terminado</option>
+          <option value="">{t('allStatuses')}</option>
+          <option value="ACTIVE">{t('status.ACTIVE')}</option>
+          <option value="INACTIVE">{t('status.INACTIVE')}</option>
+          <option value="UNDER_REVIEW">{t('status.UNDER_REVIEW')}</option>
+          <option value="TERMINATED">{t('status.TERMINATED')}</option>
         </select>
         <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">Todas as categorias</option>
+          <option value="">{t('allCategories')}</option>
           {CATEGORIES.map(c => <option key={c}>{c}</option>)}
         </select>
       </div>
@@ -513,25 +512,25 @@ export default function VendorsPage() {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-gray-400">A carregar...</div>
+          <div className="flex items-center justify-center h-48 text-gray-400">{t('loading')}</div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-gray-400">
             <Building2 className="w-10 h-10 mb-2 opacity-30" />
-            <p>Nenhum fornecedor encontrado</p>
+            <p>{t('notFound')}</p>
             <button onClick={() => setShowModal(true)}
-              className="mt-3 text-sm text-blue-600 hover:underline">Registar primeiro fornecedor</button>
+              className="mt-3 text-sm text-blue-600 hover:underline">{t('registerFirst')}</button>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">Fornecedor</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">Categoria</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">Estado</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">Risco</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">Score</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">Avaliações</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">RGPD</th>
+                <th className="text-left px-5 py-3 font-semibold text-gray-600">{t('colVendor')}</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('category')}</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('statusLabel')}</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('riskLevel')}</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('colScore')}</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('colAssessments')}</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">GDPR</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -552,12 +551,12 @@ export default function VendorsPage() {
                   <td className="px-4 py-3 text-gray-600">{v.category}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLORS[v.status]}`}>
-                      {v.status}
+                      {v.status && t(`status.${v.status}`)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[v.riskLevel]}`}>
-                      {v.riskLevel}
+                      {v.riskLevel && t(`riskLevels.${v.riskLevel}`)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -571,7 +570,7 @@ export default function VendorsPage() {
                         </div>
                         <span className="text-xs font-medium">{v.riskScore}</span>
                       </div>
-                    ) : <span className="text-xs text-gray-400">Sem avaliação</span>}
+                    ) : <span className="text-xs text-gray-400">{t('noAssessment')}</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="text-gray-600">{v._count?.assessments ?? 0}</span>
@@ -592,10 +591,10 @@ export default function VendorsPage() {
                       </button>
                       <button onClick={() => setAssessVendor(v)}
                         className="p-1.5 text-gray-400 hover:text-green-600 rounded hover:bg-green-50"
-                        title="Nova avaliação">
+                        title={t('addAssessment')}>
                         <Star className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => { if (confirm('Remover fornecedor?')) deleteMutation.mutate(v.id); }}
+                      <button onClick={() => { if (confirm(t('deleteConfirm'))) deleteMutation.mutate(v.id); }}
                         className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
