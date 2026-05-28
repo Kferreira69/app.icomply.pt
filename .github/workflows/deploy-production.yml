@@ -87,7 +87,8 @@ jobs:
 
           echo "=== Sync config files (docker-compose, traefik, .env.example) ==="
           cd /opt/icomply
-          git pull origin main --ff-only
+          git fetch origin main
+          git reset --hard origin/main
           echo "Commit: $(git rev-parse --short HEAD)"
 
           echo "=== Login to GHCR ==="
