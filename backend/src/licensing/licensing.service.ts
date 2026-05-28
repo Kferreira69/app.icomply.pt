@@ -47,6 +47,8 @@ export class LicensingService {
   private moloniClientSecret = this.config.get<string>('MOLONI_CLIENT_SECRET');
   private moloniUsername     = this.config.get<string>('MOLONI_USERNAME');
   private moloniPassword     = this.config.get<string>('MOLONI_PASSWORD');
+  // company_id is the numeric Moloni company ID (different from the OAuth client_id)
+  private moloniCompanyId    = this.config.get<string>('MOLONI_COMPANY_ID');
   private moloniBaseUrl      = 'https://api.moloni.pt/v1';
 
   constructor(
@@ -206,7 +208,7 @@ export class LicensingService {
     });
 
     // Try Moloni if configured
-    if (this.moloniClientId && dto.sendToMoloni) {
+    if (this.moloniClientId && this.moloniCompanyId && dto.sendToMoloni) {
       try {
         const moloniResult = await this.sendToMoloni(invoice, license, dto);
         await this.prisma.licenseInvoice.update({
@@ -251,7 +253,7 @@ export class LicensingService {
     });
 
     const invoicePayload = {
-      company_id:        this.moloniClientId,
+      company_id:        this.moloniCompanyId,   // numeric company ID, NOT client_id
       date:              new Date().toISOString().split('T')[0],
       expiration_date:   dto.dueDate ? new Date(dto.dueDate).toISOString().split('T')[0] : undefined,
       document_set_name: 'FT',

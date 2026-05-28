@@ -21,6 +21,22 @@ function generateNonce(): string {
 }
 
 export function middleware(request: NextRequest) {
+  // ── admin.icomply.pt → auto-redirect to backoffice ────────────────────────
+  const host = request.headers.get('host') ?? '';
+  if (host.startsWith('admin.')) {
+    const { pathname } = request.nextUrl;
+    // Let Next.js internals, assets and already-correct paths pass through
+    if (
+      !pathname.startsWith('/backoffice') &&
+      !pathname.startsWith('/_next') &&
+      !pathname.startsWith('/api')
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/backoffice/licensing';
+      return NextResponse.redirect(url, 308);
+    }
+  }
+
   const nonce = generateNonce();
   const isProd = process.env.NODE_ENV === 'production';
 
