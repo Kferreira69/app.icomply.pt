@@ -597,6 +597,7 @@ model Task {
   description    String?
   status         TaskStatus   @default(TODO)
   priority       TaskPriority @default(MEDIUM)
+  startDate      DateTime?
   dueDate        DateTime?
   completedAt    DateTime?
   estimatedHours Float?

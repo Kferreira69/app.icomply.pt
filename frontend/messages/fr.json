@@ -642,7 +642,10 @@
     "descriptionPlaceholder": "Objectif du projet...",
     "startDate": "Date de début",
     "targetDate": "Date cible",
-    "createError": "Erreur lors de la création. Vérifiez les champs et réessayez."
+    "createError": "Erreur lors de la création. Vérifiez les champs et réessayez.",
+    "viewCards": "Cartes",
+    "viewGantt": "Gantt",
+    "ganttNoDate": "Aucun projet avec des dates configurées"
   },
   "gdpr": {
     "title": "RGPD — Protection des données",
@@ -800,6 +803,7 @@
     "taskTitlePlaceholder": "Titre de la tâche...",
     "project": "Projet",
     "priority": "Priorité",
+    "startDate": "Date de début",
     "dueDate": "Échéance",
     "status": {
       "TODO": "À faire",

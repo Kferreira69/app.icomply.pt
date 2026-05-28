@@ -642,7 +642,10 @@
     "descriptionPlaceholder": "Objetivo del proyecto...",
     "startDate": "Fecha de inicio",
     "targetDate": "Fecha objetivo",
-    "createError": "Error al crear el proyecto. Verifique los campos e inténtelo de nuevo."
+    "createError": "Error al crear el proyecto. Verifique los campos e inténtelo de nuevo.",
+    "viewCards": "Tarjetas",
+    "viewGantt": "Gantt",
+    "ganttNoDate": "No hay proyectos con fechas configuradas"
   },
   "gdpr": {
     "title": "RGPD — Protección de datos",
@@ -800,6 +803,7 @@
     "taskTitlePlaceholder": "Título de la tarea...",
     "project": "Proyecto",
     "priority": "Prioridad",
+    "startDate": "Fecha de inicio",
     "dueDate": "Fecha límite",
     "status": {
       "TODO": "Por hacer",

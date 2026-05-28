@@ -104,6 +104,42 @@ export class ProjectsService {
     return { tasks, risks, evidence, audits, recentActivity };
   }
 
+  async findForGantt(organizationId: string) {
+    const projects = await this.prisma.project.findMany({
+      where: { organizationId },
+      include: {
+        framework: { select: { name: true, code: true } },
+        tasks: {
+          where: { parentId: null },
+          select: {
+            id: true,
+            title: true,
+            startDate: true,
+            dueDate: true,
+            status: true,
+            priority: true,
+            completedAt: true,
+            createdAt: true,
+            assignee: { select: { name: true } },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Attach complianceScore to each project
+    return Promise.all(
+      projects.map(async (p) => {
+        const [total, done] = await Promise.all([
+          this.prisma.task.count({ where: { projectId: p.id } }),
+          this.prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
+        ]);
+        return { ...p, complianceScore: total > 0 ? Math.round((done / total) * 100) : 0 };
+      }),
+    );
+  }
+
   private async generateTasksFromTemplate(
     projectId: string,
     templateId: string,

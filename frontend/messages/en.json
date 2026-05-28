@@ -642,7 +642,10 @@
     "descriptionPlaceholder": "Project objective...",
     "startDate": "Start Date",
     "targetDate": "Target Date",
-    "createError": "Error creating project. Check the fields and try again."
+    "createError": "Error creating project. Check the fields and try again.",
+    "viewCards": "Cards",
+    "viewGantt": "Gantt",
+    "ganttNoDate": "No projects with dates configured"
   },
   "gdpr": {
     "title": "GDPR — Data Protection",
@@ -800,6 +803,7 @@
     "taskTitlePlaceholder": "Task title...",
     "project": "Project",
     "priority": "Priority",
+    "startDate": "Start Date",
     "dueDate": "Due Date",
     "status": {
       "TODO": "To Do",

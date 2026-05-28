@@ -36,6 +36,12 @@ export class ProjectsController {
     return this.service.findAll(orgId, page, limit, status);
   }
 
+  @Get('gantt')
+  @ApiOperation({ summary: 'All projects with tasks for Gantt chart' })
+  gantt(@CurrentUser('organizationId') orgId: string) {
+    return this.service.findForGantt(orgId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.findOne(id, orgId);

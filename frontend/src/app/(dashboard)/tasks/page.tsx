@@ -97,7 +97,8 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
       title: task.title,
       description: task.description || '',
       priority: task.priority || 'MEDIUM',
-      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
+      startDate: task.startDate ? task.startDate.slice(0, 10) : '',
+      dueDate:   task.dueDate   ? task.dueDate.slice(0, 10)   : '',
     },
   });
 
@@ -127,9 +128,13 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('dueDate')}</label>
-              <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('startDate')}</label>
+              <input {...register('startDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('dueDate')}</label>
+            <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
           </div>
           {updateMutation.isError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{t('saveError')}</p>
@@ -367,9 +372,13 @@ export default function TasksPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('dueDate')}</label>
-                  <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('startDate')}</label>
+                  <input {...register('startDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('dueDate')}</label>
+                <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
               </div>
               {createMutation.isError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

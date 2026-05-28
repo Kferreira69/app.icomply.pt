@@ -1,13 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, frameworksApi } from '@/lib/api';
-import { Plus, Search, FolderOpen, Calendar, BarChart2, Loader2 } from 'lucide-react';
+import { Plus, Search, FolderOpen, Calendar, LayoutGrid, BarChart2, Loader2 } from 'lucide-react';
 import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
+import { GanttChart, type GanttItem } from '@/components/gantt/GanttChart';
+
+// Status → Gantt bar colour
+const PROJECT_COLORS: Record<string, string> = {
+  DRAFT:     'bg-gray-400',
+  ACTIVE:    'bg-blue-500',
+  PAUSED:    'bg-amber-500',
+  COMPLETED: 'bg-green-500',
+  ARCHIVED:  'bg-gray-300',
+};
+
+function projectsToGanttItems(projects: any[]): GanttItem[] {
+  return projects.map(p => {
+    const start = p.startDate ? new Date(p.startDate) : new Date(p.createdAt);
+    const endRaw = p.targetDate ? new Date(p.targetDate) : null;
+    const end   = endRaw ?? new Date(start.getTime() + 90 * 86400000);
+    // Ensure end > start by at least 1 day
+    const safeEnd = end > start ? end : new Date(start.getTime() + 86400000);
+    return {
+      id:       p.id,
+      name:     p.name,
+      subtitle: p.framework?.name,
+      start,
+      end:      safeEnd,
+      progress: p.complianceScore ?? 0,
+      color:    PROJECT_COLORS[p.status] ?? 'bg-blue-500',
+      href:     `/projects/${p.id}`,
+    };
+  });
+}
 
 function ProjectCard({ project }: { project: any }) {
   const t = useTranslations('projects');
@@ -42,8 +72,8 @@ function ProjectCard({ project }: { project: any }) {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
-            { label: t('cardTasks'), value: project._count?.tasks ?? 0 },
-            { label: t('cardRisks'), value: project._count?.risks ?? 0 },
+            { label: t('cardTasks'),    value: project._count?.tasks    ?? 0 },
+            { label: t('cardRisks'),    value: project._count?.risks    ?? 0 },
             { label: t('cardEvidence'), value: project._count?.evidences ?? 0 },
           ].map(s => (
             <div key={s.label} className="bg-gray-50 rounded-lg p-2">
@@ -133,25 +163,33 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+type ViewMode = 'cards' | 'gantt';
+
 export default function ProjectsPage() {
   const t = useTranslations('projects');
-  const [search, setSearch] = useState('');
+  const [search,  setSearch]  = useState('');
+  const [view,    setView]    = useState<ViewMode>('cards');
   const [showNew, setShowNew] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => projectsApi.list({ limit: 50 }).then(r => r.data),
+    queryFn: () => projectsApi.list({ limit: 100 }).then(r => r.data),
   });
 
-  const projects = (data?.data || []).filter((p: any) =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.framework?.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const projects = useMemo(() =>
+    (data?.data || []).filter((p: any) =>
+      !search ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.framework?.name.toLowerCase().includes(search.toLowerCase()),
+    ), [data, search]);
+
+  const ganttItems = useMemo(() => projectsToGanttItems(projects), [projects]);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -161,9 +199,29 @@ export default function ProjectsPage() {
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
           />
         </div>
+
+        {/* View toggle */}
+        <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => setView('cards')}
+            title={t('viewCards') as string}
+            className={cn('p-2.5 transition-colors', view === 'cards' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50')}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setView('gantt')}
+            title={t('viewGantt') as string}
+            className={cn('p-2.5 transition-colors', view === 'gantt' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50')}
+          >
+            <BarChart2 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* New project */}
         <button
           onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90"
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 whitespace-nowrap"
         >
           <Plus className="w-4 h-4" /> {t('newProject')}
         </button>
@@ -172,10 +230,10 @@ export default function ProjectsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: t('statTotal'), value: data?.total ?? 0 },
-          { label: t('statActive'), value: (data?.data || []).filter((p: any) => p.status === 'ACTIVE').length },
+          { label: t('statTotal'),     value: data?.total ?? 0 },
+          { label: t('statActive'),    value: (data?.data || []).filter((p: any) => p.status === 'ACTIVE').length },
           { label: t('statCompleted'), value: (data?.data || []).filter((p: any) => p.status === 'COMPLETED').length },
-          { label: t('statDraft'), value: (data?.data || []).filter((p: any) => p.status === 'DRAFT').length },
+          { label: t('statDraft'),     value: (data?.data || []).filter((p: any) => p.status === 'DRAFT').length },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <p className="text-2xl font-bold text-gray-900">{s.value}</p>
@@ -184,7 +242,7 @@ export default function ProjectsPage() {
         ))}
       </div>
 
-      {/* Projects grid */}
+      {/* Content area */}
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -197,6 +255,11 @@ export default function ProjectsPage() {
             <Plus className="w-4 h-4" /> {t('createFirst')}
           </button>
         </div>
+      ) : view === 'gantt' ? (
+        <GanttChart
+          items={ganttItems}
+          emptyMessage={t('ganttNoDate') as string}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {projects.map((p: any) => <ProjectCard key={p.id} project={p} />)}

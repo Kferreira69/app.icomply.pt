@@ -642,7 +642,10 @@
     "descriptionPlaceholder": "Objetivo do projeto...",
     "startDate": "Data Início",
     "targetDate": "Data Meta",
-    "createError": "Erro ao criar projeto. Verifique os campos e tente novamente."
+    "createError": "Erro ao criar projeto. Verifique os campos e tente novamente.",
+    "viewCards": "Cartões",
+    "viewGantt": "Gantt",
+    "ganttNoDate": "Sem projetos com datas configuradas"
   },
   "gdpr": {
     "title": "GDPR — Proteção de Dados",
@@ -800,6 +803,7 @@
     "taskTitlePlaceholder": "Título da tarefa...",
     "project": "Projeto",
     "priority": "Prioridade",
+    "startDate": "Data Início",
     "dueDate": "Prazo",
     "status": {
       "TODO": "A Fazer",
