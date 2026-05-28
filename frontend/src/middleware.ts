@@ -24,17 +24,14 @@ export function middleware(request: NextRequest) {
   // ── admin.icomply.pt → auto-redirect to backoffice ────────────────────────
   const host = request.headers.get('host') ?? '';
   if (host.startsWith('admin.')) {
-    const { pathname } = request.nextUrl;
-    // Let Next.js internals, assets and already-correct paths pass through
-    if (
-      !pathname.startsWith('/backoffice') &&
-      !pathname.startsWith('/_next') &&
-      !pathname.startsWith('/api')
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/backoffice/licensing';
-      return NextResponse.redirect(url, 308);
-    }
+    // Always redirect admin.icomply.pt → app.icomply.pt/backoffice/licensing
+    // Replace the admin. prefix with app. so the host is correct
+    const mainHost = host.replace(/^admin\./, 'app.');
+    const proto = request.nextUrl.protocol; // https: in production
+    return NextResponse.redirect(
+      new URL(`${proto}//${mainHost}/backoffice/licensing`),
+      308,
+    );
   }
 
   const nonce = generateNonce();
