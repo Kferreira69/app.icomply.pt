@@ -114,4 +114,72 @@ export class GdprController {
   removeBreach(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.removeBreach(id, user.organizationId);
   }
+
+  // ── DSAR ──────────────────────────────────────────────────────
+
+  @Post('dsar')
+  @ApiOperation({ summary: 'Register a Data Subject Access Request' })
+  createDsar(@Body() dto: any, @CurrentUser() user: any) {
+    return this.service.createDsar(dto, user.organizationId);
+  }
+
+  @Get('dsar')
+  @ApiOperation({ summary: 'List all DSARs' })
+  findAllDsars(@CurrentUser() user: any, @Query('status') status?: string) {
+    return this.service.findAllDsars(user.organizationId, status);
+  }
+
+  @Get('dsar/stats')
+  getDsarStats(@CurrentUser() user: any) {
+    return this.service.getDsarStats(user.organizationId);
+  }
+
+  @Get('dsar/:id')
+  findOneDsar(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.findOneDsar(id, user.organizationId);
+  }
+
+  @Patch('dsar/:id')
+  updateDsar(@Param('id') id: string, @Body() data: any, @CurrentUser() user: any) {
+    return this.service.updateDsar(id, user.organizationId, data);
+  }
+
+  @Delete('dsar/:id')
+  removeDsar(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.removeDsar(id, user.organizationId);
+  }
+
+  // ── Consent Records ───────────────────────────────────────────
+
+  @Post('consent')
+  @ApiOperation({ summary: 'Register a consent record' })
+  createConsent(@Body() dto: any, @CurrentUser() user: any) {
+    return this.service.createConsent(dto, user.organizationId);
+  }
+
+  @Get('consent')
+  @ApiOperation({ summary: 'List all consent records' })
+  findAllConsents(@CurrentUser() user: any, @Query('status') status?: string) {
+    return this.service.findAllConsents(user.organizationId, status);
+  }
+
+  @Get('consent/:id')
+  findOneConsent(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.findOneConsent(id, user.organizationId);
+  }
+
+  @Patch('consent/:id')
+  updateConsent(@Param('id') id: string, @Body() data: any, @CurrentUser() user: any) {
+    return this.service.updateConsent(id, user.organizationId, data);
+  }
+
+  @Post('consent/:id/withdraw')
+  withdrawConsent(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.withdrawConsent(id, user.organizationId);
+  }
+
+  @Delete('consent/:id')
+  removeConsent(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.removeConsent(id, user.organizationId);
+  }
 }

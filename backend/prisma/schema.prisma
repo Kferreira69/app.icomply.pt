@@ -300,6 +300,11 @@ model Organization {
   aiRisks                AiRisk[]
   aiImpactAssessments    AiImpactAssessment[]
   ai42001Controls        Ai42001Control[]
+  esgReports             EsgReport[]
+  esgMetrics             EsgMetric[]
+  dsarRequests           DataSubjectRequest[]
+  consentRecords         ConsentRecord[]
+  bcpPlans               BcpPlan[]
 
   @@map("organizations")
 }
@@ -381,6 +386,8 @@ model User {
   hrRemoteWorkerProfile HrRemoteWorker[]
   hrTrainingEnrollments HrTrainingEnrollment[]
   aiImpactAssessments   AiImpactAssessment[]
+  dsarHandled            DataSubjectRequest[] @relation("DsarHandler")
+  bcpPlansOwned          BcpPlan[]            @relation("BcpOwner")
 
   @@map("users")
 }
@@ -984,7 +991,8 @@ model DataProcessingActivity {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   controller   User         @relation("ProcessingActivityController", fields: [controllerId], references: [id])
-  dpias        Dpia[]
+  dpias          Dpia[]
+  consentRecords ConsentRecord[]
 
   @@index([organizationId, status])
   @@map("data_processing_activities")
@@ -2116,4 +2124,215 @@ model Ai42001Control {
   @@unique([organizationId, controlCode])
   @@index([organizationId, status])
   @@map("ai_42001_controls")
+}
+
+// ─── ESG / Sustainability ──────────────────────────────────────
+
+enum EsgPillar {
+  ENVIRONMENTAL
+  SOCIAL
+  GOVERNANCE
+}
+
+model EsgReport {
+  id             String     @id @default(uuid())
+  organizationId String
+  year           Int
+  framework      String     @default("CSRD")
+  title          String
+  description    String?
+  status         String     @default("DRAFT")
+  publishedAt    DateTime?
+  ownerId        String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  metrics        EsgMetric[]
+
+  @@index([organizationId, year])
+  @@map("esg_reports")
+}
+
+model EsgMetric {
+  id             String    @id @default(uuid())
+  organizationId String
+  reportId       String?
+  pillar         EsgPillar
+  framework      String    @default("CSRD")
+  standardCode   String
+  indicator      String
+  description    String?
+  unit           String?
+  targetValue    Float?
+  actualValue    Float?
+  year           Int
+  period         String?
+  dataSource     String?
+  methodology    String?
+  status         String    @default("NOT_REPORTED")
+  notes          String?
+  verifiedBy     String?
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  report         EsgReport?   @relation(fields: [reportId], references: [id])
+
+  @@unique([organizationId, standardCode, year, framework])
+  @@index([organizationId, pillar])
+  @@index([organizationId, year])
+  @@map("esg_metrics")
+}
+
+// ─── DSAR (Data Subject Access Requests) ──────────────────────
+
+enum DsarType {
+  ACCESS
+  RECTIFICATION
+  ERASURE
+  RESTRICTION
+  PORTABILITY
+  OBJECTION
+  AUTOMATED
+}
+
+enum DsarStatus {
+  RECEIVED
+  IN_REVIEW
+  PENDING_VERIFICATION
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  ESCALATED
+}
+
+model DataSubjectRequest {
+  id               String     @id @default(uuid())
+  organizationId   String
+  requestType      DsarType
+  subjectName      String
+  subjectEmail     String
+  subjectId        String?
+  description      String?
+  receivedAt       DateTime   @default(now())
+  dueAt            DateTime
+  status           DsarStatus @default(RECEIVED)
+  respondedAt      DateTime?
+  responseNotes    String?
+  handlerId        String?
+  identityVerified Boolean    @default(false)
+  extensionReason  String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  handler          User?        @relation("DsarHandler", fields: [handlerId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, dueAt])
+  @@map("data_subject_requests")
+}
+
+// ─── Consent Records ───────────────────────────────────────────
+
+enum ConsentStatus {
+  ACTIVE
+  WITHDRAWN
+  EXPIRED
+}
+
+model ConsentRecord {
+  id             String        @id @default(uuid())
+  organizationId String
+  subjectEmail   String
+  subjectName    String?
+  purpose        String
+  legalBasis     String        @default("CONSENT")
+  consentedAt    DateTime
+  expiresAt      DateTime?
+  withdrawnAt    DateTime?
+  ipAddress      String?
+  consentMethod  String?
+  version        String?
+  status         ConsentStatus @default(ACTIVE)
+  notes          String?
+  activityId     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization            @relation(fields: [organizationId], references: [id])
+  activity       DataProcessingActivity? @relation(fields: [activityId], references: [id])
+
+  @@index([organizationId, subjectEmail])
+  @@index([organizationId, status])
+  @@map("consent_records")
+}
+
+// ─── Business Continuity (ISO 22301) ──────────────────────────
+
+model BcpPlan {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  scope          String?
+  version        String   @default("1.0")
+  status         String   @default("DRAFT")
+  rtoTarget      Int?
+  rpoTarget      Int?
+  lastTestedAt   DateTime?
+  nextTestAt     DateTime?
+  approvedBy     String?
+  approvedAt     DateTime?
+  ownerId        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  owner          User         @relation("BcpOwner", fields: [ownerId], references: [id])
+  tests          BcpTest[]
+  assets         BcpAsset[]
+
+  @@index([organizationId, status])
+  @@map("bcp_plans")
+}
+
+model BcpTest {
+  id                String   @id @default(uuid())
+  organizationId    String
+  planId            String
+  testType          String
+  testedAt          DateTime
+  conductedBy       String?
+  result            String
+  rtoActual         Int?
+  rpoActual         Int?
+  findings          String?
+  correctiveActions String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  plan              BcpPlan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, planId])
+  @@map("bcp_tests")
+}
+
+model BcpAsset {
+  id             String   @id @default(uuid())
+  planId         String
+  assetName      String
+  assetType      String
+  criticality    String
+  rtoRequired    Int?
+  rpoRequired    Int?
+  recoveryOwner  String?
+  recoverySteps  String?
+  dependencies   String[] @default([])
+
+  plan           BcpPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("bcp_assets")
 }

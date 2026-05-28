@@ -39,6 +39,8 @@ import { LicensingModule } from './licensing/licensing.module';
 import { HrComplianceModule } from './hr-compliance/hr-compliance.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
 import { UnifiedControlsModule } from './unified-controls/unified-controls.module';
+import { EsgModule } from './esg/esg.module';
+import { BusinessContinuityModule } from './business-continuity/business-continuity.module';
 
 @Module({
   imports: [
@@ -98,6 +100,8 @@ import { UnifiedControlsModule } from './unified-controls/unified-controls.modul
     HrComplianceModule,
     AiGovernanceModule,
     UnifiedControlsModule,
+    EsgModule,
+    BusinessContinuityModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

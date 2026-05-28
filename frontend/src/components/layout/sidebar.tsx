@@ -11,7 +11,7 @@ import {
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
-  GitMerge, Eye,
+  GitMerge, Eye, Leaf, ShieldAlert,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -214,6 +214,24 @@ export function Sidebar() {
           color: 'bg-teal-600 text-white',
           items: [
             { href: '/vendors', label: 'Fornecedores & TPRM', icon: Building2 },
+          ],
+        },
+        {
+          key: 'esg',
+          label: 'ESG & Sustentabilidade',
+          icon: Leaf,
+          color: 'bg-emerald-600 text-white',
+          items: [
+            { href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf },
+          ],
+        },
+        {
+          key: 'resilience',
+          label: 'Resiliência & Continuidade',
+          icon: ShieldAlert,
+          color: 'bg-amber-600 text-white',
+          items: [
+            { href: '/business-continuity', label: 'ISO 22301 · BCP · DR', icon: ShieldAlert },
           ],
         },
       ],

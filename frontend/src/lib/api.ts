@@ -246,6 +246,24 @@ export const gdprApi = {
     update: (id: string, data: any) => api.patch(`/gdpr/breaches/${id}`, data),
     remove: (id: string) => api.delete(`/gdpr/breaches/${id}`),
   },
+  // DSAR — Data Subject Access Requests
+  dsar: {
+    stats: () => api.get('/gdpr/dsar/stats'),
+    list: (params?: { status?: string }) => api.get('/gdpr/dsar', { params }),
+    get: (id: string) => api.get(`/gdpr/dsar/${id}`),
+    create: (data: any) => api.post('/gdpr/dsar', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/dsar/${id}`, data),
+    remove: (id: string) => api.delete(`/gdpr/dsar/${id}`),
+  },
+  // Consent Records
+  consent: {
+    list: (params?: { status?: string }) => api.get('/gdpr/consent', { params }),
+    get: (id: string) => api.get(`/gdpr/consent/${id}`),
+    create: (data: any) => api.post('/gdpr/consent', data),
+    update: (id: string, data: any) => api.patch(`/gdpr/consent/${id}`, data),
+    withdraw: (id: string) => api.post(`/gdpr/consent/${id}/withdraw`, {}),
+    remove: (id: string) => api.delete(`/gdpr/consent/${id}`),
+  },
 };
 
 export const nis2Api = {
@@ -458,4 +476,38 @@ export const unifiedControlsApi = {
   listObligations:   (params?: any)          => api.get('/unified-controls/obligations', { params }),
   createObligation:  (data: any)             => api.post('/unified-controls/obligations', data),
   updateObligation:  (id: string, data: any) => api.put(`/unified-controls/obligations/${id}`, data),
+};
+
+// ── ESG / Sustainability ──────────────────────────────────────
+
+export const esgApi = {
+  dashboard:    (year?: number)            => api.get('/esg/dashboard', { params: year ? { year } : {} }),
+  listReports:  ()                         => api.get('/esg/reports'),
+  createReport: (data: any)               => api.post('/esg/reports', data),
+  updateReport: (id: string, data: any)   => api.patch(`/esg/reports/${id}`, data),
+  listMetrics:  (params?: { year?: number; pillar?: string; framework?: string }) =>
+    api.get('/esg/metrics', { params }),
+  upsertMetric: (data: any)               => api.post('/esg/metrics', data),
+  updateMetric: (id: string, data: any)   => api.patch(`/esg/metrics/${id}`, data),
+  seed:         (year?: number)           => api.post('/esg/seed', { year }),
+};
+
+// ── Business Continuity (ISO 22301) ──────────────────────────
+
+export const bcpApi = {
+  dashboard:   ()                          => api.get('/business-continuity/dashboard'),
+  listPlans:   ()                          => api.get('/business-continuity/plans'),
+  getPlan:     (id: string)                => api.get(`/business-continuity/plans/${id}`),
+  createPlan:  (data: any)                => api.post('/business-continuity/plans', data),
+  updatePlan:  (id: string, data: any)    => api.patch(`/business-continuity/plans/${id}`, data),
+  addAsset:    (planId: string, data: any) => api.post(`/business-continuity/plans/${planId}/assets`, data),
+  updateAsset: (planId: string, assetId: string, data: any) =>
+    api.patch(`/business-continuity/plans/${planId}/assets/${assetId}`, data),
+  removeAsset: (planId: string, assetId: string) =>
+    api.delete(`/business-continuity/plans/${planId}/assets/${assetId}`),
+  addTest:     (planId: string, data: any) => api.post(`/business-continuity/plans/${planId}/tests`, data),
+  updateTest:  (planId: string, testId: string, data: any) =>
+    api.patch(`/business-continuity/plans/${planId}/tests/${testId}`, data),
+  removeTest:  (planId: string, testId: string) =>
+    api.delete(`/business-continuity/plans/${planId}/tests/${testId}`),
 };

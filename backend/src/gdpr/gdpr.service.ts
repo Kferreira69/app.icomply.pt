@@ -208,4 +208,130 @@ export class GdprService {
       })),
     };
   }
+
+  // ── DSAR (Data Subject Access Requests) ───────────────────────
+
+  async createDsar(dto: any, organizationId: string) {
+    // Default: 30 days (Art.12 GDPR), or 3 months if flagged
+    const dueAt = dto.dueAt ? new Date(dto.dueAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    return this.prisma.dataSubjectRequest.create({
+      data: {
+        ...dto,
+        organizationId,
+        dueAt,
+        receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
+      },
+      include: { handler: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async findAllDsars(organizationId: string, status?: string) {
+    return this.prisma.dataSubjectRequest.findMany({
+      where: { organizationId, ...(status && { status: status as any }) },
+      orderBy: { receivedAt: 'desc' },
+      include: { handler: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async findOneDsar(id: string, organizationId: string) {
+    const dsar = await this.prisma.dataSubjectRequest.findFirst({
+      where: { id, organizationId },
+      include: { handler: { select: { id: true, firstName: true, lastName: true } } },
+    });
+    if (!dsar) throw new NotFoundException('DSAR not found');
+    return dsar;
+  }
+
+  async updateDsar(id: string, organizationId: string, data: any) {
+    const dsar = await this.prisma.dataSubjectRequest.findFirst({ where: { id, organizationId } });
+    if (!dsar) throw new NotFoundException('DSAR not found');
+    return this.prisma.dataSubjectRequest.update({
+      where: { id },
+      data: {
+        ...data,
+        respondedAt: data.status === 'COMPLETED' && !dsar.respondedAt ? new Date() : data.respondedAt,
+      },
+      include: { handler: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async removeDsar(id: string, organizationId: string) {
+    const dsar = await this.prisma.dataSubjectRequest.findFirst({ where: { id, organizationId } });
+    if (!dsar) throw new NotFoundException('DSAR not found');
+    return this.prisma.dataSubjectRequest.delete({ where: { id } });
+  }
+
+  async getDsarStats(organizationId: string) {
+    const now = new Date();
+    const [all, overdue] = await Promise.all([
+      this.prisma.dataSubjectRequest.groupBy({
+        by: ['status'],
+        where: { organizationId },
+        _count: true,
+      }),
+      this.prisma.dataSubjectRequest.count({
+        where: {
+          organizationId,
+          dueAt: { lt: now },
+          status: { notIn: ['COMPLETED', 'REJECTED'] },
+        },
+      }),
+    ]);
+    return {
+      byStatus: all.reduce((acc: any, a) => ({ ...acc, [a.status]: a._count }), {}),
+      total: all.reduce((s, a) => s + a._count, 0),
+      overdue,
+    };
+  }
+
+  // ── Consent Records ───────────────────────────────────────────
+
+  async createConsent(dto: any, organizationId: string) {
+    return this.prisma.consentRecord.create({
+      data: {
+        ...dto,
+        organizationId,
+        consentedAt: dto.consentedAt ? new Date(dto.consentedAt) : new Date(),
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      },
+    });
+  }
+
+  async findAllConsents(organizationId: string, status?: string) {
+    return this.prisma.consentRecord.findMany({
+      where: { organizationId, ...(status && { status: status as any }) },
+      orderBy: { consentedAt: 'desc' },
+      include: { activity: { select: { id: true, name: true } } },
+    });
+  }
+
+  async findOneConsent(id: string, organizationId: string) {
+    const record = await this.prisma.consentRecord.findFirst({
+      where: { id, organizationId },
+      include: { activity: { select: { id: true, name: true, purpose: true } } },
+    });
+    if (!record) throw new NotFoundException('Consent record not found');
+    return record;
+  }
+
+  async updateConsent(id: string, organizationId: string, data: any) {
+    const record = await this.prisma.consentRecord.findFirst({ where: { id, organizationId } });
+    if (!record) throw new NotFoundException('Consent record not found');
+    return this.prisma.consentRecord.update({ where: { id }, data });
+  }
+
+  async withdrawConsent(id: string, organizationId: string) {
+    const record = await this.prisma.consentRecord.findFirst({ where: { id, organizationId } });
+    if (!record) throw new NotFoundException('Consent record not found');
+    return this.prisma.consentRecord.update({
+      where: { id },
+      data: { status: 'WITHDRAWN', withdrawnAt: new Date() },
+    });
+  }
+
+  async removeConsent(id: string, organizationId: string) {
+    const record = await this.prisma.consentRecord.findFirst({ where: { id, organizationId } });
+    if (!record) throw new NotFoundException('Consent record not found');
+    return this.prisma.consentRecord.delete({ where: { id } });
+  }
 }
