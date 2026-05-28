@@ -387,17 +387,37 @@ export const translationsApi = {
     api.post('/translations/translate/batch', { texts, targetLang, sourceLang }),
 };
 
-// ── Licensing (backoffice) ────────────────────────────────────
+// ── Licensing (backoffice + self-service) ─────────────────────
 
 export const licensingApi = {
-  catalogue:     ()              => api.get('/licensing/catalogue'),
-  myLicense:     ()              => api.get('/licensing/my'),
-  stats:         ()              => api.get('/licensing/stats'),
-  listClients:   ()              => api.get('/licensing/clients'),
-  getClient:     (orgId: string) => api.get(`/licensing/clients/${orgId}`),
-  upsert:        (orgId: string, data: any) => api.put(`/licensing/clients/${orgId}`, data),
-  createInvoice: (orgId: string, data: any) => api.post(`/licensing/clients/${orgId}/invoices`, data),
-  markPaid:      (invoiceId: string)        => api.put(`/licensing/invoices/${invoiceId}/paid`, {}),
+  catalogue:       ()                               => api.get('/licensing/catalogue'),
+  myLicense:       ()                               => api.get('/licensing/my'),
+  myAddons:        ()                               => api.get('/licensing/my/addons'),
+  myEvents:        ()                               => api.get('/licensing/my/events'),
+  myFlags:         ()                               => api.get('/licensing/my/feature-flags'),
+  stripeCheckout:  (data: { plan: string; billingCycle: string }) => api.post('/licensing/stripe/checkout', data),
+  stripePortal:    ()                               => api.post('/licensing/stripe/portal', {}),
+  stats:           ()                               => api.get('/licensing/stats'),
+  listClients:     ()                               => api.get('/licensing/clients'),
+  getClient:       (orgId: string)                  => api.get(`/licensing/clients/${orgId}`),
+  upsert:          (orgId: string, data: any)       => api.put(`/licensing/clients/${orgId}`, data),
+  createInvoice:   (orgId: string, data: any)       => api.post(`/licensing/clients/${orgId}/invoices`, data),
+  markPaid:        (invoiceId: string, data?: any)  => api.put(`/licensing/invoices/${invoiceId}/paid`, data || {}),
+  toggleAddon:     (orgId: string, addonKey: string, enabled: boolean) => api.patch(`/licensing/clients/${orgId}/addons/${addonKey}`, { enabled }),
+  setFeatureFlag:  (orgId: string, key: string, enabled: boolean, expiresAt?: string) => api.patch(`/licensing/clients/${orgId}/feature-flags/${key}`, { enabled, expiresAt }),
+};
+
+// ── Org Profile ───────────────────────────────────────────────
+
+export const orgProfileApi = {
+  getProfile:     ()             => api.get('/org-profile'),
+  updateProfile:  (data: any)    => api.patch('/org-profile', data),
+  listAddresses:  ()             => api.get('/org-profile/addresses'),
+  upsertAddress:  (data: any)    => api.post('/org-profile/addresses', data),
+  removeAddress:  (id: string)   => api.delete(`/org-profile/addresses/${id}`),
+  listContacts:   ()             => api.get('/org-profile/contacts'),
+  upsertContact:  (data: any)    => api.post('/org-profile/contacts', data),
+  removeContact:  (id: string)   => api.delete(`/org-profile/contacts/${id}`),
 };
 
 // ── HR Compliance ─────────────────────────────────────────────

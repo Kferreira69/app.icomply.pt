@@ -5,311 +5,392 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { licensingApi } from '@/lib/api';
 import {
   Building2, Users, Euro, TrendingUp, Shield, CheckCircle, XCircle,
-  Clock, Edit, Plus, ChevronRight, BarChart2, Loader2, AlertCircle,
-  Brain, Briefcase, Globe, FileText, Settings,
+  Clock, Edit, ChevronRight, BarChart2, Loader2, AlertCircle,
+  Brain, Briefcase, Globe, FileText, Settings, Zap, Plus,
+  ArrowUpRight, CreditCard, Package, Activity,
 } from 'lucide-react';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime, formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 
-// ── Status badge ─────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE:    'bg-green-100 text-green-700',
   TRIAL:     'bg-yellow-100 text-yellow-700',
   SUSPENDED: 'bg-red-100 text-red-700',
   CANCELLED: 'bg-gray-100 text-gray-500',
+  PAST_DUE:  'bg-orange-100 text-orange-700',
+  EXPIRED:   'bg-gray-100 text-gray-400',
   FREE:      'bg-blue-50 text-blue-600',
+  PENDING:   'bg-gray-100 text-gray-500',
 };
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', STATUS_COLORS[status] || 'bg-gray-100 text-gray-600')}>
-      {status}
-    </span>
-  );
+const PLAN_COLORS: Record<string, string> = {
+  FREE:         'bg-gray-100 text-gray-600',
+  STARTER:      'bg-blue-100 text-blue-700',
+  PROFESSIONAL: 'bg-indigo-100 text-indigo-700',
+  ENTERPRISE:   'bg-purple-100 text-purple-700',
+  CUSTOM:       'bg-amber-100 text-amber-700',
+};
+
+const INVOICE_STATUS: Record<string, string> = {
+  DRAFT:     'bg-gray-100 text-gray-500',
+  SENT:      'bg-blue-100 text-blue-600',
+  PAID:      'bg-green-100 text-green-700',
+  OVERDUE:   'bg-red-100 text-red-600',
+  CANCELLED: 'bg-gray-50 text-gray-400',
+};
+
+function Badge({ text, className }: { text: string; className?: string }) {
+  return <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', className)}>{text}</span>;
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
+function StatCard({ icon: Icon, label, value, sub, color }: { icon: any; label: string; value: string | number; sub?: string; color: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
-      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', color)}>
-        <Icon className="w-6 h-6" />
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4">
+      <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
+        <Icon className="w-5 h-5" />
       </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        <p className="text-sm text-gray-500">{label}</p>
+      <div className="min-w-0">
+        <p className="text-2xl font-bold text-gray-900 leading-tight">{value}</p>
+        <p className="text-sm text-gray-500 truncate">{label}</p>
+        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
 }
 
-// ── Module toggle row ─────────────────────────────────────────────────────────
+// ── Client drawer ─────────────────────────────────────────────
 
-const MODULE_ICONS: Record<string, any> = {
-  gdpr: Shield, nis2: Shield, dora: AlertCircle, soa: FileText,
-  hr_compliance: Briefcase, ai_governance: Brain, aiAssistant: Brain,
-  whistleblow: AlertCircle, vendors: Building2, trustCenter: Globe,
+const MODULE_CATALOGUE_MAP: Record<string, string> = {
+  dashboard: 'Dashboard', diagnostic: 'Diagnóstico', projects: 'Projetos',
+  risks: 'Riscos', evidence: 'Evidências', audits: 'Auditorias', capa: 'CAPA',
+  reports: 'Relatórios', policies: 'Políticas', gdpr: 'GDPR', nis2: 'NIS2',
+  dora: 'DORA', soa: 'ISO 27001 SoA', vendors: 'Fornecedores',
+  whistleblow: 'Denúncias', hr_compliance: 'HR Compliance', ai_governance: 'AI Governance',
+  aiAssistant: 'AI Assistant', trustCenter: 'Trust Center', excelImport: 'Import Excel', translations: 'Traduções',
 };
 
-function ModuleRow({
-  mod, enabled, monthlyPrice, annualPrice, billingCycle, onChange,
-}: {
-  mod: any; enabled: boolean; monthlyPrice: number; annualPrice: number;
-  billingCycle: string; onChange: (key: string, val: any) => void;
-}) {
-  const Icon = MODULE_ICONS[mod.key] || Settings;
-  const price = billingCycle === 'ANNUAL' ? annualPrice : monthlyPrice;
-
-  return (
-    <div className={cn('flex items-center gap-3 py-2 px-3 rounded-lg transition-colors', enabled ? 'bg-blue-50' : 'bg-gray-50')}>
-      <button
-        onClick={() => onChange('enabled', !enabled)}
-        className={cn(
-          'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0',
-          enabled ? 'bg-blue-600 border-blue-600' : 'border-gray-300',
-        )}
-      >
-        {enabled && <CheckCircle className="w-3 h-3 text-white" />}
-      </button>
-      <Icon className={cn('w-4 h-4 flex-shrink-0', enabled ? 'text-blue-600' : 'text-gray-400')} />
-      <span className={cn('flex-1 text-sm', enabled ? 'text-gray-900 font-medium' : 'text-gray-500')}>
-        {mod.label}
-      </span>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500">€</span>
-        <input
-          type="number"
-          value={billingCycle === 'ANNUAL' ? annualPrice : monthlyPrice}
-          onChange={e => onChange(billingCycle === 'ANNUAL' ? 'annualPrice' : 'monthlyPrice', Number(e.target.value))}
-          className="w-20 border border-gray-200 rounded px-2 py-0.5 text-xs text-right"
-          disabled={!enabled}
-        />
-        <span className="text-xs text-gray-400">/{billingCycle === 'ANNUAL' ? 'ano' : 'mês'}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Client drawer ─────────────────────────────────────────────────────────────
-
-function ClientDrawer({ orgId, onClose }: { orgId: string; onClose: () => void }) {
+function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const { data: clientData, isLoading } = useQuery({
-    queryKey: ['license', orgId],
-    queryFn: () => licensingApi.getClient(orgId).then(r => r.data),
+  const { data: licence } = useQuery({
+    queryKey: ['license', org.id],
+    queryFn: () => licensingApi.getClient(org.id).then(r => r.data?.license),
   });
   const { data: catalogue } = useQuery({
     queryKey: ['licence-catalogue'],
     queryFn: () => licensingApi.catalogue().then(r => r.data),
   });
 
-  const [form, setForm] = useState<any>(null);
-  const [moduleMap, setModuleMap] = useState<Record<string, any>>({});
+  const [tab, setTab]         = useState<'license' | 'addons' | 'invoices' | 'events'>('license');
+  const [form, setForm]       = useState<any>(null);
+  const [moduleMap, setModMap] = useState<Record<string, any>>({});
+  const [invoiceForm, setInvoiceForm] = useState({ description: '', dueDate: '', sendToMoloni: true });
 
-  // Initialise form when data loads
-  const license = clientData?.license;
-
-  useState(() => {
-    if (license && !form) {
-      setForm({
-        plan: license.plan || 'FREE',
-        status: license.status || 'ACTIVE',
-        billingCycle: license.billingCycle || 'MONTHLY',
-        aiProvider: license.aiProvider || 'AUTO',
-        aiModel: license.aiModel || '',
-        maxUsers: license.maxUsers || 5,
-        contactEmail: license.contactEmail || '',
-        notes: license.notes || '',
-      });
-      const map: Record<string, any> = {};
-      for (const m of license?.modules || []) {
-        map[m.module] = { ...m };
-      }
-      setModuleMap(map);
-    }
-  });
+  // Init form once
+  if (licence && !form) {
+    setForm({
+      plan:         licence.plan         || 'FREE',
+      status:       licence.status       || 'ACTIVE',
+      billingCycle: licence.billingCycle || 'MONTHLY',
+      aiProvider:   licence.aiProvider   || 'AUTO',
+      aiModel:      licence.aiModel      || '',
+      maxUsers:     licence.maxUsers     || 5,
+      maxStorageGb: licence.maxStorageGb || 5,
+      maxAiCredits: licence.maxAiCredits || 100,
+      contactEmail: licence.contactEmail || '',
+      notes:        licence.notes        || '',
+      autoRenew:    licence.autoRenew    ?? true,
+      moloniCustomerId:  licence.moloniCustomerId  || '',
+      stripeCustomerId:  licence.stripeCustomerId  || '',
+    });
+    const map: Record<string, any> = {};
+    for (const m of licence?.modules || []) map[m.module] = { ...m };
+    setModMap(map);
+  }
 
   const saveMutation = useMutation({
-    mutationFn: (data: any) => licensingApi.upsert(orgId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['license', orgId] });
-      qc.invalidateQueries({ queryKey: ['license-clients'] });
-    },
+    mutationFn: (d: any) => licensingApi.upsert(org.id, d),
+    onSuccess:  () => { qc.invalidateQueries({ queryKey: ['license', org.id] }); qc.invalidateQueries({ queryKey: ['license-clients'] }); },
+  });
+
+  const invoiceMutation = useMutation({
+    mutationFn: (d: any) => licensingApi.createInvoice(org.id, d),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['license', org.id] }),
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: (id: string) => licensingApi.markPaid(id),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['license', org.id] }),
   });
 
   const handleSave = () => {
-    const modules = Object.entries(moduleMap).map(([module, vals]: any) => ({
-      module,
-      enabled:      vals.enabled ?? false,
-      monthlyPrice: vals.monthlyPrice ?? 0,
-      annualPrice:  vals.annualPrice ?? 0,
+    const modules = Object.entries(moduleMap).map(([module, v]: any) => ({
+      module, enabled: v.enabled ?? false, monthlyPrice: v.monthlyPrice ?? 0, annualPrice: v.annualPrice ?? 0,
     }));
     saveMutation.mutate({ ...form, modules });
   };
 
-  const updateModule = (key: string, field: string, val: any) => {
-    setModuleMap(prev => ({ ...prev, [key]: { ...prev[key], module: key, [field]: val } }));
-  };
+  const total = Object.values(moduleMap).filter((m: any) => m.enabled)
+    .reduce((s: number, m: any) => s + Number(form?.billingCycle === 'ANNUAL' ? m.annualPrice : m.monthlyPrice), 0);
 
-  const billingCycle = form?.billingCycle || 'MONTHLY';
-
-  // Calculate total
-  const total = Object.values(moduleMap)
-    .filter((m: any) => m.enabled)
-    .reduce((sum: number, m: any) => sum + Number(billingCycle === 'ANNUAL' ? m.annualPrice : m.monthlyPrice), 0);
-
-  if (isLoading || !catalogue) {
-    return (
-      <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
-      </div>
-    );
-  }
-
-  const org = clientData;
+  const tabs = [
+    { key: 'license',  label: 'Licença',   icon: Settings },
+    { key: 'addons',   label: 'Add-ons',   icon: Package  },
+    { key: 'invoices', label: 'Faturas',   icon: FileText },
+    { key: 'events',   label: 'Histórico', icon: Activity },
+  ] as const;
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex justify-end">
-      <div className="w-full max-w-2xl bg-white shadow-2xl overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 z-50 flex justify-end" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">{org?.name}</h2>
-            <p className="text-sm text-gray-500">{org?.industry} · {org?.country}</p>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-700 font-bold text-xs flex-shrink-0">
+                {org.name.substring(0, 2).toUpperCase()}
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">{org.name}</h2>
+              {licence && <Badge text={licence.plan || 'FREE'} className={PLAN_COLORS[licence.plan] || 'bg-gray-100 text-gray-600'} />}
+              {licence && <Badge text={licence.status || 'ACTIVE'} className={STATUS_COLORS[licence.status] || ''} />}
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5 ml-10">
+              {org.industry} · {org.country} · {org._count?.users ?? 0} utilizadores
+              {licence?.stripeCustomerId && <span className="ml-2 text-green-600">✓ Stripe</span>}
+              {licence?.moloniCustomerId && <span className="ml-2 text-blue-600">✓ Moloni</span>}
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saveMutation.isPending}
-              className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
+            <button onClick={handleSave} disabled={saveMutation.isPending}
+              className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
               Guardar
             </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">×</button>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* License basics */}
-          {form && (
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: 'Plano', field: 'plan', options: ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE', 'CUSTOM'] },
-                { label: 'Estado', field: 'status', options: ['ACTIVE', 'TRIAL', 'SUSPENDED', 'CANCELLED'] },
-                { label: 'Facturação', field: 'billingCycle', options: ['MONTHLY', 'ANNUAL'] },
-                { label: 'Provider IA', field: 'aiProvider', options: ['AUTO', 'ANTHROPIC', 'OPENAI'] },
-              ].map(({ label, field, options }) => (
-                <div key={field}>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
-                  <select
-                    value={form[field]}
-                    onChange={e => setForm((f: any) => ({ ...f, [field]: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  >
-                    {options.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+        {/* Tabs */}
+        <div className="border-b px-6 flex gap-1">
+          {tabs.map(({ key, label, icon: Icon }) => (
+            <button key={key} onClick={() => setTab(key as any)}
+              className={cn('flex items-center gap-1.5 px-3 py-3 text-sm border-b-2 -mb-px transition-colors',
+                tab === key ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+              <Icon className="w-3.5 h-3.5" />{label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+          {/* ── License tab ─────────────────────────────────── */}
+          {tab === 'license' && form && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { l: 'Plano',      f: 'plan',         opts: ['FREE','STARTER','PROFESSIONAL','ENTERPRISE','CUSTOM'] },
+                  { l: 'Estado',     f: 'status',       opts: ['ACTIVE','TRIAL','SUSPENDED','CANCELLED','PAST_DUE','EXPIRED'] },
+                  { l: 'Faturação',  f: 'billingCycle', opts: ['MONTHLY','QUARTERLY','ANNUAL','MULTI_YEAR'] },
+                  { l: 'Provider IA', f: 'aiProvider',  opts: ['AUTO','ANTHROPIC','OPENAI'] },
+                ].map(({ l, f, opts }) => (
+                  <div key={f}>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{l}</label>
+                    <select value={form[f]} onChange={e => setForm((p: any) => ({ ...p, [f]: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                      {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                ))}
+                {[
+                  { l: 'Modelo IA (override)', f: 'aiModel',      ph: 'ex: gpt-4o-mini', num: false },
+                  { l: 'Máx. utilizadores',    f: 'maxUsers',     ph: '',                num: true  },
+                  { l: 'Storage (GB)',          f: 'maxStorageGb', ph: '',                num: true  },
+                  { l: 'AI Credits',            f: 'maxAiCredits', ph: '',                num: true  },
+                ].map(({ l, f, ph, num }) => (
+                  <div key={f}>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{l}</label>
+                    <input type={num ? 'number' : 'text'} value={form[f]} placeholder={ph}
+                      onChange={e => setForm((p: any) => ({ ...p, [f]: num ? Number(e.target.value) : e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                ))}
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Email de faturação</label>
+                  <input value={form.contactEmail} onChange={e => setForm((p: any) => ({ ...p, contactEmail: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Stripe Customer ID</label>
+                  <input value={form.stripeCustomerId} onChange={e => setForm((p: any) => ({ ...p, stripeCustomerId: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-xs" placeholder="cus_..." />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Moloni Customer ID</label>
+                  <input value={form.moloniCustomerId} onChange={e => setForm((p: any) => ({ ...p, moloniCustomerId: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-xs" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Notas internas</label>
+                  <textarea value={form.notes} rows={2} onChange={e => setForm((p: any) => ({ ...p, notes: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
+                </div>
+                <div className="col-span-2 flex items-center gap-2">
+                  <input type="checkbox" id="autoRenew" checked={form.autoRenew} onChange={e => setForm((p: any) => ({ ...p, autoRenew: e.target.checked }))} />
+                  <label htmlFor="autoRenew" className="text-sm text-gray-700">Renovação automática</label>
+                </div>
+              </div>
+
+              {/* Modules */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Modelo IA (override)</label>
-                <input
-                  value={form.aiModel}
-                  onChange={e => setForm((f: any) => ({ ...f, aiModel: e.target.value }))}
-                  placeholder="ex: gpt-4o-mini"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700">Módulos</h3>
+                  <span className="text-xs font-bold text-primary">€{total.toFixed(2)}/{form.billingCycle === 'ANNUAL' ? 'ano' : 'mês'}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {catalogue?.modules?.map((mod: any) => {
+                    const cur = moduleMap[mod.key] || { enabled: false, monthlyPrice: mod.monthlyPrice, annualPrice: mod.annualPrice };
+                    const enabled = cur.enabled ?? false;
+                    const price   = form.billingCycle === 'ANNUAL' ? cur.annualPrice ?? mod.annualPrice : cur.monthlyPrice ?? mod.monthlyPrice;
+                    return (
+                      <div key={mod.key} className={cn('flex items-center gap-3 py-2 px-3 rounded-lg', enabled ? 'bg-blue-50' : 'bg-gray-50')}>
+                        <button onClick={() => setModMap(p => ({ ...p, [mod.key]: { ...p[mod.key], module: mod.key, enabled: !enabled } }))}
+                          className={cn('w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0', enabled ? 'bg-primary border-primary' : 'border-gray-300')}>
+                          {enabled && <CheckCircle className="w-3 h-3 text-white" />}
+                        </button>
+                        <span className={cn('flex-1 text-sm', enabled ? 'text-gray-900 font-medium' : 'text-gray-500')}>
+                          {MODULE_CATALOGUE_MAP[mod.key] || mod.label}
+                        </span>
+                        <span className="text-xs text-gray-400">€</span>
+                        <input type="number" value={price}
+                          onChange={e => setModMap(p => ({ ...p, [mod.key]: { ...p[mod.key], module: mod.key, [form.billingCycle === 'ANNUAL' ? 'annualPrice' : 'monthlyPrice']: Number(e.target.value) } }))}
+                          className="w-20 border border-gray-200 rounded px-2 py-0.5 text-xs text-right" disabled={!enabled} />
+                        <span className="text-xs text-gray-400">/{form.billingCycle === 'ANNUAL' ? 'ano' : 'mês'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Máx. utilizadores</label>
-                <input
-                  type="number"
-                  value={form.maxUsers}
-                  onChange={e => setForm((f: any) => ({ ...f, maxUsers: Number(e.target.value) }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Email de contacto de billing</label>
-                <input
-                  value={form.contactEmail}
-                  onChange={e => setForm((f: any) => ({ ...f, contactEmail: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Notas internas</label>
-                <textarea
-                  value={form.notes}
-                  onChange={e => setForm((f: any) => ({ ...f, notes: e.target.value }))}
-                  rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
-                />
-              </div>
-            </div>
+            </>
           )}
 
-          {/* Modules */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">Módulos activos</h3>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>Total estimado:</span>
-                <span className="font-bold text-blue-600">€{total.toFixed(2)}/{billingCycle === 'ANNUAL' ? 'ano' : 'mês'}</span>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              {catalogue?.modules?.map((mod: any) => {
-                const current = moduleMap[mod.key] || { enabled: false, monthlyPrice: mod.monthlyPrice, annualPrice: mod.annualPrice };
+          {/* ── Add-ons tab ─────────────────────────────────── */}
+          {tab === 'addons' && catalogue && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">Activa ou desactiva add-ons para esta organização.</p>
+              {catalogue.addons?.map((addon: any) => {
+                const active = licence?.addons?.find((a: any) => a.addonKey === addon.key);
+                const enabled = active?.enabled ?? false;
                 return (
-                  <ModuleRow
-                    key={mod.key}
-                    mod={mod}
-                    enabled={current.enabled ?? false}
-                    monthlyPrice={current.monthlyPrice ?? mod.monthlyPrice}
-                    annualPrice={current.annualPrice ?? mod.annualPrice}
-                    billingCycle={billingCycle}
-                    onChange={(field, val) => updateModule(mod.key, field, val)}
-                  />
+                  <div key={addon.key} className={cn('flex items-center gap-3 p-3 rounded-xl border transition-colors', enabled ? 'border-primary/30 bg-blue-50/50' : 'border-gray-100 bg-gray-50/50')}>
+                    <Package className={cn('w-4 h-4 flex-shrink-0', enabled ? 'text-primary' : 'text-gray-400')} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-sm font-medium', enabled ? 'text-gray-900' : 'text-gray-500')}>{addon.label}</p>
+                      <p className="text-xs text-gray-400">€{addon.monthlyPrice}/mês · €{addon.annualPrice}/ano</p>
+                    </div>
+                    <button
+                      onClick={() => licensingApi.toggleAddon(org.id, addon.key, !enabled).then(() => qc.invalidateQueries({ queryKey: ['license', org.id] }))}
+                      className={cn('px-3 py-1 rounded-lg text-xs font-medium transition-colors', enabled ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300')}
+                    >
+                      {enabled ? 'Activo' : 'Activar'}
+                    </button>
+                  </div>
                 );
               })}
             </div>
-          </div>
+          )}
 
-          {/* Invoice history */}
-          {license?.invoices?.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Histórico de faturas</h3>
+          {/* ── Invoices tab ────────────────────────────────── */}
+          {tab === 'invoices' && (
+            <>
+              {/* Create invoice form */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700">Nova Fatura</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <input value={invoiceForm.description} onChange={e => setInvoiceForm(p => ({ ...p, description: e.target.value }))}
+                      placeholder="Descrição (ex: iComply Professional — Outubro 2025)"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <input type="date" value={invoiceForm.dueDate} onChange={e => setInvoiceForm(p => ({ ...p, dueDate: e.target.value }))}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="sendMoloni" checked={invoiceForm.sendToMoloni} onChange={e => setInvoiceForm(p => ({ ...p, sendToMoloni: e.target.checked }))} />
+                    <label htmlFor="sendMoloni" className="text-xs text-gray-600">Enviar para Moloni (série ICY)</label>
+                  </div>
+                </div>
+                <button onClick={() => invoiceMutation.mutate(invoiceForm)} disabled={invoiceMutation.isPending}
+                  className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  {invoiceMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Criar fatura
+                </button>
+              </div>
+
+              {/* Invoice list */}
               <div className="space-y-2">
-                {license.invoices.map((inv: any) => (
-                  <div key={inv.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
-                    <div>
-                      <span className="font-medium">{inv.description}</span>
-                      <span className="text-gray-400 ml-2 text-xs">{formatDateTime(inv.createdAt)}</span>
+                {(licence?.invoices || []).map((inv: any) => (
+                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{inv.description || `Fatura ${inv.id.slice(-6)}`}</p>
+                      <p className="text-xs text-gray-400">
+                        {formatDate(inv.createdAt)}
+                        {inv.moloniDocNo && <span className="ml-2 text-blue-600">#{inv.moloniDocNo}</span>}
+                        {inv.moloniReceiptNo && <span className="ml-2 text-green-600">Recibo #{inv.moloniReceiptNo}</span>}
+                        {inv.stripePaymentIntentId && <span className="ml-2 text-violet-600">✓ Stripe</span>}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">€{Number(inv.totalAmount).toFixed(2)}</span>
-                      <StatusBadge status={inv.status} />
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-sm font-bold text-gray-900">€{Number(inv.totalAmount).toFixed(2)}</span>
+                      <Badge text={inv.status} className={INVOICE_STATUS[inv.status] || 'bg-gray-100 text-gray-500'} />
+                      {inv.status !== 'PAID' && inv.status !== 'CANCELLED' && (
+                        <button onClick={() => markPaidMutation.mutate(inv.id)}
+                          className="text-xs text-green-700 bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg transition-colors">
+                          Marcar pago
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* ── Events tab ─────────────────────────────────── */}
+          {tab === 'events' && (
+            <div className="space-y-2">
+              {(licence?.events || []).length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Sem eventos registados</p>
+              ) : (
+                (licence?.events || []).map((ev: any) => (
+                  <div key={ev.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0',
+                      ev.type.includes('SUCCEEDED') || ev.type === 'CREATED' || ev.type === 'UPGRADED' ? 'bg-green-500' :
+                      ev.type.includes('FAILED') || ev.type === 'SUSPENDED' || ev.type === 'CANCELLED' ? 'bg-red-500' : 'bg-blue-500'
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{ev.type.replace(/_/g, ' ')}</p>
+                      {ev.fromPlan && <p className="text-xs text-gray-500">{ev.fromPlan} → {ev.toPlan}</p>}
+                      <p className="text-xs text-gray-400">{formatDateTime(ev.createdAt)}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
+
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main page ──────────────────────────────────────────────────
 
 export default function LicensingPage() {
   const { user } = useAuthStore();
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [selectedOrg, setSelectedOrg] = useState<any>(null);
+  const [search, setSearch]           = useState('');
+  const [planFilter, setPlanFilter]   = useState('ALL');
 
   const { data: stats } = useQuery({
     queryKey: ['license-stats'],
@@ -321,11 +402,6 @@ export default function LicensingPage() {
     queryFn: () => licensingApi.listClients().then(r => r.data),
   });
 
-  const filtered = (clients || []).filter((c: any) =>
-    c.name.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  // Guard: only Contemporary Constellation admins
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
 
@@ -334,102 +410,138 @@ export default function LicensingPage() {
       <div className="flex flex-col items-center justify-center h-96 text-center">
         <Shield className="w-12 h-12 text-gray-300 mb-4" />
         <h2 className="text-lg font-semibold text-gray-600">Acesso Restrito</h2>
-        <p className="text-sm text-gray-400 mt-1">Esta área é exclusiva da Contemporary Constellation</p>
+        <p className="text-sm text-gray-400 mt-1">Área exclusiva da Contemporary Constellation</p>
       </div>
     );
   }
 
+  const filtered = (clients || []).filter((c: any) => {
+    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
+    const matchPlan   = planFilter === 'ALL' || c.license?.plan === planFilter;
+    return matchSearch && matchPlan;
+  });
+
+  const mrr = stats?.mrr ?? 0;
+  const arr = stats?.arr ?? 0;
+
   return (
     <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <StatCard icon={Building2}   label="Total de clientes"    value={stats?.totalOrgs ?? '—'}                          color="bg-blue-50 text-blue-600" />
-        <StatCard icon={CheckCircle} label="Licenças activas"     value={stats?.activeOrgs ?? '—'}                         color="bg-green-50 text-green-600" />
-        <StatCard icon={Euro}        label="Receita total (pago)"  value={`€${Number(stats?.totalRevenue ?? 0).toFixed(0)}`} color="bg-purple-50 text-purple-600" />
-        <StatCard icon={TrendingUp}  label="Módulo top"           value={stats?.topModules?.[0]?.module ?? '—'}            color="bg-orange-50 text-orange-600" />
+
+      {/* ── KPI strip ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Building2}   label="Total clientes"      value={stats?.totalOrgs ?? '—'}  color="bg-blue-50 text-blue-600" />
+        <StatCard icon={CheckCircle} label="Licenças activas"    value={stats?.activeOrgs ?? '—'} sub={`${stats?.trialOrgs ?? 0} em trial`} color="bg-green-50 text-green-600" />
+        <StatCard icon={TrendingUp}  label="MRR estimado"        value={`€${mrr.toLocaleString()}`} sub={`ARR ≈ €${arr.toLocaleString()}`} color="bg-purple-50 text-purple-600" />
+        <StatCard icon={Euro}        label="Receita paga (total)" value={`€${Number(stats?.totalRevenue ?? 0).toFixed(0)}`} sub={`€${Number(stats?.pendingRevenue ?? 0).toFixed(0)} pendente`} color="bg-amber-50 text-amber-600" />
       </div>
 
-      {/* Client list */}
+      {/* ── Plan distribution ─────────────────────────────────── */}
+      {stats?.planDistribution && stats.planDistribution.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Distribuição por Plano</h3>
+          <div className="flex items-end gap-3 h-16">
+            {stats.planDistribution.map((p: any) => {
+              const maxCount = Math.max(...stats.planDistribution.map((x: any) => x._count));
+              const height = Math.max(8, Math.round((p._count / maxCount) * 56));
+              return (
+                <div key={p.plan} className="flex flex-col items-center gap-1">
+                  <span className="text-xs font-bold text-gray-700">{p._count}</span>
+                  <div className={cn('rounded-t w-10 transition-all', PLAN_COLORS[p.plan] || 'bg-gray-200')} style={{ height }} />
+                  <span className="text-xs text-gray-500">{p.plan}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Client table ──────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-gray-900">Clientes / Organizações</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Gestão de licenças e módulos por cliente</p>
+            <p className="text-xs text-gray-500 mt-0.5">{filtered.length} de {(clients || []).length} organizações</p>
           </div>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar cliente..."
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-56 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
+          <div className="flex items-center gap-2">
+            <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600">
+              <option value="ALL">Todos os planos</option>
+              {['FREE','STARTER','PROFESSIONAL','ENTERPRISE','CUSTOM'].map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar..."
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-48 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+          </div>
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                {['Cliente', 'Plano', 'Estado', 'Provider IA', 'Módulos activos', 'Utilizadores', 'Desde', ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((org: any) => (
-                <tr
-                  key={org.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setSelectedOrgId(org.id)}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs flex-shrink-0">
-                        {org.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{org.name}</p>
-                        <p className="text-xs text-gray-400">{org.industry}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={org.license?.plan || 'FREE'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={org.license?.status || 'ACTIVE'} />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-600">
-                    {org.aiProvider || 'AUTO'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {org.license?.modules?.filter((m: any) => m.enabled).length ?? 0}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 text-sm text-gray-600">
-                      <Users className="w-3.5 h-3.5" />
-                      {org._count?.users ?? 0} / {org.maxUsers || 5}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
-                    {formatDateTime(org.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  {['Cliente', 'Plano', 'Estado', 'Módulos', 'Add-ons', 'Utilizadores', 'MRR', 'Faturação', ''].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((org: any) => {
+                  const lic = org.license;
+                  const enabledModules = lic?.modules?.filter((m: any) => m.enabled) || [];
+                  const enabledAddons  = lic?.addons?.filter((a: any) => a.enabled) || [];
+                  const orgMrr = enabledModules.reduce((s: number, m: any) => s + Number(m.monthlyPrice), 0);
+                  const hasStripe = !!lic?.stripeCustomerId;
+                  const hasMoloni = !!lic?.moloniCustomerId;
+                  return (
+                    <tr key={org.id} onClick={() => setSelectedOrg(org)}
+                      className="border-b border-gray-100 hover:bg-blue-50/30 cursor-pointer transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-700 font-bold text-xs flex-shrink-0">
+                            {org.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{org.name}</p>
+                            <p className="text-xs text-gray-400 truncate">{org.industry}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge text={lic?.plan || 'FREE'} className={PLAN_COLORS[lic?.plan] || 'bg-gray-100 text-gray-600'} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge text={lic?.status || 'NO LICENSE'} className={STATUS_COLORS[lic?.status] || 'bg-gray-100 text-gray-500'} />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{enabledModules.length}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{enabledAddons.length}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-700">{org._count?.users ?? 0} / {lic?.maxUsers ?? org.maxUsers ?? 5}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">€{orgMrr}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          {hasStripe && <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded">Stripe</span>}
+                          {hasMoloni && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Moloni</span>}
+                          {!hasStripe && !hasMoloni && <span className="text-xs text-gray-400">Manual</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Drawer */}
-      {selectedOrgId && (
-        <ClientDrawer orgId={selectedOrgId} onClose={() => setSelectedOrgId(null)} />
-      )}
+      {selectedOrg && <ClientDrawer org={selectedOrg} onClose={() => setSelectedOrg(null)} />}
     </div>
   );
 }

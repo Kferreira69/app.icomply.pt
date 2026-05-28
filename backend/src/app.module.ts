@@ -51,6 +51,7 @@ import { AntiBriberyModule } from './anti-bribery/anti-bribery.module';
 import { WorkforceModule } from './workforce/workforce.module';
 import { QualityModule } from './quality/quality.module';
 import { RegulatoryChangeModule } from './regulatory-change/regulatory-change.module';
+import { OrgProfileModule } from './org-profile/org-profile.module';
 
 @Module({
   imports: [
@@ -122,6 +123,7 @@ import { RegulatoryChangeModule } from './regulatory-change/regulatory-change.mo
     WorkforceModule,
     QualityModule,
     RegulatoryChangeModule,
+    OrgProfileModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

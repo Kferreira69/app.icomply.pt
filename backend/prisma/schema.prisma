@@ -251,13 +251,20 @@ model Organization {
   id           String   @id @default(uuid())
   name         String
   slug         String   @unique
-  industry     String?  // e.g. TECHNOLOGY, FINANCIAL_SERVICES, HEALTHCARE
-  size         String?  // MICRO, SMALL, MEDIUM, LARGE, ENTERPRISE
+  // ── Extended profile ──────────────────────────────────────
+  legalName    String?           // Nome legal completo
+  tradeName    String?           // Nome comercial
+  industry     String?           // e.g. TECHNOLOGY, FINANCIAL_SERVICES, HEALTHCARE
+  size         String?           // MICRO, SMALL, MEDIUM, LARGE, ENTERPRISE
   country      String   @default("PT")
-  vatNumber    String?
+  vatNumber    String?           // NIF/VAT
+  employeeCount  Int?
+  annualRevenue  Decimal? @db.Decimal(15,2)
+  groupName    String?           // Grupo empresarial
   address      String?
   logoUrl      String?
   website      String?
+  phone        String?
   billingEmail String?
   plan         String   @default("FREE") // FREE, STARTER, PROFESSIONAL, ENTERPRISE
   maxUsers     Int      @default(5)
@@ -266,6 +273,9 @@ model Organization {
   aiModel      String?  // e.g. "claude-sonnet-4-5", "gpt-4o", "gpt-4o-mini"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // ── Extended profile relations ────────────────────────────
+  orgAddresses  OrgAddress[]
+  orgContacts   OrgContact[]
 
   users             User[]
   projects          Project[]
@@ -1705,20 +1715,44 @@ model License {
   organizationId String   @unique
   organization   Organization @relation(fields: [organizationId], references: [id])
   plan           String   @default("FREE")    // FREE, STARTER, PROFESSIONAL, ENTERPRISE, CUSTOM
-  status         String   @default("ACTIVE")  // ACTIVE, TRIAL, SUSPENDED, CANCELLED
-  billingCycle   String   @default("MONTHLY") // MONTHLY, ANNUAL
+  status         String   @default("ACTIVE")  // ACTIVE, TRIAL, SUSPENDED, CANCELLED, PAST_DUE, EXPIRED
+  billingCycle   String   @default("MONTHLY") // MONTHLY, QUARTERLY, ANNUAL, MULTI_YEAR
   trialEndsAt    DateTime?
   startDate      DateTime @default(now())
   endDate        DateTime?
-  aiProvider     String   @default("AUTO")   // ANTHROPIC, OPENAI, AUTO
+  nextBillingDate DateTime?
+  autoRenew      Boolean  @default(true)
+  gracePeriodDays Int     @default(7)
+  // Stripe
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  stripePaymentMethodId String?
+  stripePriceId         String?
+  // Moloni
+  moloniClientId String?
+  moloniCustomerId String?
+  // AI config
+  aiProvider     String   @default("AUTO")
   aiModel        String?
+  // Limits
   maxUsers       Int      @default(5)
+  maxStorageGb   Int      @default(5)
+  maxAiCredits   Int      @default(100)
+  maxApiCalls    Int      @default(0)
+  // Contacts
   contactName    String?
   contactEmail   String?
   notes          String?
-  moloniClientId String?  // Moloni API client reference
+  // Lifecycle timestamps
+  suspendedAt          DateTime?
+  cancelledAt          DateTime?
+  renewalReminderSentAt DateTime?
+  // Relations
   modules        LicenseModule[]
   invoices       LicenseInvoice[]
+  addons         LicenseAddon[]
+  events         SubscriptionEvent[]
+  featureFlags   FeatureFlag[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1745,25 +1779,126 @@ model LicenseInvoice {
   id          String   @id @default(uuid())
   licenseId   String
   license     License  @relation(fields: [licenseId], references: [id])
-  moloniId    String?       // Moloni document ID
-  moloniDocNo String?       // Moloni document number (e.g. "FT 2025/1")
+  // Moloni
+  moloniId    String?
+  moloniDocNo String?
+  moloniReceiptId  String?
+  moloniReceiptNo  String?
+  // Stripe
+  stripeInvoiceId       String?
+  stripePaymentIntentId String?
+  // Amounts
   amount      Decimal  @db.Decimal(10,2)
   taxRate     Decimal  @default(23) @db.Decimal(5,2)
   taxAmount   Decimal  @default(0)  @db.Decimal(10,2)
   totalAmount Decimal  @db.Decimal(10,2)
   currency    String   @default("EUR")
+  // Status
   status      String   @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
   description String?
   periodStart DateTime?
   periodEnd   DateTime?
   dueDate     DateTime?
   paidAt      DateTime?
+  // Files
   pdfUrl      String?
+  receiptUrl  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([licenseId, status])
   @@map("license_invoices")
+}
+
+// ── Add-ons per license ───────────────────────────────────────
+
+model LicenseAddon {
+  id        String   @id @default(uuid())
+  licenseId String
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  addonKey  String   // ai_copilot, api_access, white_label, multi_entity, dpia_wizard, etc.
+  enabled   Boolean  @default(true)
+  price     Decimal  @default(0) @db.Decimal(10,2)
+  expiresAt DateTime?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([licenseId, addonKey])
+  @@map("license_addons")
+}
+
+// ── Subscription lifecycle event log ─────────────────────────
+
+model SubscriptionEvent {
+  id          String   @id @default(uuid())
+  licenseId   String
+  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  type        String   // CREATED, UPGRADED, DOWNGRADED, RENEWED, SUSPENDED, CANCELLED, PAYMENT_FAILED, PAYMENT_SUCCEEDED, TRIAL_STARTED, TRIAL_EXPIRED, ADDON_ADDED, ADDON_REMOVED
+  fromPlan    String?
+  toPlan      String?
+  metadata    Json?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([licenseId, type])
+  @@map("subscription_events")
+}
+
+// ── Feature flags per license/org ────────────────────────────
+
+model FeatureFlag {
+  id             String   @id @default(uuid())
+  licenseId      String?
+  license        License? @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  organizationId String?
+  key            String   // e.g. ai_copilot, beta_dashboard, api_access, white_label
+  enabled        Boolean  @default(false)
+  expiresAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([licenseId, key])
+  @@map("feature_flags")
+}
+
+// ── Org addresses ─────────────────────────────────────────────
+
+model OrgAddress {
+  id             String      @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String      // HQ, BILLING, OPERATIONAL
+  street         String?
+  city           String?
+  postalCode     String?
+  region         String?
+  country        String      @default("PT")
+  isPrimary      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([organizationId, type])
+  @@map("org_addresses")
+}
+
+// ── Org contacts (DPO, CO, SO, AML, AI Lead, HR Lead, etc.) ──
+
+model OrgContact {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           String       // GENERAL, BILLING, DPO, COMPLIANCE_OFFICER, SECURITY_OFFICER, AML_OFFICER, AI_GOVERNANCE_LEAD, HR_LEAD
+  name           String
+  title          String?      // Job title
+  email          String?
+  phone          String?
+  isPrimary      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, role])
+  @@map("org_contacts")
 }
 
 // ─────────────────────────────────────────────────────────────
