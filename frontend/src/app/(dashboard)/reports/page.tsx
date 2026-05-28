@@ -41,8 +41,15 @@ export default function ReportsPage() {
     ? Object.entries(summary.tasks).map(([status, count]) => ({ name: status.replace('_', ' '), value: count as number }))
     : [];
 
-  const risksData = summary?.risks
-    ? Object.entries(summary.risks).map(([status, count]) => ({ name: status, value: count as number }))
+  // risks is an array of risk objects — group by level for the chart
+  const risksData = summary?.risks && Array.isArray(summary.risks)
+    ? Object.entries(
+        (summary.risks as any[]).reduce((acc: Record<string, number>, r: any) => {
+          const key = r.level ?? r.status ?? 'UNKNOWN';
+          acc[key] = (acc[key] ?? 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      ).map(([name, count]) => ({ name, value: count as number }))
     : [];
 
   const COLORS = ['#1B4F8A', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
