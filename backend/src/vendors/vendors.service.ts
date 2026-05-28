@@ -46,20 +46,84 @@ export class VendorsService {
     });
   }
 
-  async findAll(organizationId: string, params: { status?: VendorStatus; riskLevel?: VendorRiskLevel; category?: string }) {
-    return this.prisma.vendor.findMany({
-      where: {
-        organizationId,
-        ...(params.status && { status: params.status }),
-        ...(params.riskLevel && { riskLevel: params.riskLevel }),
-        ...(params.category && { category: params.category }),
-      },
+  async findAll(
+    organizationId: string,
+    params: {
+      status?: VendorStatus;
+      riskLevel?: VendorRiskLevel;
+      category?: string;
+      dataProcessor?: string;   // 'true' → Art. 28 only
+      unassessed?: string;      // 'true' → no riskScore yet
+      page?: string;
+      limit?: string;
+    },
+  ) {
+    const take   = Math.min(Number(params.limit) || 50, 200);
+    const skip   = (Math.max(Number(params.page) || 1, 1) - 1) * take;
+
+    const where: any = {
+      organizationId,
+      ...(params.status       && { status: params.status }),
+      ...(params.riskLevel    && { riskLevel: params.riskLevel }),
+      ...(params.category     && { category: params.category }),
+      ...(params.dataProcessor === 'true' && { dataProcessor: true }),
+      ...(params.unassessed   === 'true'  && { riskScore: null }),
+    };
+
+    const [total, items] = await Promise.all([
+      this.prisma.vendor.count({ where }),
+      this.prisma.vendor.findMany({
+        where,
+        orderBy: [{ riskLevel: 'desc' }, { name: 'asc' }],
+        include: {
+          _count: { select: { assessments: true } },
+          assessments: { orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+        take,
+        skip,
+      }),
+    ]);
+
+    return { items, total, page: Math.max(Number(params.page) || 1, 1), limit: take };
+  }
+
+  // ── CSV Export ────────────────────────────────────────────────
+
+  async exportCsv(organizationId: string): Promise<string> {
+    const vendors = await this.prisma.vendor.findMany({
+      where: { organizationId },
       orderBy: [{ riskLevel: 'desc' }, { name: 'asc' }],
-      include: {
-        _count: { select: { assessments: true } },
-        assessments: { orderBy: { createdAt: 'desc' }, take: 1 },
-      },
+      include: { assessments: { orderBy: { createdAt: 'desc' }, take: 1 } },
     });
+
+    const headers = [
+      'Name', 'Category', 'Status', 'Risk Level', 'Risk Score',
+      'Data Processor (Art.28)', 'Data Shared', 'Countries',
+      'Contact Name', 'Contact Email', 'Website',
+      'Contract Start', 'Contract End', 'Last Assessed', 'Assessments',
+    ];
+
+    const rows = vendors.map(v => [
+      v.name,
+      v.category,
+      v.status,
+      v.riskLevel ?? '',
+      v.riskScore != null ? String(v.riskScore) : '',
+      v.dataProcessor ? 'Yes' : 'No',
+      v.dataShared ?? '',
+      v.countries ?? '',
+      v.contactName ?? '',
+      v.contactEmail ?? '',
+      v.website ?? '',
+      v.contractStart ? v.contractStart.toISOString().slice(0, 10) : '',
+      v.contractEnd   ? v.contractEnd.toISOString().slice(0, 10)   : '',
+      v.lastAssessedAt ? v.lastAssessedAt.toISOString().slice(0, 10) : '',
+      String((v as any)._count?.assessments ?? 0),
+    ]);
+
+    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const lines  = [headers, ...rows].map(r => r.map(escape).join(','));
+    return '﻿' + lines.join('\r\n');
   }
 
   async findOne(id: string, organizationId: string) {

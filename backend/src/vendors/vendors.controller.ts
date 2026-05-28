@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res, UseGuards, Header } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { VendorsService } from './vendors.service';
@@ -27,6 +28,15 @@ export class VendorsController {
   @ApiOperation({ summary: 'List all vendors' })
   findAll(@CurrentUser() user: any, @Query() query: any) {
     return this.service.findAll(user.organizationId, query);
+  }
+
+  @Get('export/csv')
+  @ApiOperation({ summary: 'Export all vendors as CSV (UTF-8 BOM)' })
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportCsv(@CurrentUser() user: any, @Res() res: Response) {
+    const csv = await this.service.exportCsv(user.organizationId);
+    res.setHeader('Content-Disposition', 'attachment; filename="vendors.csv"');
+    res.send(csv);
   }
 
   @Get(':id')

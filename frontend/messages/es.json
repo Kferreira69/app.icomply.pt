@@ -380,6 +380,9 @@
       "UNDER_REVIEW": "En revisión",
       "TERMINATED": "Rescindido"
     },
+    "filterDataProcessor": "Art. 28 RGPD",
+    "filterUnassessed": "Sin evaluación",
+    "exportCsv": "Exportar CSV",
     "riskLevels": {
       "LOW": "Bajo",
       "MEDIUM": "Medio",

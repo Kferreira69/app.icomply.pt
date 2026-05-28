@@ -380,6 +380,9 @@
       "UNDER_REVIEW": "Under Review",
       "TERMINATED": "Terminated"
     },
+    "filterDataProcessor": "Art. 28 GDPR",
+    "filterUnassessed": "No assessment",
+    "exportCsv": "Export CSV",
     "riskLevels": {
       "LOW": "Low",
       "MEDIUM": "Medium",

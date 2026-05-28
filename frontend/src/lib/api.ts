@@ -258,14 +258,18 @@ export const nis2Api = {
 
 export const vendorsApi = {
   dashboard: () => api.get('/vendors/dashboard'),
-  list: (params?: { status?: string; riskLevel?: string; category?: string }) =>
-    api.get('/vendors', { params }),
+  list: (params?: {
+    status?: string; riskLevel?: string; category?: string;
+    dataProcessor?: string; unassessed?: string;
+    page?: number; limit?: number;
+  }) => api.get('/vendors', { params }),
   get: (id: string) => api.get(`/vendors/${id}`),
   create: (data: any) => api.post('/vendors', data),
   update: (id: string, data: any) => api.patch(`/vendors/${id}`, data),
   remove: (id: string) => api.delete(`/vendors/${id}`),
   addAssessment: (id: string, data: { score: number; findings?: string }) =>
     api.post(`/vendors/${id}/assessments`, data),
+  exportCsv: () => api.get('/vendors/export/csv', { responseType: 'blob' }),
 };
 
 export const soaApi = {

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { vendorsApi } from '@/lib/api';
 import {
   Building2, Plus, Search, X, ChevronRight, Star,
-  ExternalLink, Trash2, Edit2,
+  ExternalLink, Trash2, Edit2, Download, ShieldCheck, AlertCircle,
 } from 'lucide-react';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -418,24 +418,45 @@ export default function VendorsPage() {
   const [filterRisk, setFilterRisk] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterDataProcessor, setFilterDataProcessor] = useState(false);
+  const [filterUnassessed, setFilterUnassessed] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editVendor, setEditVendor] = useState<any>(null);
   const [panelVendor, setPanelVendor] = useState<any>(null);
   const [assessVendor, setAssessVendor] = useState<any>(null);
+  const [exporting, setExporting] = useState(false);
 
   const { data: dashboard } = useQuery({
     queryKey: ['vendors-dashboard'],
     queryFn: () => vendorsApi.dashboard().then(r => r.data),
   });
 
-  const { data: vendors = [], isLoading } = useQuery({
-    queryKey: ['vendors', filterRisk, filterStatus, filterCategory],
+  const { data: vendorsResponse, isLoading } = useQuery({
+    queryKey: ['vendors', filterRisk, filterStatus, filterCategory, filterDataProcessor, filterUnassessed],
     queryFn: () => vendorsApi.list({
-      riskLevel: filterRisk || undefined,
-      status: filterStatus || undefined,
-      category: filterCategory || undefined,
+      riskLevel:      filterRisk || undefined,
+      status:         filterStatus || undefined,
+      category:       filterCategory || undefined,
+      dataProcessor:  filterDataProcessor ? 'true' : undefined,
+      unassessed:     filterUnassessed    ? 'true' : undefined,
     }).then(r => r.data),
   });
+
+  const vendors: any[] = vendorsResponse?.items ?? [];
+  const vendorsTotal: number = vendorsResponse?.total ?? 0;
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const res = await vendorsApi.exportCsv();
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = 'vendors.csv'; a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => vendorsApi.remove(id),
@@ -446,6 +467,7 @@ export default function VendorsPage() {
   });
 
   const filtered = vendors.filter((v: any) =>
+    !search ||
     v.name.toLowerCase().includes(search.toLowerCase()) ||
     v.category?.toLowerCase().includes(search.toLowerCase())
   );
@@ -463,10 +485,17 @@ export default function VendorsPage() {
           </h1>
           <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
         </div>
-        <button onClick={() => { setEditVendor(null); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-          <Plus className="w-4 h-4" /> {t('addVendor')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExportCsv} disabled={exporting}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+            <Download className="w-4 h-4" />
+            {exporting ? '...' : t('exportCsv')}
+          </button>
+          <button onClick={() => { setEditVendor(null); setShowModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+            <Plus className="w-4 h-4" /> {t('addVendor')}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -507,6 +536,32 @@ export default function VendorsPage() {
           <option value="">{t('allCategories')}</option>
           {CATEGORIES.map(c => <option key={c}>{c}</option>)}
         </select>
+
+        {/* Toggle: Art. 28 data processors */}
+        <button
+          onClick={() => setFilterDataProcessor(v => !v)}
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
+            filterDataProcessor
+              ? 'bg-purple-600 text-white border-purple-600'
+              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          {t('filterDataProcessor')}
+        </button>
+
+        {/* Toggle: without assessment */}
+        <button
+          onClick={() => setFilterUnassessed(v => !v)}
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
+            filterUnassessed
+              ? 'bg-orange-500 text-white border-orange-500'
+              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <AlertCircle className="w-3.5 h-3.5" />
+          {t('filterUnassessed')}
+        </button>
       </div>
 
       {/* Table */}
