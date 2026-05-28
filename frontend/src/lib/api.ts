@@ -162,10 +162,10 @@ export const capaApi = {
 };
 
 export const reportsApi = {
-  list: () => api.get('/reports'),
-  summary: (projectId?: string) =>
-    api.get('/reports/summary', { params: { projectId } }),
+  list:     () => api.get('/reports'),
+  summary:  (projectId?: string) => api.get('/reports/summary', { params: { projectId } }),
   generate: (data: any) => api.post('/reports/generate', data),
+  download: (id: string) => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
 };
 
 export const excelImportApi = {

@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Response } from 'express';
+import { StreamableFile } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
 import { ReportType, ReportFormat } from '@prisma/client';
@@ -61,6 +63,37 @@ export class ReportsService {
 
   async findOne(id: string, organizationId: string) {
     return this.prisma.report.findFirst({ where: { id, organizationId } });
+  }
+
+  async downloadReport(id: string, organizationId: string, res: Response): Promise<StreamableFile | void> {
+    const report = await this.prisma.report.findFirst({ where: { id, organizationId } });
+    if (!report || report.status !== 'READY' || !report.s3Key) {
+      throw new NotFoundException('Report not ready or not found');
+    }
+
+    const mimeTypes: Record<string, string> = {
+      PDF:   'application/pdf',
+      EXCEL: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      JSON:  'application/json',
+    };
+    const extensions: Record<string, string> = { PDF: 'pdf', EXCEL: 'xlsx', JSON: 'json' };
+    const mime = mimeTypes[report.format] ?? 'application/octet-stream';
+    const ext  = extensions[report.format] ?? 'bin';
+    const filename = `${report.name}.${ext}`;
+
+    res.set('Content-Type', mime);
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Try local storage first
+    const buffer = this.storage.readLocalFile(report.s3Key);
+    if (buffer) {
+      res.set('Content-Length', String(buffer.length));
+      return new StreamableFile(buffer);
+    }
+
+    // S3: issue a fresh pre-signed URL and redirect
+    const freshUrl = await this.storage.getPresignedUrl(report.s3Key);
+    res.redirect(302, freshUrl);
   }
 
   async getComplianceSummary(organizationId: string, projectId?: string) {

@@ -14,6 +14,24 @@ function StatusIcon({ status }: { status: string }) {
   return <Clock className="w-4 h-4 text-yellow-500 animate-pulse" />;
 }
 
+async function triggerDownload(report: any) {
+  try {
+    const res = await reportsApi.download(report.id);
+    const ext: Record<string, string> = { PDF: 'pdf', EXCEL: 'xlsx', JSON: 'json' };
+    const blob = new Blob([res.data], { type: res.headers['content-type'] });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${report.name}.${ext[report.format] ?? 'bin'}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('Download failed', e);
+  }
+}
+
 export default function ReportsPage() {
   const t = useTranslations('reports');
   const qc = useQueryClient();
@@ -181,10 +199,14 @@ export default function ReportsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-400">{formatDateTime(r.createdAt)}</span>
-                  {r.s3Url && (
-                    <a href={r.s3Url} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-gray-100 rounded-lg">
+                  {r.status === 'READY' && (
+                    <button
+                      onClick={() => triggerDownload(r)}
+                      className="p-1.5 hover:bg-gray-100 rounded-lg"
+                      title="Download"
+                    >
                       <Download className="w-4 h-4 text-gray-500" />
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>

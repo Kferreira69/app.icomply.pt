@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Response } from 'express';
+import { StreamableFile } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ReportType, ReportFormat } from '@prisma/client';
@@ -31,6 +33,16 @@ export class ReportsController {
     @Query('projectId') projectId?: string,
   ) {
     return this.service.getComplianceSummary(orgId, projectId);
+  }
+
+  @Get(':id/download')
+  @ApiOperation({ summary: 'Download a generated report file' })
+  download(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile | void> {
+    return this.service.downloadReport(id, orgId, res);
   }
 
   @Get(':id')
