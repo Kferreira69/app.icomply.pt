@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Put, Param, Body, UseGuards, Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { LicensingService } from './licensing.service';
 
 @UseGuards(JwtAuthGuard)
@@ -14,6 +15,13 @@ export class LicensingController {
   @Get('catalogue')
   getCatalogue() {
     return this.svc.getCatalogue();
+  }
+
+  // ── Self-service: current org's license (any authenticated user) ─────────
+
+  @Get('my')
+  getMyLicense(@CurrentUser('organizationId') orgId: string) {
+    return this.svc.getByOrg(orgId);
   }
 
   // ── Backoffice endpoints (SUPER_ADMIN of Contemporary Constellation only) ──

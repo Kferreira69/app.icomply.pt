@@ -368,6 +368,7 @@ export const translationsApi = {
 
 export const licensingApi = {
   catalogue:     ()              => api.get('/licensing/catalogue'),
+  myLicense:     ()              => api.get('/licensing/my'),
   stats:         ()              => api.get('/licensing/stats'),
   listClients:   ()              => api.get('/licensing/clients'),
   getClient:     (orgId: string) => api.get(`/licensing/clients/${orgId}`),
