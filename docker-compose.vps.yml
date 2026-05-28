@@ -122,6 +122,14 @@ services:
       SMTP_FROM: ${SMTP_FROM}
       ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
       ENABLE_AUDIT_LOG: 'true'
+      # ── AI ──────────────────────────────────────────────────────
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # ── Moloni (faturação) ──────────────────────────────────────
+      MOLONI_CLIENT_ID: ${MOLONI_CLIENT_ID}
+      MOLONI_CLIENT_SECRET: ${MOLONI_CLIENT_SECRET}
+      MOLONI_USERNAME: ${MOLONI_USERNAME}
+      MOLONI_PASSWORD: ${MOLONI_PASSWORD}
+      MOLONI_COMPANY_ID: ${MOLONI_COMPANY_ID}
     depends_on:
       postgres:
         condition: service_healthy
@@ -165,12 +173,12 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
       # Router — domain.pt
-      - "traefik.http.routers.icomply-frontend.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-frontend.rule=Host(`app.${DOMAIN}`) || Host(`admin.icomply.pt`)"
       - "traefik.http.routers.icomply-frontend.entrypoints=websecure"
       - "traefik.http.routers.icomply-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.icomply-frontend.service=icomply-frontend"
       - "traefik.http.services.icomply-frontend.loadbalancer.server.port=3000"
       # HTTP → HTTPS redirect
-      - "traefik.http.routers.icomply-frontend-http.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-frontend-http.rule=Host(`app.${DOMAIN}`) || Host(`admin.icomply.pt`)"
       - "traefik.http.routers.icomply-frontend-http.entrypoints=web"
       - "traefik.http.routers.icomply-frontend-http.middlewares=redirect-to-https"
