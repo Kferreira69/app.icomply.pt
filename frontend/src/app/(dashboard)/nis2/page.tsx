@@ -421,7 +421,7 @@ export default function Nis2Page() {
 
       {/* Legal notice */}
       <div className="bg-blue-50 rounded-xl p-4 text-xs text-blue-700 border border-blue-100">
-        {t('legalNotice')}
+        {t.rich('legalNotice', { strong: (c) => <strong>{c}</strong> })}
       </div>
 
       {/* Edit modal */}
