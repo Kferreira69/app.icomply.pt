@@ -274,6 +274,20 @@ export default function SoaPage() {
   const t = useTranslations('soa');
   const [editControl, setEditControl] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const res = await soaApi.exportCsv();
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = 'soa-iso27001-2022.csv'; a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: dashboard } = useQuery({
     queryKey: ['soa-dashboard'],
@@ -316,14 +330,14 @@ export default function SoaPage() {
           </h1>
           <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
         </div>
-        <a
-          href={`${process.env.NEXT_PUBLIC_API_URL}/soa/export/csv`}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
-          download="soa-iso27001-2022.csv"
+        <button
+          onClick={handleExportCsv}
+          disabled={exporting}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
-          {t('exportCsv')}
-        </a>
+          {exporting ? '...' : t('exportCsv')}
+        </button>
       </div>
 
       {/* Dashboard row */}

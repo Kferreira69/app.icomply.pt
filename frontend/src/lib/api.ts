@@ -277,6 +277,7 @@ export const soaApi = {
   list: (theme?: string) => api.get('/soa', { params: theme ? { theme } : {} }),
   update: (controlCode: string, data: any) => api.patch(`/soa/${encodeURIComponent(controlCode)}`, data),
   bulkUpdate: (updates: any[]) => api.patch('/soa/bulk', { updates }),
+  exportCsv: () => api.get('/soa/export/csv', { responseType: 'blob' }),
 };
 
 export const doraApi = {
