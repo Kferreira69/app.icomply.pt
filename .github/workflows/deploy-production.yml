@@ -55,7 +55,7 @@ jobs:
           push: true
           tags: ghcr.io/kferreira69/icomply-frontend:latest
           build-args: |
-            NEXT_PUBLIC_API_URL=https://api.${{ secrets.DOMAIN }}/api/v1
+            NEXT_PUBLIC_API_URL=https://api.icomply.pt/api/v1
           cache-from: type=gha,scope=frontend
           cache-to:   type=gha,mode=max,scope=frontend
 

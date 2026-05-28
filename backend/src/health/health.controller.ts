@@ -1,4 +1,4 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { Controller, Get, Inject, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MailService } from '../common/mail/mail.service';
@@ -12,7 +12,7 @@ export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @Optional() @Inject(REDIS_CLIENT) private readonly redis: Redis | null,
   ) {}
 
   @Public()
@@ -21,7 +21,9 @@ export class HealthController {
   async check() {
     const [dbResult, redisResult, smtpResult] = await Promise.allSettled([
       this.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
-      this.redis.ping().then(r => r === 'PONG').catch(() => false),
+      this.redis
+        ? this.redis.ping().then(r => r === 'PONG').catch(() => false)
+        : Promise.resolve(false),
       this.mail.testConnection(),
     ]);
 
@@ -29,8 +31,8 @@ export class HealthController {
     const cache = redisResult.status === 'fulfilled' && redisResult.value === true;
     const smtp  = smtpResult.status  === 'fulfilled' && smtpResult.value  === true;
 
-    // SMTP is not critical — service is "ok" as long as DB + Redis are up
-    const allOk = db && cache;
+    // Only DB is required for "ok" — Redis/SMTP degraded shown separately
+    const allOk = db;
 
     return {
       status: allOk ? 'ok' : 'degraded',
