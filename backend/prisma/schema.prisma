@@ -305,6 +305,7 @@ model Organization {
   dsarRequests           DataSubjectRequest[]
   consentRecords         ConsentRecord[]
   bcpPlans               BcpPlan[]
+  bcpTests               BcpTest[]
   itsmChangeRequests     ItsmChangeRequest[]
   itsmIncidents          ItsmIncident[]
   itsmProblems           ItsmProblem[]
