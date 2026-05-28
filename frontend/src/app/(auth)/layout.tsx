@@ -4,13 +4,16 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 text-white">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-brand-700 font-bold text-xl">i</span>
-            </div>
-            <span className="text-2xl font-bold">iComply</span>
+          <div className="inline-flex items-center gap-3 text-white">
+            <img
+              src="/favicon.svg"
+              alt="iComply"
+              className="w-10 h-10"
+              style={{ filter: 'brightness(0) invert(1)' }}
+            />
+            <span className="text-2xl font-bold tracking-tight">iComply</span>
           </div>
-          <p className="text-blue-200 mt-2 text-sm">Compliance Operating System</p>
+          <p className="text-blue-200 mt-2 text-sm tracking-wide">Governance Operating System</p>
         </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {children}

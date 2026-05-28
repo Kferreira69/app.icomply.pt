@@ -10,8 +10,8 @@ import { defaultLocale } from '@/i18n/config';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'iComply — Compliance Operating System',
-  description: 'European SaaS Compliance Management Platform',
+  title: 'iComply — Governance Operating System',
+  description: 'European SaaS Governance & Compliance Management Platform',
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     shortcut: '/favicon.svg',
