@@ -314,6 +314,17 @@ model Organization {
   iso27701Controls       Iso27701Control[]
   soc2Criteria           Soc2Criterion[]
 
+  // Wave 3
+  cisControls         CisControl[]           @relation("CisControls")
+  tisaxAssessments    TisaxAssessment[]      @relation("TisaxAssessments")
+  tisaxControls       TisaxControl[]         @relation("TisaxControls")
+  antiBriberyControls AntiBriberyControl[]   @relation("AntiBriberyControls")
+  workforceCompliance WorkforceCompliance[]  @relation("WorkforceCompliance")
+  qualityControls     QualityControl[]       @relation("QualityControls")
+  capaRecords         CapaRecord[]           @relation("CapaRecords")
+  regulatoryChanges   RegulatoryChange[]     @relation("RegulatoryChanges")
+  calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
+
   @@map("organizations")
 }
 
@@ -403,6 +414,17 @@ model User {
   problemsOwned          ItsmProblem[]        @relation("ProblemOwner")
   amlCasesAssigned       AmlCase[]            @relation("AmlAssignee")
   soc2Responsibilities   Soc2Criterion[]      @relation("Soc2Responsible")
+
+  // Wave 3
+  cisControlsOwned         CisControl[]           @relation("CisResponsible")
+  tisaxControlsOwned       TisaxControl[]         @relation("TisaxResponsible")
+  antiBriberyControlsOwned AntiBriberyControl[]   @relation("AntiBriberyResponsible")
+  workforceControlsOwned   WorkforceCompliance[]  @relation("WorkforceResponsible")
+  qualityControlsOwned     QualityControl[]       @relation("QualityResponsible")
+  capaRecordsOwned         CapaRecord[]           @relation("CapaResponsible")
+  capaRecordsVerified      CapaRecord[]           @relation("CapaVerifier")
+  regChangesOwned          RegulatoryChange[]     @relation("RegChangeResponsible")
+  calendarItemsOwned       ComplianceCalendarItem[] @relation("CalendarResponsible")
 
   @@map("users")
 }
@@ -2559,4 +2581,294 @@ model Soc2Criterion {
   @@unique([organizationId, criterionCode])
   @@index([organizationId, status])
   @@map("soc2_criteria")
+}
+
+// ─── CIS Controls v8 ──────────────────────────────────────────
+
+enum CisImplementationGroup {
+  IG1
+  IG2
+  IG3
+}
+
+model CisControl {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  controlId           String   // e.g. "CIS-1", "CIS-18"
+  safeGuardId         String?  // e.g. "CIS-1.1"
+  title               String
+  description         String?
+  implementationGroup CisImplementationGroup
+  assetType           String?  // Devices, Software, Data, Users, Network, etc.
+  securityFunction    String?  // Identify, Protect, Detect, Respond, Recover
+  status              String   @default("NOT_IMPLEMENTED") // NOT_IMPLEMENTED | PARTIAL | IMPLEMENTED | NOT_APPLICABLE
+  evidence            String?
+  notes               String?
+  responsibleId       String?
+  targetDate          DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation("CisControls", fields: [organizationId], references: [id])
+  responsible         User?        @relation("CisResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlId, safeGuardId])
+  @@index([organizationId, implementationGroup])
+  @@map("cis_controls")
+}
+
+// ─── TISAX (VDA ISA) ──────────────────────────────────────────
+
+enum TisaxLabel {
+  INFO            // Information Protection
+  PROTO           // Prototype Protection
+  DATA_PROVIDER   // Connected Third-Party Assessment
+}
+
+model TisaxAssessment {
+  id              String      @id @default(uuid())
+  organizationId  String
+  assessmentScope String
+  label           TisaxLabel  @default(INFO)
+  targetLevel     Int         @default(3)  // 1-3 maturity levels
+  status          String      @default("PLANNED") // PLANNED | IN_PROGRESS | SUBMITTED | APPROVED | EXPIRED
+  auditBody       String?
+  assessmentDate  DateTime?
+  validUntil      DateTime?
+  score           Int?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  organization    Organization @relation("TisaxAssessments", fields: [organizationId], references: [id])
+  controls        TisaxControl[]
+
+  @@index([organizationId, status])
+  @@map("tisax_assessments")
+}
+
+model TisaxControl {
+  id             String   @id @default(uuid())
+  organizationId String
+  assessmentId   String?
+  requirementId  String   // e.g. "IS-1.1.1"
+  chapter        String   // e.g. "Information Security"
+  requirement    String
+  description    String?
+  maturityLevel  Int      @default(0)  // 0-3
+  targetLevel    Int      @default(3)
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization    @relation("TisaxControls", fields: [organizationId], references: [id])
+  assessment     TisaxAssessment? @relation(fields: [assessmentId], references: [id])
+  responsible    User?           @relation("TisaxResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, requirementId])
+  @@index([organizationId, chapter])
+  @@map("tisax_controls")
+}
+
+// ─── ISO 37001 / 37301 Anti-Bribery & Compliance Programs ─────
+
+model AntiBriberyControl {
+  id             String   @id @default(uuid())
+  organizationId String
+  controlCode    String   // e.g. "ISO37001-6.1", "ISO37301-8.2"
+  standard       String   // ISO_37001 | ISO_37301
+  clauseNumber   String
+  title          String
+  description    String?
+  status         String   @default("NOT_IMPLEMENTED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation("AntiBriberyControls", fields: [organizationId], references: [id])
+  responsible    User?        @relation("AntiBriberyResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, standard])
+  @@map("anti_bribery_controls")
+}
+
+// ─── ISO 45001 / HR Compliance (Workforce Governance) ──────────
+
+model WorkforceCompliance {
+  id             String   @id @default(uuid())
+  organizationId String
+  controlCode    String   // e.g. "ISO45001-6.1.2", "HR-GDPR-1"
+  framework      String   // ISO_45001 | HR_GDPR | WORKING_TIME | DISCRIMINATION | HEALTH_SAFETY
+  clauseTitle    String
+  description    String?
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation("WorkforceCompliance", fields: [organizationId], references: [id])
+  responsible    User?        @relation("WorkforceResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, framework])
+  @@map("workforce_compliance")
+}
+
+// ─── ISO 9001 / CAPA (Quality & Operational) ──────────────────
+
+enum CapaType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum CapaStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_VERIFICATION
+  CLOSED
+  CANCELLED
+}
+
+model QualityControl {
+  id             String   @id @default(uuid())
+  organizationId String
+  controlCode    String   // e.g. "ISO9001-4.1", "ISO9001-8.5.1"
+  clauseNumber   String
+  title          String
+  description    String?
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation("QualityControls", fields: [organizationId], references: [id])
+  responsible    User?        @relation("QualityResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, status])
+  @@map("quality_controls")
+}
+
+model CapaRecord {
+  id              String     @id @default(uuid())
+  capaId          String     @unique // AUTO: CAPA-XXXXXX
+  organizationId  String
+  type            CapaType
+  status          CapaStatus @default(OPEN)
+  title           String
+  description     String
+  rootCause       String?
+  sourceType      String?    // AUDIT | INCIDENT | CUSTOMER_COMPLAINT | INTERNAL | RISK | OTHER
+  sourceRef       String?    // reference to source record
+  correctiveAction String?
+  preventiveAction String?
+  effectivenessCheck String?
+  responsibleId   String?
+  dueDate         DateTime?
+  closedAt        DateTime?
+  verifiedAt      DateTime?
+  verifiedById    String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  organization    Organization @relation("CapaRecords", fields: [organizationId], references: [id])
+  responsible     User?        @relation("CapaResponsible", fields: [responsibleId], references: [id])
+  verifiedBy      User?        @relation("CapaVerifier", fields: [verifiedById], references: [id])
+
+  @@index([organizationId, type, status])
+  @@map("capa_records")
+}
+
+// ─── Regulatory Change Governance ─────────────────────────────
+
+enum RegChangeStatus {
+  DETECTED
+  UNDER_ANALYSIS
+  IMPACT_ASSESSED
+  IMPLEMENTATION_PLANNED
+  IMPLEMENTED
+  VERIFIED
+  NOT_APPLICABLE
+}
+
+enum RegChangeImpact {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model RegulatoryChange {
+  id              String          @id @default(uuid())
+  organizationId  String
+  referenceId     String          // AUTO: REG-XXXXXX
+  title           String
+  description     String?
+  source          String?         // e.g. "EUR-Lex", "CNPD", "ANACOM"
+  jurisdiction    String?         // e.g. "EU", "PT", "Global"
+  frameworks      String[]        // e.g. ["GDPR", "NIS2", "DORA"]
+  status          RegChangeStatus @default(DETECTED)
+  impact          RegChangeImpact @default(NONE)
+  impactAnalysis  String?
+  implementationPlan String?
+  effectiveDate   DateTime?
+  deadlineDate    DateTime?
+  implementedAt   DateTime?
+  verifiedAt      DateTime?
+  responsibleId   String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization    Organization @relation("RegulatoryChanges", fields: [organizationId], references: [id])
+  responsible     User?        @relation("RegChangeResponsible", fields: [responsibleId], references: [id])
+  calendarItems   ComplianceCalendarItem[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, deadlineDate])
+  @@map("regulatory_changes")
+}
+
+model ComplianceCalendarItem {
+  id              String   @id @default(uuid())
+  organizationId  String
+  title           String
+  description     String?
+  frameworks      String[]
+  eventType       String   // DEADLINE | REPORTING | AUDIT | REVIEW | TRAINING | RENEWAL
+  eventDate       DateTime
+  recurrence      String?  // NONE | MONTHLY | QUARTERLY | ANNUAL
+  status          String   @default("UPCOMING") // UPCOMING | IN_PROGRESS | COMPLETED | OVERDUE | CANCELLED
+  regulatoryChangeId String?
+  responsibleId   String?
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization       Organization      @relation("CalendarItems", fields: [organizationId], references: [id])
+  responsible        User?             @relation("CalendarResponsible", fields: [responsibleId], references: [id])
+  regulatoryChange   RegulatoryChange? @relation(fields: [regulatoryChangeId], references: [id])
+
+  @@index([organizationId, eventDate])
+  @@index([organizationId, status])
+  @@map("compliance_calendar_items")
 }

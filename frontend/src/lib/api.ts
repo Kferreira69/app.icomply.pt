@@ -565,3 +565,62 @@ export const soc2Api = {
     api.patch(`/soc2/criteria/${encodeURIComponent(criterionCode)}`, data),
   bulkUpdate:      (updates: any[])              => api.patch('/soc2/criteria', { updates }),
 };
+
+// ── CIS Controls v8 ──────────────────────────────────────────
+
+export const cisApi = {
+  dashboard:     ()                          => api.get('/cis/dashboard'),
+  updateControl: (id: string, data: any)     => api.patch(`/cis/${id}`, data),
+  bulkUpdate:    (updates: any[])            => api.patch('/cis/bulk/update', { updates }),
+};
+
+// ── TISAX (VDA ISA) ──────────────────────────────────────────
+
+export const tisaxApi = {
+  dashboard:         ()                          => api.get('/tisax/dashboard'),
+  createAssessment:  (data: any)                 => api.post('/tisax/assessments', data),
+  updateAssessment:  (id: string, data: any)     => api.patch(`/tisax/assessments/${id}`, data),
+  updateControl:     (id: string, data: any)     => api.patch(`/tisax/controls/${id}`, data),
+  bulkUpdate:        (updates: any[])            => api.patch('/tisax/controls/bulk/update', { updates }),
+};
+
+// ── ISO 37001 / 37301 Anti-Bribery ───────────────────────────
+
+export const antiBriberyApi = {
+  dashboard:     ()                          => api.get('/anti-bribery/dashboard'),
+  updateControl: (id: string, data: any)     => api.patch(`/anti-bribery/${id}`, data),
+  bulkUpdate:    (updates: any[])            => api.patch('/anti-bribery/bulk/update', { updates }),
+};
+
+// ── ISO 45001 / Workforce Governance ─────────────────────────
+
+export const workforceApi = {
+  dashboard:     ()                          => api.get('/workforce/dashboard'),
+  updateControl: (id: string, data: any)     => api.patch(`/workforce/${id}`, data),
+  bulkUpdate:    (updates: any[])            => api.patch('/workforce/bulk/update', { updates }),
+};
+
+// ── ISO 9001 / CAPA ───────────────────────────────────────────
+
+export const qualityApi = {
+  dashboard:     ()                                              => api.get('/quality/dashboard'),
+  listCapas:     (params?: { type?: string; status?: string })  => api.get('/quality/capa', { params }),
+  createCapa:    (data: any)                                     => api.post('/quality/capa', data),
+  updateCapa:    (id: string, data: any)                         => api.patch(`/quality/capa/${id}`, data),
+  removeCapa:    (id: string)                                    => api.delete(`/quality/capa/${id}`),
+  updateControl: (id: string, data: any)                         => api.patch(`/quality/controls/${id}`, data),
+};
+
+// ── Regulatory Change Governance ──────────────────────────────
+
+export const regulatoryChangeApi = {
+  dashboard:          ()                                                  => api.get('/regulatory-change/dashboard'),
+  listChanges:        (params?: { status?: string; impact?: string })     => api.get('/regulatory-change/changes', { params }),
+  createChange:       (data: any)                                          => api.post('/regulatory-change/changes', data),
+  updateChange:       (id: string, data: any)                              => api.patch(`/regulatory-change/changes/${id}`, data),
+  removeChange:       (id: string)                                         => api.delete(`/regulatory-change/changes/${id}`),
+  listCalendar:       (params?: { from?: string; to?: string })            => api.get('/regulatory-change/calendar', { params }),
+  createCalendarItem: (data: any)                                          => api.post('/regulatory-change/calendar', data),
+  updateCalendarItem: (id: string, data: any)                              => api.patch(`/regulatory-change/calendar/${id}`, data),
+  removeCalendarItem: (id: string)                                         => api.delete(`/regulatory-change/calendar/${id}`),
+};

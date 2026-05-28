@@ -11,7 +11,8 @@ import {
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
-  GitMerge, Eye, Leaf, ShieldAlert, Award,
+  GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
+  HardHat, ClipboardList, CalendarDays, Handshake,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -170,6 +171,8 @@ export function Sidebar() {
             { href: '/nis2',  label: 'NIS2 Compliance',        icon: Network },
             { href: '/dora',  label: 'DORA — Resiliência ICT', icon: Activity },
             { href: '/soc2',  label: 'SOC 2 — Trust Criteria', icon: Award },
+            { href: '/cis',   label: 'CIS Controls v8',        icon: Shield },
+            { href: '/tisax', label: 'TISAX — VDA ISA',        icon: Car },
           ],
         },
         {
@@ -197,8 +200,9 @@ export function Sidebar() {
           icon: Scale,
           color: 'bg-orange-600 text-white',
           items: [
-            { href: '/denuncias', label: 'Canal Denúncias (RGPC)', icon: MessageSquareWarning },
-            { href: '/aml',       label: 'AML · KYC · Sanções',   icon: Scale },
+            { href: '/denuncias',      label: 'Canal Denúncias (RGPC)',  icon: MessageSquareWarning },
+            { href: '/aml',            label: 'AML · KYC · Sanções',    icon: Scale },
+            { href: '/anti-bribery',   label: 'ISO 37001 · Anti-Bribery', icon: Handshake },
           ],
         },
         {
@@ -208,6 +212,7 @@ export function Sidebar() {
           color: 'bg-green-600 text-white',
           items: [
             { href: '/hr-compliance', label: 'HR · Pay · SHST · Contratos', icon: Briefcase },
+            { href: '/workforce',     label: 'ISO 45001 · OHS Compliance',  icon: HardHat },
           ],
         },
         {
@@ -235,6 +240,24 @@ export function Sidebar() {
           color: 'bg-amber-600 text-white',
           items: [
             { href: '/business-continuity', label: 'ISO 22301 · BCP · DR', icon: ShieldAlert },
+          ],
+        },
+        {
+          key: 'quality',
+          label: 'Quality & Operações',
+          icon: ClipboardList,
+          color: 'bg-cyan-600 text-white',
+          items: [
+            { href: '/quality', label: 'ISO 9001 · CAPA', icon: ClipboardList },
+          ],
+        },
+        {
+          key: 'regulatory',
+          label: 'Regulatory Change',
+          icon: CalendarDays,
+          color: 'bg-pink-600 text-white',
+          items: [
+            { href: '/regulatory-change', label: 'Regulatory Horizon · Calendar', icon: CalendarDays },
           ],
         },
       ],

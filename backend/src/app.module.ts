@@ -45,6 +45,12 @@ import { ItsmModule } from './itsm/itsm.module';
 import { AmlModule } from './aml/aml.module';
 import { Iso27701Module } from './iso27701/iso27701.module';
 import { Soc2Module } from './soc2/soc2.module';
+import { CisModule } from './cis/cis.module';
+import { TisaxModule } from './tisax/tisax.module';
+import { AntiBriberyModule } from './anti-bribery/anti-bribery.module';
+import { WorkforceModule } from './workforce/workforce.module';
+import { QualityModule } from './quality/quality.module';
+import { RegulatoryChangeModule } from './regulatory-change/regulatory-change.module';
 
 @Module({
   imports: [
@@ -110,6 +116,12 @@ import { Soc2Module } from './soc2/soc2.module';
     AmlModule,
     Iso27701Module,
     Soc2Module,
+    CisModule,
+    TisaxModule,
+    AntiBriberyModule,
+    WorkforceModule,
+    QualityModule,
+    RegulatoryChangeModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

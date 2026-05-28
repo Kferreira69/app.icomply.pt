@@ -1540,5 +1540,29 @@
   "soc2": {
     "title": "SOC 2 Criterios de Servicios de Confianza",
     "subtitle": "Preparación SOC 2 AICPA"
+  },
+  "cis": {
+    "title": "CIS Controls v8",
+    "subtitle": "18 Controles · 3 Grupos de Implementación"
+  },
+  "tisax": {
+    "title": "TISAX — VDA ISA",
+    "subtitle": "Evaluación de Seguridad de la Información Automotriz"
+  },
+  "antiBribery": {
+    "title": "ISO 37001 / 37301 — Antisoborno",
+    "subtitle": "Sistema de Gestión Antisoborno y de Cumplimiento"
+  },
+  "workforce": {
+    "title": "Gobernanza de la Fuerza Laboral",
+    "subtitle": "ISO 45001 · Cumplimiento RR.HH. · Tiempo de Trabajo · No Discriminación"
+  },
+  "quality": {
+    "title": "Calidad & Operaciones",
+    "subtitle": "ISO 9001:2015 · Gestión CAPA"
+  },
+  "regulatoryChange": {
+    "title": "Gobernanza de Cambios Regulatorios",
+    "subtitle": "Monitorear cambios regulatorios y gestionar el calendario de cumplimiento"
   }
 }

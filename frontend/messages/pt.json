@@ -1674,5 +1674,29 @@
   "soc2": {
     "title": "SOC 2 Trust Service Criteria",
     "subtitle": "AICPA SOC 2 Readiness"
+  },
+  "cis": {
+    "title": "CIS Controls v8",
+    "subtitle": "18 Controlos · 3 Grupos de Implementação"
+  },
+  "tisax": {
+    "title": "TISAX — VDA ISA",
+    "subtitle": "Avaliação de Segurança da Informação Automotiva"
+  },
+  "antiBribery": {
+    "title": "ISO 37001 / 37301 — Anti-Suborno",
+    "subtitle": "Sistema de Gestão Anti-Suborno e de Compliance"
+  },
+  "workforce": {
+    "title": "Governance da Força de Trabalho",
+    "subtitle": "ISO 45001 · HR Compliance · Tempo de Trabalho · Não Discriminação"
+  },
+  "quality": {
+    "title": "Qualidade & Operações",
+    "subtitle": "ISO 9001:2015 · Gestão CAPA"
+  },
+  "regulatoryChange": {
+    "title": "Regulatory Change Governance",
+    "subtitle": "Monitorização de Alterações Regulatórias e Calendário de Compliance"
   }
 }
