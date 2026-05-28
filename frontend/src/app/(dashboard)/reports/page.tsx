@@ -18,7 +18,7 @@ async function triggerDownload(report: any) {
   try {
     const res = await reportsApi.download(report.id);
     const ext: Record<string, string> = { PDF: 'pdf', EXCEL: 'xlsx', JSON: 'json' };
-    const blob = new Blob([res.data], { type: res.headers['content-type'] });
+    const blob = new Blob([res.data], { type: (res.headers['content-type'] as string | undefined) ?? undefined });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
