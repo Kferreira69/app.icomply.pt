@@ -256,7 +256,7 @@ export class LicensingService {
       company_id:        this.moloniCompanyId,   // numeric company ID, NOT client_id
       date:              new Date().toISOString().split('T')[0],
       expiration_date:   dto.dueDate ? new Date(dto.dueDate).toISOString().split('T')[0] : undefined,
-      document_set_name: 'FT',
+      document_set_name: 'ICY',
       customer_name:     org?.name,
       customer_vat:      org?.vatNumber || '999999990',
       customer_email:    license.contactEmail || org?.billingEmail,
