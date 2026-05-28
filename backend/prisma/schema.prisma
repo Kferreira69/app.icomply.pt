@@ -119,6 +119,7 @@ enum CapaStatus {
   PENDING_VERIFICATION
   CLOSED
   OVERDUE
+  CANCELLED
 }
 
 enum ControlStatus {
@@ -2734,14 +2735,6 @@ model WorkforceCompliance {
 enum CapaType {
   CORRECTIVE
   PREVENTIVE
-}
-
-enum CapaStatus {
-  OPEN
-  IN_PROGRESS
-  PENDING_VERIFICATION
-  CLOSED
-  CANCELLED
 }
 
 model QualityControl {
