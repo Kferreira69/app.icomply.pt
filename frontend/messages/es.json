@@ -1514,5 +1514,31 @@
     "status_ACTIVE": "Activo",
     "status_WITHDRAWN": "Retirado",
     "status_EXPIRED": "Expirado"
+  },
+  "itsm": {
+    "title": "Gestión de Servicios TI",
+    "changeManagement": "Gestión de Cambios",
+    "incidentManagement": "Gestión de Incidentes",
+    "problemManagement": "Gestión de Problemas",
+    "newChange": "Nuevo Cambio",
+    "newIncident": "Nuevo Incidente",
+    "newProblem": "Nuevo Problema"
+  },
+  "aml": {
+    "title": "AML / KYC / Cumplimiento Financiero",
+    "cases": "Casos AML/KYC",
+    "screenings": "Cribados",
+    "policies": "Políticas",
+    "newCase": "Nuevo Caso",
+    "newScreening": "Nuevo Cribado",
+    "newPolicy": "Nueva Política"
+  },
+  "iso27701": {
+    "title": "ISO 27701 — SGIP",
+    "subtitle": "Sistema de Gestión de Información de Privacidad"
+  },
+  "soc2": {
+    "title": "SOC 2 Criterios de Servicios de Confianza",
+    "subtitle": "Preparación SOC 2 AICPA"
   }
 }

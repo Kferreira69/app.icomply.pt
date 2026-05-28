@@ -41,6 +41,10 @@ import { AiGovernanceModule } from './ai-governance/ai-governance.module';
 import { UnifiedControlsModule } from './unified-controls/unified-controls.module';
 import { EsgModule } from './esg/esg.module';
 import { BusinessContinuityModule } from './business-continuity/business-continuity.module';
+import { ItsmModule } from './itsm/itsm.module';
+import { AmlModule } from './aml/aml.module';
+import { Iso27701Module } from './iso27701/iso27701.module';
+import { Soc2Module } from './soc2/soc2.module';
 
 @Module({
   imports: [
@@ -102,6 +106,10 @@ import { BusinessContinuityModule } from './business-continuity/business-continu
     UnifiedControlsModule,
     EsgModule,
     BusinessContinuityModule,
+    ItsmModule,
+    AmlModule,
+    Iso27701Module,
+    Soc2Module,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

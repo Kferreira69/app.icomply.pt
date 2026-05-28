@@ -305,6 +305,14 @@ model Organization {
   dsarRequests           DataSubjectRequest[]
   consentRecords         ConsentRecord[]
   bcpPlans               BcpPlan[]
+  itsmChangeRequests     ItsmChangeRequest[]
+  itsmIncidents          ItsmIncident[]
+  itsmProblems           ItsmProblem[]
+  amlCases               AmlCase[]
+  amlScreenings          AmlScreening[]
+  amlPolicies            AmlPolicy[]
+  iso27701Controls       Iso27701Control[]
+  soc2Criteria           Soc2Criterion[]
 
   @@map("organizations")
 }
@@ -388,6 +396,13 @@ model User {
   aiImpactAssessments   AiImpactAssessment[]
   dsarHandled            DataSubjectRequest[] @relation("DsarHandler")
   bcpPlansOwned          BcpPlan[]            @relation("BcpOwner")
+  changeRequestsMade     ItsmChangeRequest[]  @relation("ChangeRequester")
+  changeRequestsApproved ItsmChangeRequest[]  @relation("ChangeApprover")
+  incidentsReported      ItsmIncident[]       @relation("IncidentReporter")
+  incidentsAssigned      ItsmIncident[]       @relation("IncidentAssignee")
+  problemsOwned          ItsmProblem[]        @relation("ProblemOwner")
+  amlCasesAssigned       AmlCase[]            @relation("AmlAssignee")
+  soc2Responsibilities   Soc2Criterion[]      @relation("Soc2Responsible")
 
   @@map("users")
 }
@@ -2335,4 +2350,213 @@ model BcpAsset {
   plan           BcpPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@map("bcp_assets")
+}
+
+// ─── IT Service Management (ITSM / ITIL) ──────────────────────
+
+model ItsmChangeRequest {
+  id             String   @id @default(uuid())
+  organizationId String
+  changeId       String
+  title          String
+  description    String
+  changeType     String   @default("NORMAL")
+  priority       String   @default("MEDIUM")
+  status         String   @default("DRAFT")
+  riskLevel      String   @default("MEDIUM")
+  impactArea     String[] @default([])
+  rollbackPlan   String?
+  testPlan       String?
+  requesterId    String
+  approverId     String?
+  approvedAt     DateTime?
+  scheduledAt    DateTime?
+  implementedAt  DateTime?
+  closedAt       DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  requester      User         @relation("ChangeRequester", fields: [requesterId], references: [id])
+  approver       User?        @relation("ChangeApprover", fields: [approverId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("itsm_change_requests")
+}
+
+model ItsmIncident {
+  id             String   @id @default(uuid())
+  organizationId String
+  incidentId     String
+  title          String
+  description    String
+  category       String   @default("SOFTWARE")
+  priority       String   @default("P3")
+  severity       String   @default("MEDIUM")
+  status         String   @default("NEW")
+  affectedSystem String?
+  affectedUsers  Int?
+  reporterId     String
+  assigneeId     String?
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  resolution     String?
+  rootCause      String?
+  slaBreached    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  reporter       User         @relation("IncidentReporter", fields: [reporterId], references: [id])
+  assignee       User?        @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("itsm_incidents")
+}
+
+model ItsmProblem {
+  id             String   @id @default(uuid())
+  organizationId String
+  problemId      String
+  title          String
+  description    String
+  status         String   @default("NEW")
+  priority       String   @default("MEDIUM")
+  rootCause      String?
+  workaround     String?
+  resolution     String?
+  affectedSystem String?
+  ownerId        String
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  owner          User         @relation("ProblemOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("itsm_problems")
+}
+
+// ─── AML / KYC / Financial Compliance ─────────────────────────
+
+model AmlCase {
+  id              String   @id @default(uuid())
+  organizationId  String
+  caseId          String
+  subjectName     String
+  subjectType     String   @default("INDIVIDUAL")
+  caseType        String   @default("KYC")
+  riskLevel       String   @default("MEDIUM")
+  status          String   @default("OPEN")
+  description     String?
+  findings        String?
+  resolution      String?
+  reportedToFIU   Boolean  @default(false)
+  reportedAt      DateTime?
+  referenceNumber String?
+  assigneeId      String?
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  assignee        User?        @relation("AmlAssignee", fields: [assigneeId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("aml_cases")
+}
+
+model AmlScreening {
+  id             String   @id @default(uuid())
+  organizationId String
+  subjectName    String
+  subjectType    String   @default("INDIVIDUAL")
+  screeningType  String   @default("KYC")
+  result         String   @default("CLEAR")
+  screenedAt     DateTime @default(now())
+  screenedBy     String?
+  notes          String?
+  caseId         String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, screeningType])
+  @@map("aml_screenings")
+}
+
+model AmlPolicy {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  category       String   @default("AML")
+  content        String?
+  version        String   @default("1.0")
+  status         String   @default("ACTIVE")
+  effectiveDate  DateTime?
+  reviewDate     DateTime?
+  ownerId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("aml_policies")
+}
+
+// ─── ISO 27701 — Privacy Information Management ───────────────
+
+model Iso27701Control {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  controlCode         String
+  clause              String
+  title               String
+  description         String?
+  applicableTo        String   @default("BOTH")
+  status              String   @default("NOT_STARTED")
+  applicable          Boolean  @default(true)
+  justification       String?
+  implementationNotes String?
+  owner               String?
+  targetDate          DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, status])
+  @@map("iso_27701_controls")
+}
+
+// ─── SOC 2 Trust Service Criteria ─────────────────────────────
+
+model Soc2Criterion {
+  id             String   @id @default(uuid())
+  organizationId String
+  criterionCode  String
+  category       String
+  title          String
+  description    String?
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  responsible    User?        @relation("Soc2Responsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, criterionCode])
+  @@index([organizationId, status])
+  @@map("soc2_criteria")
 }

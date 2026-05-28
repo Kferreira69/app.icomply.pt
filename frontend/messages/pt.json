@@ -1648,5 +1648,31 @@
     "status_ACTIVE": "Ativo",
     "status_WITHDRAWN": "Retirado",
     "status_EXPIRED": "Expirado"
+  },
+  "itsm": {
+    "title": "IT Service Management",
+    "changeManagement": "Change Management",
+    "incidentManagement": "Incident Management",
+    "problemManagement": "Problem Management",
+    "newChange": "Nova Change",
+    "newIncident": "Novo Incidente",
+    "newProblem": "Novo Problema"
+  },
+  "aml": {
+    "title": "AML / KYC / Compliance Financeiro",
+    "cases": "Casos AML/KYC",
+    "screenings": "Screenings",
+    "policies": "Políticas",
+    "newCase": "Novo Caso",
+    "newScreening": "Novo Screening",
+    "newPolicy": "Nova Política"
+  },
+  "iso27701": {
+    "title": "ISO 27701 — PIMS",
+    "subtitle": "Privacy Information Management System"
+  },
+  "soc2": {
+    "title": "SOC 2 Trust Service Criteria",
+    "subtitle": "AICPA SOC 2 Readiness"
   }
 }

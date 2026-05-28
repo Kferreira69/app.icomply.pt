@@ -11,7 +11,7 @@ import {
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
-  GitMerge, Eye, Leaf, ShieldAlert,
+  GitMerge, Eye, Leaf, ShieldAlert, Award,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -166,9 +166,10 @@ export function Sidebar() {
           icon: ShieldCheck,
           color: 'bg-blue-600 text-white',
           items: [
-            { href: '/soa',   label: 'ISO 27001 — SoA',      icon: FileCheck2 },
-            { href: '/nis2',  label: 'NIS2 Compliance',       icon: Network },
+            { href: '/soa',   label: 'ISO 27001 — SoA',       icon: FileCheck2 },
+            { href: '/nis2',  label: 'NIS2 Compliance',        icon: Network },
             { href: '/dora',  label: 'DORA — Resiliência ICT', icon: Activity },
+            { href: '/soc2',  label: 'SOC 2 — Trust Criteria', icon: Award },
           ],
         },
         {
@@ -177,7 +178,8 @@ export function Sidebar() {
           icon: Eye,
           color: 'bg-purple-600 text-white',
           items: [
-            { href: '/gdpr', label: 'GDPR · ROPA · DPIA', icon: ShieldCheck },
+            { href: '/gdpr',     label: 'GDPR · ROPA · DPIA',   icon: ShieldCheck },
+            { href: '/iso27701', label: 'ISO 27701 — PIMS',      icon: Eye },
           ],
         },
         {
@@ -196,6 +198,7 @@ export function Sidebar() {
           color: 'bg-orange-600 text-white',
           items: [
             { href: '/denuncias', label: 'Canal Denúncias (RGPC)', icon: MessageSquareWarning },
+            { href: '/aml',       label: 'AML · KYC · Sanções',   icon: Scale },
           ],
         },
         {
@@ -250,6 +253,7 @@ export function Sidebar() {
           items: [
             { href: '/projects', label: t('projects'), icon: FolderOpen },
             { href: '/tasks',    label: t('tasks'),    icon: CheckSquare },
+            { href: '/itsm',     label: 'IT Service Mgmt',     icon: Settings },
           ],
         },
         {

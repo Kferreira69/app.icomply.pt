@@ -1520,5 +1520,31 @@
     "status_ACTIVE": "Actif",
     "status_WITHDRAWN": "Retiré",
     "status_EXPIRED": "Expiré"
+  },
+  "itsm": {
+    "title": "Gestion des Services IT",
+    "changeManagement": "Gestion des Changements",
+    "incidentManagement": "Gestion des Incidents",
+    "problemManagement": "Gestion des Problèmes",
+    "newChange": "Nouveau Changement",
+    "newIncident": "Nouvel Incident",
+    "newProblem": "Nouveau Problème"
+  },
+  "aml": {
+    "title": "LCB/FT / KYC / Conformité Financière",
+    "cases": "Dossiers LCB/KYC",
+    "screenings": "Filtrage",
+    "policies": "Politiques",
+    "newCase": "Nouveau Dossier",
+    "newScreening": "Nouveau Filtrage",
+    "newPolicy": "Nouvelle Politique"
+  },
+  "iso27701": {
+    "title": "ISO 27701 — SMIP",
+    "subtitle": "Système de Management des Informations sur la Vie Privée"
+  },
+  "soc2": {
+    "title": "SOC 2 Critères des Services de Confiance",
+    "subtitle": "Préparation SOC 2 AICPA"
   }
 }

@@ -511,3 +511,57 @@ export const bcpApi = {
   removeTest:  (planId: string, testId: string) =>
     api.delete(`/business-continuity/plans/${planId}/tests/${testId}`),
 };
+
+// ── IT Service Management (ITSM / ITIL) ──────────────────────
+
+export const itsmApi = {
+  dashboard:       ()                              => api.get('/itsm/dashboard'),
+  // Change Management
+  listChanges:     (params?: { status?: string; changeType?: string }) =>
+    api.get('/itsm/changes', { params }),
+  createChange:    (data: any)                    => api.post('/itsm/changes', data),
+  updateChange:    (id: string, data: any)        => api.patch(`/itsm/changes/${id}`, data),
+  // Incident Management
+  listIncidents:   (params?: { status?: string; priority?: string }) =>
+    api.get('/itsm/incidents', { params }),
+  createIncident:  (data: any)                    => api.post('/itsm/incidents', data),
+  updateIncident:  (id: string, data: any)        => api.patch(`/itsm/incidents/${id}`, data),
+  // Problem Management
+  listProblems:    (params?: { status?: string }) => api.get('/itsm/problems', { params }),
+  createProblem:   (data: any)                    => api.post('/itsm/problems', data),
+  updateProblem:   (id: string, data: any)        => api.patch(`/itsm/problems/${id}`, data),
+};
+
+// ── AML / KYC / Financial Compliance ─────────────────────────
+
+export const amlApi = {
+  dashboard:       ()                              => api.get('/aml/dashboard'),
+  listCases:       (params?: { status?: string; caseType?: string; riskLevel?: string }) =>
+    api.get('/aml/cases', { params }),
+  createCase:      (data: any)                    => api.post('/aml/cases', data),
+  updateCase:      (id: string, data: any)        => api.patch(`/aml/cases/${id}`, data),
+  listScreenings:  (params?: { screeningType?: string }) =>
+    api.get('/aml/screenings', { params }),
+  createScreening: (data: any)                    => api.post('/aml/screenings', data),
+  listPolicies:    ()                             => api.get('/aml/policies'),
+  createPolicy:    (data: any)                    => api.post('/aml/policies', data),
+  updatePolicy:    (id: string, data: any)        => api.patch(`/aml/policies/${id}`, data),
+};
+
+// ── ISO 27701 — Privacy Information Management ───────────────
+
+export const iso27701Api = {
+  dashboard:      ()                              => api.get('/iso27701/dashboard'),
+  updateControl:  (controlCode: string, data: any) =>
+    api.patch(`/iso27701/controls/${encodeURIComponent(controlCode)}`, data),
+  bulkUpdate:     (updates: any[])               => api.patch('/iso27701/controls', { updates }),
+};
+
+// ── SOC 2 Trust Service Criteria ─────────────────────────────
+
+export const soc2Api = {
+  dashboard:       ()                             => api.get('/soc2/dashboard'),
+  updateCriterion: (criterionCode: string, data: any) =>
+    api.patch(`/soc2/criteria/${encodeURIComponent(criterionCode)}`, data),
+  bulkUpdate:      (updates: any[])              => api.patch('/soc2/criteria', { updates }),
+};
