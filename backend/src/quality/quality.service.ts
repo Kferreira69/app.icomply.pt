@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 const ISO9001_CONTROLS = [
   { controlCode: 'ISO9001-4.1', clauseNumber: '4.1', title: 'Understanding the organization', description: 'Determine external and internal issues relevant to quality objectives' },

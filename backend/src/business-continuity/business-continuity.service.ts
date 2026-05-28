@@ -12,7 +12,7 @@ export class BusinessContinuityService {
     const [plans, recentTests] = await Promise.all([
       this.prisma.bcpPlan.findMany({
         where: { organizationId },
-        select: { id: true, status: true, lastTestedAt: true, nextTestDue: true },
+        select: { id: true, status: true, lastTestedAt: true, nextTestAt: true },
       }),
       this.prisma.bcpTest.findMany({
         where: { plan: { organizationId } },
@@ -25,7 +25,7 @@ export class BusinessContinuityService {
     const totalPlans = plans.length;
     const activePlans = plans.filter(p => p.status === 'ACTIVE').length;
     const lastTestDate = recentTests[0]?.testedAt ?? null;
-    const overduePlans = plans.filter(p => p.nextTestDue && new Date(p.nextTestDue) < now).length;
+    const overduePlans = plans.filter(p => p.nextTestAt && new Date(p.nextTestAt) < now).length;
 
     return { totalPlans, activePlans, lastTestDate, overduePlans, recentTests };
   }

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 // VDA ISA 6.0 requirements (key requirements)
 const TISAX_REQUIREMENTS = [

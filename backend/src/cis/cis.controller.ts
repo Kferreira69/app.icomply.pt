@@ -1,6 +1,6 @@
 import { Controller, Get, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { CisService } from './cis.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cis')

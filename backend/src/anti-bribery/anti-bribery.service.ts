@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 // ISO 37001:2016 + ISO 37301:2021 key controls
 const ANTI_BRIBERY_CONTROLS = [

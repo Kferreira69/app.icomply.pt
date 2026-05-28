@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 const ISO_27701_CONTROLS = [
   // Annex A — PIMS-specific controls for PII controllers

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AntiBriberyService } from './anti-bribery.service';
 import { AntiBriberyController } from './anti-bribery.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaModule } from '../common/prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],
