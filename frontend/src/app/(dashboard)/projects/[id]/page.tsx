@@ -84,7 +84,7 @@ export default function ProjectDetailPage() {
       return {
         id:       t.id,
         name:     t.title,
-        subtitle: t.assignee ? t.assignee.name || `${t.assignee.firstName} ${t.assignee.lastName}` : undefined,
+        subtitle: t.assignee ? `${t.assignee.firstName} ${t.assignee.lastName}` : undefined,
         start,
         end:      safeEnd,
         progress: TASK_PROGRESS[t.status] ?? 0,

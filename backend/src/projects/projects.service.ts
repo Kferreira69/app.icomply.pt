@@ -120,7 +120,7 @@ export class ProjectsService {
             priority: true,
             completedAt: true,
             createdAt: true,
-            assignee: { select: { name: true } },
+            assignee: { select: { firstName: true, lastName: true } },
           },
           orderBy: { sortOrder: 'asc' },
         },
