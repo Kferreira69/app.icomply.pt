@@ -279,8 +279,9 @@ model Organization {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   // ── Extended profile relations ────────────────────────────
-  orgAddresses  OrgAddress[]
-  orgContacts   OrgContact[]
+  orgAddresses    OrgAddress[]
+  orgContacts     OrgContact[]
+  reportSchedules ReportSchedule[]
 
   users             User[]
   projects          Project[]
@@ -895,6 +896,30 @@ model Report {
   project      Project?     @relation(fields: [projectId], references: [id])
 
   @@map("reports")
+}
+
+// ── Scheduled Reports ─────────────────────────────────────────
+
+model ReportSchedule {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  type           ReportType
+  format         ReportFormat @default(PDF)
+  frequency      String   @default("MONTHLY")  // DAILY, WEEKLY, MONTHLY, QUARTERLY
+  recipients     String[] @default([])          // email addresses
+  parameters     Json?
+  isActive       Boolean  @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@map("report_schedules")
 }
 
 // ─── Excel Imports ───────────────────────────────────────────

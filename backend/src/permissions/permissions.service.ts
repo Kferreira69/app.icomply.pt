@@ -16,6 +16,7 @@ export const ALL_MODULES = [
   'gdpr',
   'nis2',
   'dora',
+  'dora',
   'denuncias',
   'vendors',
   'soa',
@@ -25,6 +26,21 @@ export const ALL_MODULES = [
   'users',
   'settings',
   'translations',
+  // Wave 2+3 governance domains
+  'hrCompliance',
+  'aiGovernance',
+  'esg',
+  'bcp',
+  'itsm',
+  'aml',
+  'iso27701',
+  'soc2',
+  'cis',
+  'tisax',
+  'antiBribery',
+  'workforce',
+  'quality',
+  'regulatoryChange',
 ] as const;
 
 export type AppModule = (typeof ALL_MODULES)[number];

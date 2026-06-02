@@ -64,4 +64,13 @@ export class EvidenceController {
   ) {
     return this.service.updateStatus(id, status, orgId);
   }
+
+  @Patch('bulk/status')
+  @ApiOperation({ summary: 'Bulk update evidence status' })
+  bulkUpdateStatus(
+    @Body() body: { ids: string[]; status: EvidenceStatus },
+    @CurrentUser('organizationId') orgId: string,
+  ) {
+    return this.service.bulkUpdateStatus(body.ids, body.status, orgId);
+  }
 }

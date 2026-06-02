@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Response } from 'express';
 import { StreamableFile } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
+import { MailService } from '../common/mail/mail.service';
 import { ReportType, ReportFormat } from '@prisma/client';
 
 // ── Colour palette ────────────────────────────────────────────
@@ -20,9 +22,12 @@ const BRAND = {
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
+    private mail: MailService,
   ) {}
 
   async generate(
@@ -421,11 +426,124 @@ export class ReportsService {
         data: { s3Key: key, s3Url: url, status: 'READY', generatedAt: new Date() },
       });
     } catch (err) {
-      console.error('Report generation failed:', err);
+      this.logger.error(`Report generation failed: ${err.message}`);
       await this.prisma.report.update({
         where: { id: reportId },
         data: { status: 'FAILED' },
       });
     }
+  }
+
+  // ── Scheduled Reports ─────────────────────────────────────────
+
+  async listSchedules(organizationId: string) {
+    return (this.prisma as any).reportSchedule.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createSchedule(organizationId: string, userId: string, dto: any) {
+    const nextRun = this.calcNextRun(dto.frequency || 'MONTHLY');
+    return (this.prisma as any).reportSchedule.create({
+      data: {
+        organizationId,
+        createdById: userId,
+        name: dto.name,
+        type: dto.type || 'COMPLIANCE_SUMMARY',
+        format: dto.format || 'PDF',
+        frequency: dto.frequency || 'MONTHLY',
+        recipients: dto.recipients || [],
+        parameters: dto.parameters,
+        isActive: true,
+        nextRunAt: nextRun,
+      },
+    });
+  }
+
+  async updateSchedule(id: string, organizationId: string, dto: any) {
+    const schedule = await (this.prisma as any).reportSchedule.findFirst({ where: { id, organizationId } });
+    if (!schedule) throw new NotFoundException('Schedule not found');
+    return (this.prisma as any).reportSchedule.update({
+      where: { id },
+      data: {
+        ...dto,
+        nextRunAt: dto.frequency ? this.calcNextRun(dto.frequency) : undefined,
+      },
+    });
+  }
+
+  async removeSchedule(id: string, organizationId: string) {
+    const schedule = await (this.prisma as any).reportSchedule.findFirst({ where: { id, organizationId } });
+    if (!schedule) throw new NotFoundException('Schedule not found');
+    return (this.prisma as any).reportSchedule.delete({ where: { id } });
+  }
+
+  private calcNextRun(frequency: string): Date {
+    const now = new Date();
+    switch (frequency) {
+      case 'DAILY':     return new Date(now.getTime() + 86400000);
+      case 'WEEKLY':    return new Date(now.getTime() + 7 * 86400000);
+      case 'QUARTERLY': return new Date(now.getTime() + 90 * 86400000);
+      case 'MONTHLY':
+      default:          return new Date(now.getTime() + 30 * 86400000);
+    }
+  }
+
+  // ── Cron: run scheduled reports daily at 6 AM ────────────────
+
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  async runScheduledReports() {
+    this.logger.log('Running scheduled reports cron...');
+    const now = new Date();
+    const due = await (this.prisma as any).reportSchedule.findMany({
+      where: { isActive: true, nextRunAt: { lte: now } },
+      include: { organization: { select: { name: true } } },
+    });
+
+    for (const schedule of due) {
+      try {
+        // Generate the report
+        const report = await this.generate(
+          schedule.organizationId,
+          schedule.type,
+          schedule.format,
+          schedule.parameters || {},
+        );
+
+        // Wait for it to complete (poll for up to 60s)
+        let ready = false;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const r = await this.prisma.report.findUnique({ where: { id: report.id } });
+          if (r?.status === 'READY') { ready = true; break; }
+          if (r?.status === 'FAILED') break;
+        }
+
+        // Email recipients
+        if (ready && schedule.recipients?.length > 0) {
+          const r = await this.prisma.report.findUnique({ where: { id: report.id } });
+          const downloadLink = r?.s3Url || '';
+          for (const email of schedule.recipients) {
+            await this.mail.sendScheduledReport(
+              email,
+              schedule.name,
+              schedule.organization?.name || 'iComply',
+              downloadLink,
+              schedule.frequency,
+            );
+          }
+        }
+
+        // Update next run date
+        await (this.prisma as any).reportSchedule.update({
+          where: { id: schedule.id },
+          data: { lastRunAt: now, nextRunAt: this.calcNextRun(schedule.frequency) },
+        });
+      } catch (err) {
+        this.logger.error(`Scheduled report ${schedule.id} failed: ${err.message}`);
+      }
+    }
+    this.logger.log(`Scheduled reports cron done — processed ${due.length}`);
   }
 }

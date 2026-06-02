@@ -145,8 +145,8 @@ export const evidenceApi = {
     api.post('/evidence/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  updateStatus: (id: string, status: string) =>
-    api.patch(`/evidence/${id}/status`, { status }),
+  updateStatus:  (id: string, status: string)         => api.patch(`/evidence/${id}/status`, { status }),
+  bulkStatus:    (ids: string[], status: string)       => api.patch('/evidence/bulk/status', { ids, status }),
 };
 
 export const auditsApi = {
@@ -170,10 +170,14 @@ export const capaApi = {
 };
 
 export const reportsApi = {
-  list:     () => api.get('/reports'),
-  summary:  (projectId?: string) => api.get('/reports/summary', { params: { projectId } }),
-  generate: (data: any) => api.post('/reports/generate', data),
-  download: (id: string) => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+  list:            ()                           => api.get('/reports'),
+  summary:         (projectId?: string)         => api.get('/reports/summary', { params: { projectId } }),
+  generate:        (data: any)                  => api.post('/reports/generate', data),
+  download:        (id: string)                 => api.get(`/reports/${id}/download`, { responseType: 'blob' }),
+  listSchedules:   ()                           => api.get('/reports/schedules/list'),
+  createSchedule:  (data: any)                  => api.post('/reports/schedules', data),
+  updateSchedule:  (id: string, data: any)      => api.put(`/reports/schedules/${id}`, data),
+  removeSchedule:  (id: string)                 => api.delete(`/reports/schedules/${id}`),
 };
 
 export const excelImportApi = {
@@ -272,12 +276,14 @@ export const gdprApi = {
   },
   // DSAR — Data Subject Access Requests
   dsar: {
-    stats: () => api.get('/gdpr/dsar/stats'),
-    list: (params?: { status?: string }) => api.get('/gdpr/dsar', { params }),
-    get: (id: string) => api.get(`/gdpr/dsar/${id}`),
-    create: (data: any) => api.post('/gdpr/dsar', data),
-    update: (id: string, data: any) => api.patch(`/gdpr/dsar/${id}`, data),
-    remove: (id: string) => api.delete(`/gdpr/dsar/${id}`),
+    stats:        ()                        => api.get('/gdpr/dsar/stats'),
+    list:         (params?: { status?: string }) => api.get('/gdpr/dsar', { params }),
+    get:          (id: string)              => api.get(`/gdpr/dsar/${id}`),
+    create:       (data: any)               => api.post('/gdpr/dsar', data),
+    update:       (id: string, data: any)   => api.patch(`/gdpr/dsar/${id}`, data),
+    remove:       (id: string)              => api.delete(`/gdpr/dsar/${id}`),
+    publicInfo:   (orgSlug: string)         => fetch(`${BASE_URL}/gdpr/dsar/public/${orgSlug}`).then(r => r.json()),
+    submitPublic: (orgSlug: string, data: any) => fetch(`${BASE_URL}/gdpr/dsar/public/${orgSlug}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
   },
   // Consent Records
   consent: {

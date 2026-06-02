@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
+import { Public } from '../common/decorators/public.decorator';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -181,5 +182,22 @@ export class GdprController {
   @Delete('consent/:id')
   removeConsent(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.removeConsent(id, user.organizationId);
+  }
+
+  // ── Public DSAR portal (no auth required) ────────────────────
+
+  @Public()
+  @Get('dsar/public/:orgSlug')
+  @ApiOperation({ summary: 'Get org info for public DSAR portal' })
+  getPublicDsarInfo(@Param('orgSlug') orgSlug: string) {
+    return this.service.getPublicDsarInfo(orgSlug);
+  }
+
+  @Public()
+  @Post('dsar/public/:orgSlug/submit')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Submit a DSAR request publicly (no auth)' })
+  submitPublicDsar(@Param('orgSlug') orgSlug: string, @Body() dto: any) {
+    return this.service.submitPublicDsar(orgSlug, dto);
   }
 }

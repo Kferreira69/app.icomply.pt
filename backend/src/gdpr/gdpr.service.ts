@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { MailService } from '../common/mail/mail.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateProcessingActivityDto } from './dto/create-processing-activity.dto';
 import { ProcessingActivityStatus, DpiaStatus, DpiaOutcome, BreachStatus, BreachSeverity } from '@prisma/client';
 
 @Injectable()
 export class GdprService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+  ) {}
 
   // ── Dashboard stats ───────────────────────────────────────────
 
@@ -333,5 +337,65 @@ export class GdprService {
     const record = await this.prisma.consentRecord.findFirst({ where: { id, organizationId } });
     if (!record) throw new NotFoundException('Consent record not found');
     return this.prisma.consentRecord.delete({ where: { id } });
+  }
+
+  // ── Public DSAR Portal ────────────────────────────────────────
+
+  async getPublicDsarInfo(orgSlug: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { slug: orgSlug },
+      select: { id: true, name: true, logoUrl: true, country: true },
+    });
+    if (!org) throw new NotFoundException('Organisation not found');
+    return {
+      orgName: org.name,
+      logoUrl: org.logoUrl,
+      requestTypes: [
+        { type: 'ACCESS',       label: 'Direito de Acesso (Art. 15)',           description: 'Obter cópia dos seus dados pessoais' },
+        { type: 'RECTIFICATION', label: 'Direito de Retificação (Art. 16)',    description: 'Corrigir dados inexatos ou incompletos' },
+        { type: 'ERASURE',      label: 'Direito ao Apagamento (Art. 17)',       description: 'Solicitar a eliminação dos seus dados' },
+        { type: 'RESTRICTION',  label: 'Direito de Limitação (Art. 18)',        description: 'Limitar o tratamento dos seus dados' },
+        { type: 'PORTABILITY',  label: 'Direito à Portabilidade (Art. 20)',     description: 'Receber os seus dados em formato estruturado' },
+        { type: 'OBJECTION',    label: 'Direito de Oposição (Art. 21)',         description: 'Opor-se ao tratamento dos seus dados' },
+      ],
+    };
+  }
+
+  async submitPublicDsar(orgSlug: string, dto: any) {
+    const org = await this.prisma.organization.findUnique({
+      where: { slug: orgSlug },
+      select: { id: true, name: true },
+    });
+    if (!org) throw new NotFoundException('Organisation not found');
+
+    // Validate required fields
+    if (!dto.subjectEmail || !dto.type) {
+      throw new BadRequestException('Email e tipo de pedido são obrigatórios');
+    }
+
+    const dsar = await this.prisma.dataSubjectRequest.create({
+      data: {
+        organizationId: org.id,
+        type:           dto.type,
+        subjectName:    dto.subjectName || 'Não fornecido',
+        subjectEmail:   dto.subjectEmail,
+        description:    dto.description,
+        status:         'RECEIVED',
+        receivedAt:     new Date(),
+        dueAt:          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days (Art. 12 GDPR)
+      },
+    });
+
+    // Send confirmation email to requester
+    try {
+      await this.mail.sendDsarConfirmation(dto.subjectEmail, dto.subjectName || 'Titular', org.name, dsar.id);
+    } catch { /* best-effort */ }
+
+    return {
+      success: true,
+      requestId: dsar.id,
+      message: 'O seu pedido foi registado. Receberá uma resposta no prazo de 30 dias conforme o RGPD.',
+      dueDate: dsar.dueAt,
+    };
   }
 }

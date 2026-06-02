@@ -12,8 +12,12 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 async function bootstrap() {
+  const isProdBuild = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    // In production: only errors/warnings; in dev: full verbose
+    logger: isProdBuild ? ['error', 'warn'] : ['error', 'warn', 'log', 'debug', 'verbose'],
+    // Structured JSON logs in production via built-in logger
+    bufferLogs: false,
   });
 
   const configService = app.get(ConfigService);

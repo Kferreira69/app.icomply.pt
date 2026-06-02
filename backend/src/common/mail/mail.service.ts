@@ -146,6 +146,52 @@ export class MailService {
     );
   }
 
+  async sendDsarConfirmation(email: string, subjectName: string, orgName: string, requestId: string): Promise<void> {
+    await this.send(
+      email,
+      `Confirmação do seu pedido RGPD — ${orgName}`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Pedido RGPD registado</h2>
+        <p>Caro/a ${subjectName},</p>
+        <p>Confirmamos a receção do seu pedido de exercício de direitos ao abrigo do RGPD submetido à <strong>${orgName}</strong>.</p>
+        <div style="background: #f8fafc; border-left: 4px solid #1a56db; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0; font-size: 14px; color: #64748b;">Referência do pedido</p>
+          <p style="margin: 4px 0 0; font-weight: bold; font-family: monospace;">${requestId.substring(0, 8).toUpperCase()}</p>
+        </div>
+        <p>Nos termos do artigo 12.º do RGPD, a organização tem <strong>30 dias</strong> para responder ao seu pedido (a contar de hoje).</p>
+        <p style="color: #666; font-size: 14px;">Guarde esta referência para eventual follow-up.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">Este email foi gerado automaticamente. iComply Governance Operating System.</p>
+      </div>
+      `,
+    );
+  }
+
+  async sendScheduledReport(email: string, reportName: string, orgName: string, downloadUrl: string, frequency: string): Promise<void> {
+    const freqLabel: Record<string, string> = { DAILY: 'diário', WEEKLY: 'semanal', MONTHLY: 'mensal', QUARTERLY: 'trimestral' };
+    await this.send(
+      email,
+      `Relatório ${freqLabel[frequency] || frequency} — ${reportName}`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Relatório automático disponível</h2>
+        <p>O relatório <strong>${reportName}</strong> para <strong>${orgName}</strong> foi gerado automaticamente.</p>
+        ${downloadUrl ? `<p style="margin: 24px 0;">
+          <a href="${downloadUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            Descarregar Relatório
+          </a>
+        </p>` : '<p>Aceda à plataforma para visualizar o relatório.</p>'}
+        <p style="margin: 24px 0;">
+          <a href="${this.frontendUrl}/reports" style="color: #1a56db;">Ver todos os relatórios →</a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System · Relatório automático ${freqLabel[frequency] || frequency}</p>
+      </div>
+      `,
+    );
+  }
+
   async sendVendorQuestionnaire(email: string, vendorName: string, url: string, expiresAt?: Date): Promise<void> {
     const expiry = expiresAt ? expiresAt.toLocaleDateString('pt-PT') : '30 dias';
     await this.send(
