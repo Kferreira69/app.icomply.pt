@@ -52,6 +52,7 @@ import { WorkforceModule } from './workforce/workforce.module';
 import { QualityModule } from './quality/quality.module';
 import { RegulatoryChangeModule } from './regulatory-change/regulatory-change.module';
 import { OrgProfileModule } from './org-profile/org-profile.module';
+import { VendorQuestionnaireModule } from './vendor-questionnaire/vendor-questionnaire.module';
 
 @Module({
   imports: [
@@ -124,6 +125,7 @@ import { OrgProfileModule } from './org-profile/org-profile.module';
     QualityModule,
     RegulatoryChangeModule,
     OrgProfileModule,
+    VendorQuestionnaireModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

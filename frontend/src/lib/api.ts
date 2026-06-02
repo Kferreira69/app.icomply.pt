@@ -204,12 +204,28 @@ export const auditLogsApi = {
 };
 
 export const notificationsApi = {
-  list: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
-    api.get('/notifications', { params }),
-  unreadCount: () => api.get('/notifications/unread-count'),
-  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
-  markAllAsRead: () => api.patch('/notifications/read-all'),
-  remove: (id: string) => api.delete(`/notifications/${id}`),
+  list:              (params?: { page?: number; limit?: number; unreadOnly?: boolean }) => api.get('/notifications', { params }),
+  unreadCount:       ()              => api.get('/notifications/unread-count'),
+  markAsRead:        (id: string)    => api.patch(`/notifications/${id}/read`),
+  markAllAsRead:     ()              => api.patch('/notifications/read-all'),
+  remove:            (id: string)    => api.delete(`/notifications/${id}`),
+  getPreferences:    ()              => api.get('/notifications/preferences'),
+  updatePreferences: (preferences: Array<{ type: string; inApp: boolean; email: boolean }>) =>
+    api.patch('/notifications/preferences', { preferences }),
+};
+
+// ── Vendor Questionnaires ─────────────────────────────────────
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+export const vendorQuestionnaireApi = {
+  create:       (vendorId: string, data: any) => api.post(`/vendor-questionnaires/vendors/${vendorId}`, data),
+  list:         (vendorId: string)            => api.get(`/vendor-questionnaires/vendors/${vendorId}`),
+  getPublic:    (token: string)               => fetch(`${BASE_URL}/vendor-questionnaires/public/${token}`).then(r => r.json()),
+  submitPublic: (token: string, data: any)    => fetch(`${BASE_URL}/vendor-questionnaires/public/${token}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then(r => r.json()),
 };
 
 export const policiesApi = {

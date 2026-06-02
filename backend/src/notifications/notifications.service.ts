@@ -100,6 +100,33 @@ export class NotificationsService {
     return this.prisma.notification.deleteMany({ where: { id, userId } });
   }
 
+  // ── Preferences ───────────────────────────────────────────────
+
+  async getPreferences(userId: string) {
+    const prefs = await (this.prisma as any).notificationPreference.findMany({ where: { userId } });
+    const defaultTypes = [
+      'TASK_DUE_SOON', 'TASK_OVERDUE', 'RISK_HIGH', 'CAPA_DUE_SOON', 'CAPA_OVERDUE',
+      'EVIDENCE_EXPIRING', 'POLICY_REVIEW', 'VENDOR_EXPIRY', 'RISK_NO_TREATMENT', 'AUDIT_FINDING',
+    ];
+    const prefMap = Object.fromEntries((prefs as any[]).map((p: any) => [p.type, p]));
+    return defaultTypes.map(type => ({
+      type,
+      inApp: (prefMap as any)[type]?.inApp ?? true,
+      email: (prefMap as any)[type]?.email ?? (type.includes('OVERDUE') || type.includes('HIGH')),
+    }));
+  }
+
+  async updatePreferences(userId: string, prefs: Array<{ type: string; inApp: boolean; email: boolean }>) {
+    for (const pref of prefs) {
+      await (this.prisma as any).notificationPreference.upsert({
+        where: { userId_type: { userId, type: pref.type } },
+        create: { userId, type: pref.type, inApp: pref.inApp, email: pref.email },
+        update: { inApp: pref.inApp, email: pref.email },
+      });
+    }
+    return this.getPreferences(userId);
+  }
+
   // ── Cron: deadline alerts (runs daily at 8:00 AM) ────────
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -112,6 +139,9 @@ export class NotificationsService {
         this.checkCapaDueSoon(),
         this.checkCapaOverdue(),
         this.checkEvidenceExpiring(),
+        this.checkPoliciesNeedingReview(),
+        this.checkHighRisksNoTreatment(),
+        this.checkVendorContractsExpiring(),
       ]);
     } catch (err) {
       this.logger.error('Deadline alerts cron failed', err);
@@ -341,6 +371,90 @@ export class NotificationsService {
         entityType: 'Evidence',
         entityId: ev.id,
         sendEmail: false,
+      });
+    }
+  }
+
+  // ── Policies needing review ───────────────────────────────────
+
+  private async checkPoliciesNeedingReview() {
+    const in14Days = new Date();
+    in14Days.setDate(in14Days.getDate() + 14);
+    const now = new Date();
+
+    const policies = await this.prisma.policy.findMany({
+      where: { reviewDate: { gte: now, lte: in14Days }, status: 'APPROVED' },
+      include: { owner: { select: { id: true, organization: { select: { id: true } } } } },
+    });
+
+    for (const policy of policies) {
+      if (!policy.ownerId || !policy.owner?.organization) continue;
+      const existing = await this.prisma.notification.findFirst({
+        where: { entityId: policy.id, type: NotificationType.EVIDENCE_EXPIRING, createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) } },
+      });
+      if (existing) continue;
+      await this.create({
+        organizationId: policy.owner.organization.id,
+        userId: policy.ownerId,
+        type: 'POLICY_REVIEW' as any,
+        title: 'Política a necessitar de revisão',
+        message: `A política "${policy.title}" requer revisão em 14 dias.`,
+        entityType: 'Policy', entityId: policy.id, sendEmail: false,
+      });
+    }
+  }
+
+  // ── High risks without treatment plan ────────────────────────
+
+  private async checkHighRisksNoTreatment() {
+    const risks = await this.prisma.risk.findMany({
+      where: { inherentScore: { gte: 12 }, treatmentPlan: null, status: { notIn: ['CLOSED', 'ACCEPTED'] } } as any,
+      include: { owner: { select: { id: true, organizationId: true } } },
+    });
+
+    for (const risk of risks) {
+      if (!risk.ownerId || !risk.owner) continue;
+      const existing = await this.prisma.notification.findFirst({
+        where: { entityId: risk.id, type: NotificationType.RISK_HIGH, createdAt: { gte: new Date(new Date().setDate(new Date().getDate() - 7)) } },
+      });
+      if (existing) continue;
+      await this.create({
+        organizationId: risk.owner.organizationId,
+        userId: risk.ownerId,
+        type: NotificationType.RISK_HIGH,
+        title: 'Risco alto sem plano de tratamento',
+        message: `O risco "${risk.title}" (score ${risk.inherentScore}) não tem plano de tratamento definido.`,
+        entityType: 'Risk', entityId: risk.id, sendEmail: risk.inherentScore >= 20,
+      });
+    }
+  }
+
+  // ── Vendor contracts expiring in 30 days ─────────────────────
+
+  private async checkVendorContractsExpiring() {
+    const in30Days = new Date();
+    in30Days.setDate(in30Days.getDate() + 30);
+    const now = new Date();
+
+    const vendors = await this.prisma.vendor.findMany({
+      where: { contractEnd: { gte: now, lte: in30Days }, status: 'ACTIVE' },
+      include: { organization: { select: { id: true, users: { where: { role: 'ADMIN' }, select: { id: true }, take: 1 } } } },
+    });
+
+    for (const vendor of vendors) {
+      const adminUser = vendor.organization?.users?.[0];
+      if (!adminUser) continue;
+      const existing = await this.prisma.notification.findFirst({
+        where: { entityId: vendor.id, type: NotificationType.EVIDENCE_EXPIRING, createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) } },
+      });
+      if (existing) continue;
+      await this.create({
+        organizationId: vendor.organizationId,
+        userId: adminUser.id,
+        type: 'VENDOR_EXPIRY' as any,
+        title: 'Contrato de fornecedor a expirar',
+        message: `O contrato com "${vendor.name}" expira em 30 dias. Renove ou termine a relação contratual.`,
+        entityType: 'Vendor', entityId: vendor.id, sendEmail: false,
       });
     }
   }

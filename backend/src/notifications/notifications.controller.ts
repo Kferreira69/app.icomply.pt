@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Delete,
+  Controller, Get, Patch, Delete, Body,
   Param, Query, ParseBoolPipe,
   ParseIntPipe, DefaultValuePipe, UseGuards,
 } from '@nestjs/common';
@@ -52,5 +52,20 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Delete a notification' })
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.remove(id, user.id);
+  }
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get notification preferences for current user' })
+  getPreferences(@CurrentUser() user: any) {
+    return this.service.getPreferences(user.id);
+  }
+
+  @Patch('preferences')
+  @ApiOperation({ summary: 'Update notification preferences' })
+  updatePreferences(
+    @CurrentUser() user: any,
+    @Body() body: { preferences: Array<{ type: string; inApp: boolean; email: boolean }> },
+  ) {
+    return this.service.updatePreferences(user.id, body.preferences);
   }
 }

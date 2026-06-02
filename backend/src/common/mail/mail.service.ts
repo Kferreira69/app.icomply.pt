@@ -146,6 +146,34 @@ export class MailService {
     );
   }
 
+  async sendVendorQuestionnaire(email: string, vendorName: string, url: string, expiresAt?: Date): Promise<void> {
+    const expiry = expiresAt ? expiresAt.toLocaleDateString('pt-PT') : '30 dias';
+    await this.send(
+      email,
+      `Questionário de Segurança — iComply`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Questionário de Avaliação de Segurança</h2>
+        <p>Foi-lhe enviado um questionário de segurança e conformidade pela nossa organização.</p>
+        <p>Por favor, preencha o questionário antes de <strong>${expiry}</strong>.</p>
+        <p style="margin: 24px 0;">
+          <a href="${url}"
+             style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px;
+                    text-decoration: none; font-weight: bold;">
+            Preencher Questionário
+          </a>
+        </p>
+        <p style="color: #666; font-size: 14px;">
+          Este questionário é confidencial e as respostas serão utilizadas apenas para avaliação de risco.<br>
+          Se tiver questões, contacte o responsável pelo processo na nossa organização.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System</p>
+      </div>
+      `,
+    );
+  }
+
   async sendWelcome(email: string, firstName: string): Promise<void> {
     await this.send(
       email,
