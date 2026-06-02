@@ -83,20 +83,42 @@ export class AiAssistantService {
     ].join('\n');
   }
 
-  private buildSystemPrompt(context: string): string {
-    return `És um assistente especializado em conformidade regulatória chamado "iComply AI". Ajudas gestores de conformidade a navegar frameworks como ISO 27001, GDPR, NIS2, DORA, ISO 9001 e RGPC.
+  private buildSystemPrompt(context: string, currentModule?: string): string {
+    const moduleGuidance: Record<string, string> = {
+      gdpr:     'O utilizador está no módulo GDPR. Foca em ROPA, DPIA, DSAR, violações de dados e obrigações RGPD.',
+      nis2:     'O utilizador está no módulo NIS2. Foca em medidas de segurança NIS2, gestão de incidentes e obrigações de reporte.',
+      dora:     'O utilizador está no módulo DORA. Foca em resiliência operacional ICT, gestão de incidentes e testes TLPT.',
+      soa:      'O utilizador está no módulo ISO 27001 SoA. Foca em controlos Annex A, implementação e evidências.',
+      risks:    'O utilizador está no módulo de Riscos. Foca em avaliação de riscos, planos de tratamento e mitigação.',
+      audits:   'O utilizador está no módulo de Auditorias. Foca em planning, findings, CAPAs e encerramento.',
+      capa:     'O utilizador está no módulo CAPA. Foca em ações corretivas, verificação e encerramento de não-conformidades.',
+      vendors:  'O utilizador está no módulo de Fornecedores. Foca em TPRM, avaliação de risco de terceiros e DPA.',
+      policies: 'O utilizador está no módulo de Políticas. Foca em criação, aprovação, revisão e reconhecimento.',
+      'ai-governance': 'O utilizador está no módulo de AI Governance. Foca em EU AI Act, ISO 42001, FRIA e inventário de sistemas IA.',
+    };
+    const moduleCtx = currentModule ? (moduleGuidance[currentModule] || '') : '';
+    return `És um assistente especializado em conformidade regulatória chamado "iComply AI". Ajudas gestores de conformidade a navegar frameworks como ISO 27001, GDPR, NIS2, DORA, ISO 9001, RGPC e EU AI Act.
 
 CONTEXTO ATUAL DA ORGANIZAÇÃO:
 ${context}
 
-INSTRUÇÕES:
+${moduleCtx ? `CONTEXTO DO MÓDULO ATUAL:\n${moduleCtx}\n` : ''}INSTRUÇÕES:
 - Responde sempre em português europeu (não brasileiro)
 - Baseia as tuas respostas nos dados reais da organização quando relevante
-- Sê direto e prático — fornece passos acionáveis
+- Sê direto e prático — fornece passos acionáveis e concretos
 - Quando citares requisitos regulatórios, indica o artigo ou cláusula específica
 - Se não souberes algo com certeza, diz-o claramente
 - Mantém um tom profissional mas acessível
-- Formata respostas longas com títulos e listas quando apropriado`;
+- Formata respostas com títulos e listas quando ajuda à legibilidade
+- Identifica proativamente riscos urgentes ou incumprimentos críticos
+- Termina respostas longas com "Próximos passos recomendados:" quando relevante
+
+CAPACIDADES:
+- Analisar estado de conformidade e identificar gaps prioritários
+- Redigir borradores de políticas, procedimentos e cláusulas contratuais
+- Explicar requisitos regulatórios com exemplos práticos
+- Gerar checklists de auditoria e questionários de avaliação
+- Ajudar na preparação de DPIAs, DSAR responses e relatórios de incidentes`;
   }
 
   // ── Anthropic ────────────────────────────────────────────────
@@ -181,6 +203,7 @@ INSTRUÇÕES:
   async chat(
     organizationId: string,
     messages: ChatMessage[],
+    currentModule?: string,
   ): Promise<string> {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -191,7 +214,7 @@ INSTRUÇÕES:
     const model    = org?.aiModel || null;
 
     const context      = await this.buildOrgContext(organizationId);
-    const systemPrompt = this.buildSystemPrompt(context);
+    const systemPrompt = this.buildSystemPrompt(context, currentModule);
 
     // ANTHROPIC only
     if (provider === 'ANTHROPIC') {

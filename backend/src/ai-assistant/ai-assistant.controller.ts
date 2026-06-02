@@ -15,6 +15,7 @@ interface ChatMessage {
 
 interface ChatDto {
   messages: ChatMessage[];
+  currentModule?: string; // e.g. 'gdpr', 'risks', 'nis2' — adds module-specific context
 }
 
 @UseGuards(JwtAuthGuard)
@@ -25,7 +26,7 @@ export class AiAssistantController {
   @Post('chat')
   async chat(@Request() req: any, @Body() body: ChatDto) {
     const organizationId = req.user.organizationId;
-    const reply = await this.service.chat(organizationId, body.messages);
+    const reply = await this.service.chat(organizationId, body.messages, body.currentModule);
     return { reply };
   }
 }

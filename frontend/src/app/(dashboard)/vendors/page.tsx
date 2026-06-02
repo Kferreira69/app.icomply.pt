@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { vendorsApi } from '@/lib/api';
+import { vendorsApi, vendorQuestionnaireApi } from '@/lib/api';
 import {
   Building2, Plus, Search, X, ChevronRight, Star,
-  ExternalLink, Trash2, Edit2, Download, ShieldCheck, AlertCircle,
+  ExternalLink, Trash2, Edit2, Download, ShieldCheck, AlertCircle, Send, Copy, CheckCircle2,
 } from 'lucide-react';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -271,6 +271,52 @@ function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void
 
 // ── Vendor Detail Panel ───────────────────────────────────────────
 
+function SendQuestionnaireButton({ vendorId, vendorEmail }: { vendorId: string; vendorEmail?: string }) {
+  const [link, setLink]     = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const result: any = await vendorQuestionnaireApi.create(vendorId, { sendEmail: !!vendorEmail });
+      const token = result?.data?.token || result?.token;
+      if (token) {
+        const url = `${window.location.origin}/vendor-assessment/${token}`;
+        setLink(url);
+      }
+    } catch { /* ignore */ }
+    finally { setSending(false); }
+  };
+
+  const copy = () => {
+    if (link) { navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  };
+
+  if (link) return (
+    <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+      <p className="text-xs font-medium text-green-700 flex items-center gap-1">
+        <CheckCircle2 className="w-3.5 h-3.5" /> Link do questionário criado!
+      </p>
+      <div className="flex gap-1.5">
+        <input readOnly value={link} className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1.5 text-gray-600 truncate" />
+        <button onClick={copy} className="flex-shrink-0 p-1.5 bg-green-600 text-white rounded hover:bg-green-700">
+          {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+      {vendorEmail && <p className="text-xs text-green-600">✓ Email enviado para {vendorEmail}</p>}
+    </div>
+  );
+
+  return (
+    <button onClick={send} disabled={sending}
+      className="w-full py-2 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+      {sending ? <><span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /> A criar...</>
+               : <><Send className="w-3.5 h-3.5" /> Enviar Questionário de Segurança</>}
+    </button>
+  );
+}
+
 function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
   vendor: any; onClose: () => void; onEdit: () => void; onAssess: () => void;
 }) {
@@ -398,11 +444,12 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
             </div>
           )}
         </div>
-        <div className="p-4 border-t">
+        <div className="p-4 border-t space-y-2">
           <button onClick={onAssess}
             className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
             + {t('addAssessment')}
           </button>
+          <SendQuestionnaireButton vendorId={v.id} vendorEmail={v.contactEmail} />
         </div>
       </div>
     </div>
