@@ -90,6 +90,7 @@
     "organization": "Organization",
     "billing": "Billing",
     "notifications": "Notifications",
+    "webhooks": "Webhooks",
     "users": "Users",
     "security": "Security",
     "translations": "Translations",

@@ -12,7 +12,7 @@ import {
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
-  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell,
+  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell, Webhook,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -341,6 +341,7 @@ export function Sidebar() {
     { href: '/settings/organization', label: t('organization'), icon: Settings },
     { href: '/settings/billing',        label: t('billing'),        icon: CreditCard },
     { href: '/settings/notifications',  label: t('notifications'),  icon: Bell },
+    { href: '/settings/webhooks',       label: t('webhooks'),       icon: Webhook },
     { href: '/settings/users',          label: t('users'),          icon: Users },
     { href: '/settings/trust-center', label: t('trustCenter'), icon: Globe },
     { href: '/settings/translations', label: t('translations'), icon: ScrollText },

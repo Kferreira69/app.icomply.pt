@@ -450,6 +450,16 @@ export const orgProfileApi = {
   removeContact:  (id: string)   => api.delete(`/org-profile/contacts/${id}`),
 };
 
+// ── Webhooks ──────────────────────────────────────────────────
+
+export const webhooksApi = {
+  listEvents: ()              => api.get('/webhooks/events'),
+  list:       ()              => api.get('/webhooks'),
+  create:     (data: any)     => api.post('/webhooks', data),
+  update:     (id: string, data: any) => api.put(`/webhooks/${id}`, data),
+  remove:     (id: string)    => api.delete(`/webhooks/${id}`),
+};
+
 // ── HR Compliance ─────────────────────────────────────────────
 
 export const hrComplianceApi = {

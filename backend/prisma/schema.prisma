@@ -282,6 +282,7 @@ model Organization {
   orgAddresses    OrgAddress[]
   orgContacts     OrgContact[]
   reportSchedules ReportSchedule[]
+  webhooks        Webhook[]
 
   users             User[]
   projects          Project[]
@@ -1910,6 +1911,44 @@ model LicenseInvoice {
 
   @@index([licenseId, status])
   @@map("license_invoices")
+}
+
+// ── Webhooks ──────────────────────────────────────────────────
+
+model Webhook {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  url            String
+  secret         String?  // HMAC-SHA256 signing secret
+  events         String[] @default([]) // risk.created, task.overdue, capa.overdue, etc.
+  isActive       Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  failureCount   Int      @default(0)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId, isActive])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id          String   @id @default(uuid())
+  webhookId   String
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event       String
+  payload     Json
+  statusCode  Int?
+  success     Boolean  @default(false)
+  errorMsg    String?
+  deliveredAt DateTime @default(now())
+
+  @@index([webhookId, deliveredAt])
+  @@map("webhook_deliveries")
 }
 
 // ── Add-ons per license ───────────────────────────────────────

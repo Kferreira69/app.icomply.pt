@@ -202,6 +202,58 @@ export default function AuditsPage() {
         </button>
       </div>
 
+      {/* Audit Timeline — upcoming 90 days */}
+      {(() => {
+        const upcoming = audits.filter((a: any) => {
+          const end = a.endDate ? new Date(a.endDate) : a.startDate ? new Date(a.startDate) : null;
+          const start = a.startDate ? new Date(a.startDate) : null;
+          const now = new Date();
+          const in90 = new Date(now.getTime() + 90 * 86400000);
+          return (start && start <= in90) || (end && end >= now && end <= in90);
+        }).slice(0, 5);
+        if (!upcoming.length) return null;
+        return (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-500" /> Próximas Auditorias (90 dias)
+            </h3>
+            <div className="space-y-2">
+              {upcoming.map((a: any) => {
+                const now = new Date();
+                const start = a.startDate ? new Date(a.startDate) : null;
+                const end = a.endDate ? new Date(a.endDate) : null;
+                const daysUntil = start ? Math.ceil((start.getTime() - now.getTime()) / 86400000) : null;
+                return (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', STATUS_COLORS[a.status]?.includes('blue') ? 'bg-blue-500' : STATUS_COLORS[a.status]?.includes('yellow') ? 'bg-yellow-500' : 'bg-green-500')} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800 truncate">{a.title}</p>
+                        <span className={cn('text-xs px-1.5 py-0.5 rounded-full flex-shrink-0', STATUS_COLORS[a.status])}>
+                          {STATUS_LABELS[a.status] || a.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {start ? formatDate(start.toISOString()) : '—'}{end ? ` → ${formatDate(end.toISOString())}` : ''}
+                        {a.leadAuditor && <> · {a.leadAuditor}</>}
+                      </p>
+                    </div>
+                    {daysUntil !== null && daysUntil >= 0 && (
+                      <span className={cn('text-xs font-medium px-2 py-1 rounded-lg flex-shrink-0', daysUntil <= 7 ? 'bg-red-50 text-red-600' : daysUntil <= 14 ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-600')}>
+                        {daysUntil === 0 ? 'Hoje' : `${daysUntil}d`}
+                      </span>
+                    )}
+                    <Link href={`/audits/${a.id}`} className="text-gray-300 hover:text-primary flex-shrink-0">
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
