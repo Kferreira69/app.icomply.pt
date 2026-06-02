@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { risksApi } from '@/lib/api';
-import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil } from 'lucide-react';
+import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield, CheckCircle2 } from 'lucide-react';
 import { cn, getRiskColor, getRiskLabel, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
@@ -139,30 +139,34 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
   const t = useTranslations('risks');
   const tCommon = useTranslations('common');
   const qc = useQueryClient();
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+  const [tab, setTab] = useState<'risk' | 'treatment'>('risk');
+
+  const { register, handleSubmit } = useForm({
     defaultValues: {
-      title: risk.title,
-      category: risk.category || '',
-      description: risk.description || '',
-      likelihood: risk.likelihood,
-      impact: risk.impact,
-      mitigationPlan: risk.mitigationPlan || '',
-      status: risk.status,
+      title: risk.title, category: risk.category || '',
+      description: risk.description || '', likelihood: risk.likelihood,
+      impact: risk.impact, mitigationPlan: risk.mitigationPlan || '', status: risk.status,
+    },
+  });
+  const { register: regTreatment, handleSubmit: handleTreatment } = useForm({
+    defaultValues: {
+      treatmentType:   risk.treatmentType   || 'MITIGATE',
+      treatmentPlan:   risk.treatmentPlan   || '',
+      treatmentStatus: risk.treatmentStatus || 'PLANNED',
+      residualScore:   risk.residualScore   || '',
+      riskAppetite:    risk.riskAppetite    || '',
+      treatmentDueDate: risk.treatmentDueDate ? risk.treatmentDueDate.split('T')[0] : '',
     },
   });
 
   const LIKELIHOOD_LABELS: Record<string, string> = {
-    RARE: t('likelihood_values.RARE'),
-    UNLIKELY: t('likelihood_values.UNLIKELY'),
-    POSSIBLE: t('likelihood_values.POSSIBLE'),
-    LIKELY: t('likelihood_values.LIKELY'),
+    RARE: t('likelihood_values.RARE'), UNLIKELY: t('likelihood_values.UNLIKELY'),
+    POSSIBLE: t('likelihood_values.POSSIBLE'), LIKELY: t('likelihood_values.LIKELY'),
     ALMOST_CERTAIN: t('likelihood_values.ALMOST_CERTAIN'),
   };
   const IMPACT_LABELS: Record<string, string> = {
-    NEGLIGIBLE: t('impact_values.NEGLIGIBLE'),
-    MINOR: t('impact_values.MINOR'),
-    MODERATE: t('impact_values.MODERATE'),
-    MAJOR: t('impact_values.MAJOR'),
+    NEGLIGIBLE: t('impact_values.NEGLIGIBLE'), MINOR: t('impact_values.MINOR'),
+    MODERATE: t('impact_values.MODERATE'), MAJOR: t('impact_values.MAJOR'),
     CATASTROPHIC: t('impact_values.CATASTROPHIC'),
   };
 
@@ -170,65 +174,140 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
     mutationFn: (data: any) => risksApi.update(risk.id, cleanFormData(data)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks'] }); onClose(); },
   });
+  const treatmentMutation = useMutation({
+    mutationFn: (data: any) => risksApi.updateTreatment(risk.id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks'] }); onClose(); },
+  });
+
+  const inp = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('editRisk')}</h3>
-        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('titleField')} *</label>
-            <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+        {/* Header */}
+        <div className="px-6 pt-5 pb-0">
+          <h3 className="text-lg font-bold text-gray-900 mb-3">{t('editRisk')}</h3>
+          <div className="flex gap-1 border-b border-gray-100">
+            {[
+              { key: 'risk',      label: 'Risco',              icon: AlertTriangle },
+              { key: 'treatment', label: 'Plano de Tratamento', icon: Shield },
+            ].map(({ key, label, icon: Icon }) => (
+              <button key={key} onClick={() => setTab(key as any)}
+                className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+                  tab === key ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+                <Icon className="w-3.5 h-3.5" />{label}
+              </button>
+            ))}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('category')}</label>
-              <input {...register('category')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('status')}</label>
-              <select {...register('status')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-                {(['IDENTIFIED', 'ASSESSED', 'MITIGATED', 'ACCEPTED', 'CLOSED'] as const).map(s => (
-                  <option key={s} value={s}>{t(`status.${s}`)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')}</label>
-            <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('likelihood')}</label>
-              <select {...register('likelihood')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-                {Object.entries(LIKELIHOOD_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('impact')}</label>
-              <select {...register('impact')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
-                {Object.entries(IMPACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('mitigationPlan')}</label>
-            <textarea {...register('mitigationPlan')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
-          </div>
-          {updateMutation.isError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              {t('saveError')}
-            </p>
+        </div>
+
+        <div className="p-6 pt-4">
+          {tab === 'risk' && (
+            <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">{t('titleField')} *</label>
+                <input {...register('title', { required: true })} className={inp} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('category')}</label>
+                  <input {...register('category')} className={inp} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{tCommon('status')}</label>
+                  <select {...register('status')} className={inp}>
+                    {(['IDENTIFIED','ASSESSED','MITIGATED','ACCEPTED','CLOSED'] as const).map(s => (
+                      <option key={s} value={s}>{t(`status.${s}`)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('likelihood')}</label>
+                  <select {...register('likelihood')} className={inp}>
+                    {Object.entries(LIKELIHOOD_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('impact')}</label>
+                  <select {...register('impact')} className={inp}>
+                    {Object.entries(IMPACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">{tCommon('description')}</label>
+                <textarea {...register('description')} rows={2} className={inp + ' resize-none'} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">{t('mitigationPlan')}</label>
+                <textarea {...register('mitigationPlan')} rows={2} className={inp + ' resize-none'} />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
+                <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+                  {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}{tCommon('save')}
+                </button>
+              </div>
+            </form>
           )}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
-            <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
-              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              {tCommon('save')}
-            </button>
-          </div>
-        </form>
+
+          {tab === 'treatment' && (
+            <form onSubmit={handleTreatment(d => treatmentMutation.mutate(d))} className="space-y-4">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                <strong>Score inerente:</strong> {risk.inherentScore ?? '—'} ({risk.riskLevel ?? 'N/A'})
+                {risk.residualScore && <> → <strong>Score residual:</strong> {risk.residualScore}</>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Tratamento</label>
+                  <select {...regTreatment('treatmentType')} className={inp}>
+                    <option value="MITIGATE">Mitigar</option>
+                    <option value="ACCEPT">Aceitar</option>
+                    <option value="TRANSFER">Transferir</option>
+                    <option value="AVOID">Evitar</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Estado do Tratamento</label>
+                  <select {...regTreatment('treatmentStatus')} className={inp}>
+                    <option value="PLANNED">Planeado</option>
+                    <option value="IN_PROGRESS">Em Curso</option>
+                    <option value="COMPLETED">Concluído</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Score Residual (1-25)</label>
+                  <input type="number" min={1} max={25} {...regTreatment('residualScore')} className={inp} placeholder="após controlos" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Prazo de Tratamento</label>
+                  <input type="date" {...regTreatment('treatmentDueDate')} className={inp} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Apetite de Risco</label>
+                  <select {...regTreatment('riskAppetite')} className={inp}>
+                    <option value="">Selecionar...</option>
+                    <option value="BELOW">Abaixo do Apetite</option>
+                    <option value="AT">Dentro do Apetite</option>
+                    <option value="ABOVE">Acima do Apetite</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Plano de Tratamento Detalhado</label>
+                <textarea {...regTreatment('treatmentPlan')} rows={4} placeholder="Descreva as ações concretas para tratar este risco..." className={inp + ' resize-none'} />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
+                <button type="submit" disabled={treatmentMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+                  {treatmentMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <CheckCircle2 className="w-4 h-4" /> Guardar Plano
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

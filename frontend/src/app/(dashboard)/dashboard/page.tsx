@@ -8,7 +8,7 @@ import {
   FolderOpen, CheckSquare, AlertTriangle, FileText,
   Clock, AlertCircle, Target, BookOpen, ShieldCheck,
   TrendingUp, TrendingDown, Activity, ChevronRight,
-  Circle, CheckCircle2, XCircle, BarChart3,
+  Circle, CheckCircle2, XCircle, BarChart3, Bell, Zap,
 } from 'lucide-react';
 import { cn, formatDate, getRiskColor, getStatusColor, getPriorityColor, formatRelative } from '@/lib/utils';
 import Link from 'next/link';
@@ -370,6 +370,67 @@ function ModuleStatus({ policyStats, gdprStats, dashData, summary }: any) {
   );
 }
 
+// ── Smart Alerts ──────────────────────────────────────────────
+function SmartAlerts({ alerts }: { alerts: any[] }) {
+  if (!alerts?.length) return null;
+  const SEVERITY_STYLE = {
+    critical: 'bg-red-50 border-red-200 text-red-700',
+    high:     'bg-orange-50 border-orange-200 text-orange-700',
+    medium:   'bg-yellow-50 border-yellow-200 text-yellow-700',
+  };
+  const SEVERITY_DOT = {
+    critical: 'bg-red-500',
+    high:     'bg-orange-500',
+    medium:   'bg-yellow-500',
+  };
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <Bell className="w-4 h-4 text-gray-500" /> Alertas de Conformidade
+        <span className="ml-auto text-xs font-medium bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{alerts.length}</span>
+      </h3>
+      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+        {alerts.map((alert, i) => (
+          <Link key={i} href={alert.href}
+            className={cn('flex items-center gap-3 px-3 py-2 rounded-xl border text-sm transition-colors hover:opacity-90', SEVERITY_STYLE[alert.severity as keyof typeof SEVERITY_STYLE])}>
+            <div className={cn('w-2 h-2 rounded-full flex-shrink-0', SEVERITY_DOT[alert.severity as keyof typeof SEVERITY_DOT])} />
+            <span className="flex-1 truncate">{alert.message}</span>
+            <ChevronRight className="w-3.5 h-3.5 opacity-60 flex-shrink-0" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Domain Compliance Scores ───────────────────────────────────
+function DomainScores({ scores }: { scores: any[] }) {
+  if (!scores?.length) return null;
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Zap className="w-4 h-4 text-gray-500" /> Score por Framework
+      </h3>
+      <div className="space-y-3">
+        {scores.map(d => (
+          <div key={d.domain}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-gray-700">{d.domain}</span>
+              <span className={cn('text-xs font-bold', d.score >= 80 ? 'text-green-600' : d.score >= 60 ? 'text-yellow-600' : d.score > 0 ? 'text-red-500' : 'text-gray-400')}>
+                {d.score > 0 ? `${d.score}%` : '—'}
+              </span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${d.score}%`, backgroundColor: d.score >= 80 ? '#16a34a' : d.score >= 60 ? '#ca8a04' : '#dc2626' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Quick Actions ─────────────────────────────────────────────
 function QuickActions() {
   const t = useTranslations('dashboard');
@@ -548,6 +609,14 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* Alerts + Domain Scores row */}
+      {((dashData?.alerts?.length ?? 0) > 0 || (dashData?.domainScores?.length ?? 0) > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SmartAlerts alerts={dashData?.alerts ?? []} />
+          <DomainScores scores={dashData?.domainScores ?? []} />
+        </div>
+      )}
 
       {/* Middle row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
