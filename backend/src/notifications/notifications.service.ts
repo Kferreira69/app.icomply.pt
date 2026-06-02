@@ -390,13 +390,13 @@ export class NotificationsService {
     for (const policy of policies) {
       if (!policy.ownerId || !policy.owner?.organization) continue;
       const existing = await this.prisma.notification.findFirst({
-        where: { entityId: policy.id, type: NotificationType.EVIDENCE_EXPIRING, createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) } },
+        where: { entityId: policy.id, type: NotificationType.POLICY_REVIEW, createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) } },
       });
       if (existing) continue;
       await this.create({
         organizationId: policy.owner.organization.id,
         userId: policy.ownerId,
-        type: 'POLICY_REVIEW' as any,
+        type: NotificationType.POLICY_REVIEW,
         title: 'Política a necessitar de revisão',
         message: `A política "${policy.title}" requer revisão em 14 dias.`,
         entityType: 'Policy', entityId: policy.id, sendEmail: false,
@@ -445,13 +445,13 @@ export class NotificationsService {
       const adminUser = vendor.organization?.users?.[0];
       if (!adminUser) continue;
       const existing = await this.prisma.notification.findFirst({
-        where: { entityId: vendor.id, type: NotificationType.EVIDENCE_EXPIRING, createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) } },
+        where: { entityId: vendor.id, type: NotificationType.VENDOR_EXPIRY, createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) } },
       });
       if (existing) continue;
       await this.create({
         organizationId: vendor.organizationId,
         userId: adminUser.id,
-        type: 'VENDOR_EXPIRY' as any,
+        type: NotificationType.VENDOR_EXPIRY,
         title: 'Contrato de fornecedor a expirar',
         message: `O contrato com "${vendor.name}" expira em 30 dias. Renove ou termine a relação contratual.`,
         entityType: 'Vendor', entityId: vendor.id, sendEmail: false,

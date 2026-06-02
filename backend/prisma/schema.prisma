@@ -149,6 +149,11 @@ enum NotificationType {
   // Evidence
   EVIDENCE_EXPIRING   // 30 days before expiry
   EVIDENCE_REJECTED
+  // Policies
+  POLICY_REVIEW
+  // Vendors
+  VENDOR_EXPIRY
+  VENDOR_ASSESSMENT_COMPLETED
   // System
   USER_INVITED
   SYSTEM

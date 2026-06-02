@@ -13,7 +13,8 @@ import * as argon2 from 'argon2';
 import * as bcrypt from 'bcryptjs'; // kept for migrating legacy bcrypt hashes
 import { v4 as uuid } from 'uuid';
 import { authenticator } from 'otplib';
-import * as QRCode from 'qrcode';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const QRCode = require('qrcode') as { toDataURL: (text: string) => Promise<string> };
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
