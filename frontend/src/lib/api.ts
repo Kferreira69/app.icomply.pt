@@ -220,7 +220,6 @@ export const notificationsApi = {
 
 // ── Vendor Questionnaires ─────────────────────────────────────
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 export const vendorQuestionnaireApi = {
   create:       (vendorId: string, data: any) => api.post(`/vendor-questionnaires/vendors/${vendorId}`, data),
   list:         (vendorId: string)            => api.get(`/vendor-questionnaires/vendors/${vendorId}`),
