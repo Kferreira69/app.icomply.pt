@@ -12,6 +12,8 @@ import { TokenBlacklistService } from '../common/security/token-blacklist.servic
 import * as argon2 from 'argon2';
 import * as bcrypt from 'bcryptjs'; // kept for migrating legacy bcrypt hashes
 import { v4 as uuid } from 'uuid';
+import { authenticator } from 'otplib';
+import * as QRCode from 'qrcode';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -252,7 +254,87 @@ export class AuthService {
       include: { organization: true },
     });
     if (!user) throw new NotFoundException('User not found');
-    const { passwordHash, inviteToken, passwordResetToken, ...safe } = user;
+    const { passwordHash, inviteToken, passwordResetToken, totpSecret, ...safe } = user;
     return safe;
+  }
+
+  // ── 2FA / TOTP ────────────────────────────────────────────────
+
+  /** Generate a new TOTP secret and return the QR code data URL + secret */
+  async setup2FA(userId: string): Promise<{ secret: string; qrCodeUrl: string; otpAuthUrl: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, organization: { select: { name: true } } },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const secret = authenticator.generateSecret();
+    const otpAuthUrl = authenticator.keyuri(
+      user.email,
+      `iComply (${user.organization?.name ?? 'iComply'})`,
+      secret,
+    );
+    const qrCodeUrl = await QRCode.toDataURL(otpAuthUrl);
+
+    // Store secret temporarily (not enabled until verified)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpSecret: secret, totpEnabled: false },
+    });
+
+    return { secret, qrCodeUrl, otpAuthUrl };
+  }
+
+  /** Verify a TOTP token and activate 2FA */
+  async verify2FA(userId: string, token: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { totpSecret: true },
+    });
+    if (!user?.totpSecret) throw new BadRequestException('2FA setup not started');
+
+    const isValid = authenticator.verify({ token, secret: user.totpSecret });
+    if (!isValid) throw new UnauthorizedException('Código 2FA inválido');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: true, totpVerifiedAt: new Date() },
+    });
+  }
+
+  /** Disable 2FA (requires valid TOTP token) */
+  async disable2FA(userId: string, token: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { totpSecret: true, totpEnabled: true },
+    });
+    if (!user?.totpEnabled) throw new BadRequestException('2FA não está activo');
+
+    const isValid = authenticator.verify({ token, secret: user.totpSecret! });
+    if (!isValid) throw new UnauthorizedException('Código 2FA inválido');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: false, totpSecret: null, totpVerifiedAt: null },
+    });
+  }
+
+  /** Validate TOTP during login — called after password verification */
+  async validate2FA(userId: string, token: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { totpSecret: true, totpEnabled: true },
+    });
+    if (!user?.totpEnabled || !user.totpSecret) return true; // 2FA not enabled — pass through
+    return authenticator.verify({ token, secret: user.totpSecret });
+  }
+
+  /** Check if a user has 2FA enabled (used during login to decide if token is needed) */
+  async get2FAStatus(userId: string): Promise<{ enabled: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { totpEnabled: true },
+    });
+    return { enabled: user?.totpEnabled ?? false };
   }
 }

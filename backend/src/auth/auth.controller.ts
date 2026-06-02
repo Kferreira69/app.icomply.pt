@@ -139,4 +139,53 @@ export class AuthController {
   ) {
     return this.authService.changePassword(userId, dto);
   }
+
+  // ── 2FA / TOTP ────────────────────────────────────────────────
+
+  @ApiBearerAuth('JWT')
+  @Get('2fa/status')
+  @ApiOperation({ summary: 'Get 2FA status for current user' })
+  get2FAStatus(@CurrentUser('id') userId: string) {
+    return this.authService.get2FAStatus(userId);
+  }
+
+  @ApiBearerAuth('JWT')
+  @Post('2fa/setup')
+  @ApiOperation({ summary: 'Generate TOTP secret and QR code (step 1 of setup)' })
+  setup2FA(@CurrentUser('id') userId: string) {
+    return this.authService.setup2FA(userId);
+  }
+
+  @ApiBearerAuth('JWT')
+  @Post('2fa/verify')
+  @ApiOperation({ summary: 'Verify TOTP token and activate 2FA (step 2 of setup)' })
+  verify2FA(
+    @CurrentUser('id') userId: string,
+    @Body() body: { token: string },
+  ) {
+    return this.authService.verify2FA(userId, body.token);
+  }
+
+  @ApiBearerAuth('JWT')
+  @Post('2fa/disable')
+  @ApiOperation({ summary: 'Disable 2FA (requires valid TOTP token)' })
+  disable2FA(
+    @CurrentUser('id') userId: string,
+    @Body() body: { token: string },
+  ) {
+    return this.authService.disable2FA(userId, body.token);
+  }
+
+  @ApiBearerAuth('JWT')
+  @Post('2fa/validate')
+  @ApiOperation({ summary: 'Validate TOTP during login (called separately after password auth)' })
+  @HttpCode(HttpStatus.OK)
+  async validate2FA(
+    @CurrentUser('id') userId: string,
+    @Body() body: { token: string },
+  ) {
+    const valid = await this.authService.validate2FA(userId, body.token);
+    if (!valid) throw new Error('Código 2FA inválido');
+    return { valid: true };
+  }
 }

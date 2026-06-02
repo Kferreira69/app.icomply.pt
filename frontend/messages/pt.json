@@ -1293,8 +1293,10 @@
     "changeError": "Erro ao alterar a palavra-passe.",
     "changePasswordBtn": "Alterar Palavra-passe",
     "twoFATitle": "Autenticação de Dois Fatores (2FA)",
-    "twoFASubtitle": "Adicione uma camada extra de segurança à sua conta.",
-    "twoFAComingSoon": "2FA via TOTP (Google Authenticator) — Em breve"
+    "twoFASubtitle": "Adicione uma camada extra de segurança com TOTP (Google Authenticator, Authy, etc.)",
+    "twoFAComingSoon": "2FA via TOTP (Google Authenticator) — Em breve",
+    "twoFAActive": "2FA activo",
+    "twoFAInactive": "2FA inactivo"
   },
   "translationsPage": {
     "title": "Gestão de Traduções",

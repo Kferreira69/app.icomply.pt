@@ -382,6 +382,10 @@ model User {
   passwordResetToken String?  @unique
   passwordResetExpiresAt DateTime?
   lastLoginAt      DateTime?
+  // 2FA / TOTP
+  totpSecret       String?
+  totpEnabled      Boolean    @default(false)
+  totpVerifiedAt   DateTime?
   organizationId   String
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -705,8 +709,21 @@ model Risk {
   inherentScore   Int            // likelihood * impact (1-25)
   residualScore   Int?           // after controls
   status          RiskStatus     @default(IDENTIFIED)
-  mitigationPlan  String?
-  acceptancePlan  String?
+  // Treatment plan
+  treatmentType   String?        // MITIGATE, ACCEPT, TRANSFER, AVOID
+  treatmentPlan   String?        // detailed treatment plan (richer than old mitigationPlan)
+  mitigationPlan  String?        // kept for backward compat
+  treatmentStatus String?        // PLANNED, IN_PROGRESS, COMPLETED
+  treatmentOwnerId String?
+  treatmentDueDate DateTime?
+  treatmentCompletedAt DateTime?
+  // Acceptance
+  acceptancePlan   String?
+  acceptedAt       DateTime?
+  acceptedById     String?
+  acceptanceRationale String?
+  // Risk appetite
+  riskAppetite    String?        // ABOVE, AT, BELOW (vs org appetite)
   dueDate         DateTime?
   reviewDate      DateTime?
   closedAt        DateTime?

@@ -56,4 +56,25 @@ export class RisksController {
   ) {
     return this.service.update(id, orgId, dto);
   }
+
+  @Patch(':id/treatment')
+  @ApiOperation({ summary: 'Update risk treatment plan & residual score' })
+  updateTreatment(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+    @Body() dto: any,
+  ) {
+    return this.service.updateTreatmentPlan(id, orgId, dto);
+  }
+
+  @Post(':id/accept')
+  @ApiOperation({ summary: 'Accept a risk (risk acceptance workflow)' })
+  acceptRisk(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: { rationale: string },
+  ) {
+    return this.service.acceptRisk(id, orgId, userId, dto);
+  }
 }

@@ -66,6 +66,12 @@ export const authApi = {
     api.post('/auth/accept-invite', data),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.patch('/auth/change-password', { currentPassword, newPassword }),
+  // 2FA
+  get2FAStatus:  ()              => api.get('/auth/2fa/status'),
+  setup2FA:      ()              => api.post('/auth/2fa/setup', {}),
+  verify2FA:     (token: string) => api.post('/auth/2fa/verify', { token }),
+  disable2FA:    (token: string) => api.post('/auth/2fa/disable', { token }),
+  validate2FA:   (token: string) => api.post('/auth/2fa/validate', { token }),
 };
 
 export const orgApi = {
@@ -121,11 +127,13 @@ export const tasksApi = {
 };
 
 export const risksApi = {
-  list: (params?: any) => api.get('/risks', { params }),
-  get: (id: string) => api.get(`/risks/${id}`),
-  heatmap: () => api.get('/risks/heatmap'),
-  create: (data: any) => api.post('/risks', data),
-  update: (id: string, data: any) => api.patch(`/risks/${id}`, data),
+  list:            (params?: any)             => api.get('/risks', { params }),
+  get:             (id: string)               => api.get(`/risks/${id}`),
+  heatmap:         ()                         => api.get('/risks/heatmap'),
+  create:          (data: any)                => api.post('/risks', data),
+  update:          (id: string, data: any)    => api.patch(`/risks/${id}`, data),
+  updateTreatment: (id: string, data: any)    => api.patch(`/risks/${id}/treatment`, data),
+  acceptRisk:      (id: string, data: any)    => api.post(`/risks/${id}/accept`, data),
 };
 
 export const evidenceApi = {

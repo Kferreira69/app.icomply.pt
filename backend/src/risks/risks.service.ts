@@ -132,6 +132,39 @@ export class RisksService {
     });
   }
 
+  async updateTreatmentPlan(id: string, organizationId: string, dto: any) {
+    await this.findOne(id, organizationId);
+    return this.prisma.risk.update({
+      where: { id },
+      data: {
+        treatmentType:   dto.treatmentType,
+        treatmentPlan:   dto.treatmentPlan,
+        treatmentStatus: dto.treatmentStatus,
+        treatmentOwnerId: dto.treatmentOwnerId,
+        treatmentDueDate: dto.treatmentDueDate ? new Date(dto.treatmentDueDate) : undefined,
+        treatmentCompletedAt: dto.treatmentStatus === 'COMPLETED' ? new Date() : undefined,
+        residualScore:   dto.residualScore ? Number(dto.residualScore) : undefined,
+        riskAppetite:    dto.riskAppetite,
+      },
+      include: { owner: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async acceptRisk(id: string, organizationId: string, userId: string, dto: any) {
+    await this.findOne(id, organizationId);
+    return this.prisma.risk.update({
+      where: { id },
+      data: {
+        treatmentType:        'ACCEPT',
+        acceptedAt:           new Date(),
+        acceptedById:         userId,
+        acceptanceRationale:  dto.rationale,
+        treatmentStatus:      'COMPLETED',
+        status:               'ACCEPTED' as any,
+      },
+    });
+  }
+
   async getHeatmapData(organizationId: string) {
     const risks = await this.prisma.risk.findMany({
       where: { organizationId, status: { not: 'CLOSED' } },
