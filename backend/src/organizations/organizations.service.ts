@@ -95,8 +95,14 @@ export class OrganizationsService {
       soaScore, nis2Score, cisScore, soc2Score, iso27701Score,
       antiBriberyScore, workforceScore, qualityScore,
     ] = await Promise.all([
-      this.prisma.soaControl.aggregate({ where: { organizationId }, _count: { _all: true }, _sum: { isImplemented: true } as any }).then(r => ({ total: r._count._all, implemented: (r as any)._sum?.isImplemented ?? 0 })).catch(() => ({ total: 0, implemented: 0 })),
-      this.prisma.nis2Assessment.findFirst({ where: { organizationId }, orderBy: { createdAt: 'desc' } }).then(a => a ? { total: a.totalMeasures ?? 0, implemented: a.implementedMeasures ?? 0 } : { total: 0, implemented: 0 }).catch(() => ({ total: 0, implemented: 0 })),
+      Promise.all([
+        this.prisma.soaControl.count({ where: { organizationId } }),
+        this.prisma.soaControl.count({ where: { organizationId, status: 'IMPLEMENTED' as any } }),
+      ]).then(([total, implemented]) => ({ total, implemented })).catch(() => ({ total: 0, implemented: 0 })),
+      Promise.all([
+        this.prisma.nis2Assessment.count({ where: { organizationId } }),
+        this.prisma.nis2Assessment.count({ where: { organizationId, status: 'COMPLIANT' as any } }),
+      ]).then(([total, implemented]) => ({ total, implemented })).catch(() => ({ total: 0, implemented: 0 })),
       (this.prisma as any).cisControl.aggregate({ where: { organizationId }, _count: { _all: true } }).then((r: any) => (this.prisma as any).cisControl.count({ where: { organizationId, status: 'IMPLEMENTED' } }).then((impl: number) => ({ total: r._count._all, implemented: impl }))).catch(() => ({ total: 0, implemented: 0 })),
       (this.prisma as any).soc2Criterion.aggregate({ where: { organizationId }, _count: { _all: true } }).then((r: any) => (this.prisma as any).soc2Criterion.count({ where: { organizationId, status: 'IMPLEMENTED' } }).then((impl: number) => ({ total: r._count._all, implemented: impl }))).catch(() => ({ total: 0, implemented: 0 })),
       (this.prisma as any).iso27701Control.aggregate({ where: { organizationId }, _count: { _all: true } }).then((r: any) => (this.prisma as any).iso27701Control.count({ where: { organizationId, status: 'IMPLEMENTED' } }).then((impl: number) => ({ total: r._count._all, implemented: impl }))).catch(() => ({ total: 0, implemented: 0 })),

@@ -376,11 +376,11 @@ export class GdprService {
     const dsar = await this.prisma.dataSubjectRequest.create({
       data: {
         organizationId: org.id,
-        type:           dto.type,
+        requestType:    dto.type as any,   // DsarType enum value
         subjectName:    dto.subjectName || 'Não fornecido',
         subjectEmail:   dto.subjectEmail,
         description:    dto.description,
-        status:         'RECEIVED',
+        status:         'RECEIVED' as any, // DsarStatus enum
         receivedAt:     new Date(),
         dueAt:          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days (Art. 12 GDPR)
       },
