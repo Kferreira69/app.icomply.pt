@@ -159,11 +159,11 @@ export function Sidebar() {
     // ── Governance Domains
     {
       type: 'domains',
-      label: 'Governance Domains',
+      label: t('sectionGovernance'),
       domains: [
         {
           key: 'security',
-          label: 'Security Governance',
+          label: t('securityGovernance'),
           icon: ShieldCheck,
           color: 'bg-blue-600 text-white',
           items: [
@@ -177,7 +177,7 @@ export function Sidebar() {
         },
         {
           key: 'privacy',
-          label: 'Privacy Governance',
+          label: t('privacyGovernance'),
           icon: Eye,
           color: 'bg-purple-600 text-white',
           items: [
@@ -187,7 +187,7 @@ export function Sidebar() {
         },
         {
           key: 'ai',
-          label: 'AI Governance',
+          label: t('aiGovernanceDomain'),
           icon: Brain,
           color: 'bg-violet-600 text-white',
           items: [
@@ -196,37 +196,37 @@ export function Sidebar() {
         },
         {
           key: 'ethics',
-          label: 'Ethics & Speak-Up',
+          label: t('ethicsSpeak'),
           icon: Scale,
           color: 'bg-orange-600 text-white',
           items: [
-            { href: '/denuncias',      label: 'Canal Denúncias (RGPC)',  icon: MessageSquareWarning },
-            { href: '/aml',            label: 'AML · KYC · Sanções',    icon: Scale },
-            { href: '/anti-bribery',   label: 'ISO 37001 · Anti-Bribery', icon: Handshake },
+            { href: '/denuncias',      label: t('denuncias'),             icon: MessageSquareWarning },
+            { href: '/aml',            label: 'AML · KYC · Sanções',          icon: Scale },
+            { href: '/anti-bribery',   label: 'ISO 37001 · Anti-Bribery',     icon: Handshake },
           ],
         },
         {
           key: 'workforce',
-          label: 'Workforce Governance',
+          label: t('workforceGovernance'),
           icon: Briefcase,
           color: 'bg-green-600 text-white',
           items: [
-            { href: '/hr-compliance', label: 'HR · Pay · SHST · Contratos', icon: Briefcase },
-            { href: '/workforce',     label: 'ISO 45001 · OHS Compliance',  icon: HardHat },
+            { href: '/hr-compliance', label: t('hrCompliance'),             icon: Briefcase },
+            { href: '/workforce',     label: 'ISO 45001 · OHS Compliance',     icon: HardHat },
           ],
         },
         {
           key: 'thirdparty',
-          label: 'Third-Party Governance',
+          label: t('thirdPartyGovernance'),
           icon: Building2,
           color: 'bg-teal-600 text-white',
           items: [
-            { href: '/vendors', label: 'Fornecedores & TPRM', icon: Building2 },
+            { href: '/vendors', label: t('vendors'), icon: Building2 },
           ],
         },
         {
           key: 'esg',
-          label: 'ESG & Sustentabilidade',
+          label: t('esgSustainability'),
           icon: Leaf,
           color: 'bg-emerald-600 text-white',
           items: [
@@ -235,7 +235,7 @@ export function Sidebar() {
         },
         {
           key: 'resilience',
-          label: 'Resiliência & Continuidade',
+          label: t('resilienceContinuity'),
           icon: ShieldAlert,
           color: 'bg-amber-600 text-white',
           items: [
@@ -244,7 +244,7 @@ export function Sidebar() {
         },
         {
           key: 'quality',
-          label: 'Quality & Operações',
+          label: t('qualityOps'),
           icon: ClipboardList,
           color: 'bg-cyan-600 text-white',
           items: [
@@ -253,7 +253,7 @@ export function Sidebar() {
         },
         {
           key: 'regulatory',
-          label: 'Regulatory Change',
+          label: t('regulatoryChangeDomain'),
           icon: CalendarDays,
           color: 'bg-pink-600 text-white',
           items: [
@@ -266,22 +266,22 @@ export function Sidebar() {
     // ── GRC Operations
     {
       type: 'domains',
-      label: 'GRC Operations',
+      label: t('sectionGRC'),
       domains: [
         {
           key: 'projects',
-          label: 'Projetos & Tarefas',
+          label: t('projectsTasks'),
           icon: FolderOpen,
           color: 'bg-sky-600 text-white',
           items: [
             { href: '/projects', label: t('projects'), icon: FolderOpen },
             { href: '/tasks',    label: t('tasks'),    icon: CheckSquare },
-            { href: '/itsm',     label: 'IT Service Mgmt',     icon: Settings },
+            { href: '/itsm',     label: 'IT Service Mgmt', icon: Settings },
           ],
         },
         {
           key: 'risk',
-          label: 'Risk & Evidence',
+          label: t('riskEvidence'),
           icon: AlertTriangle,
           color: 'bg-yellow-600 text-white',
           items: [
@@ -291,17 +291,17 @@ export function Sidebar() {
         },
         {
           key: 'audit',
-          label: 'Audit & Assurance',
+          label: t('auditAssurance'),
           icon: Shield,
           color: 'bg-indigo-600 text-white',
           items: [
-            { href: '/audits',   label: t('audits'),   icon: Shield },
-            { href: '/capa',     label: t('capa'),     icon: AlertCircle },
+            { href: '/audits',   label: t('audits'),  icon: Shield },
+            { href: '/capa',     label: t('capa'),    icon: AlertCircle },
           ],
         },
         {
           key: 'governance',
-          label: 'Políticas & Relatórios',
+          label: t('policiesReports'),
           icon: BookOpen,
           color: 'bg-gray-600 text-white',
           items: [
@@ -311,14 +311,14 @@ export function Sidebar() {
         },
         {
           key: 'controls',
-          label: 'Unified Controls',
+          label: t('unifiedControls'),
           icon: GitMerge,
           color: 'bg-rose-600 text-white',
           items: [
-            { href: '/governance/controls',  label: 'Control Library',      icon: Layers },
-            { href: '/governance/framework-map', label: 'Framework Map',      icon: GitMerge },
-            { href: '/governance/gaps',      label: 'Gap & Impact',         icon: Zap },
-            { href: '/governance/obligations', label: 'Regulatory Horizon', icon: ScrollText },
+            { href: '/governance/controls',      label: 'Control Library',      icon: Layers },
+            { href: '/governance/framework-map', label: 'Framework Map',        icon: GitMerge },
+            { href: '/governance/gaps',          label: 'Gap & Impact',         icon: Zap },
+            { href: '/governance/obligations',   label: 'Regulatory Horizon',   icon: ScrollText },
           ],
         },
       ],
@@ -327,7 +327,7 @@ export function Sidebar() {
     // ── Tools (flat)
     {
       type: 'flat',
-      label: 'Ferramentas',
+      label: t('tools'),
       items: [
         { href: '/ai-assistant', label: t('aiAssistant'), icon: Bot },
         { href: '/excel-import', label: t('import'),      icon: Upload },
