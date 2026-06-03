@@ -53,20 +53,20 @@ describe('AuthService', () => {
   // ── validateUser ──────────────────────────────────────────────
 
   describe('validateUser', () => {
-    it('should return null when user not found', async () => {
+    it('should throw UnauthorizedException when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      const result = await service.validateUser('notfound@test.com', 'pass');
-      expect(result).toBeNull();
+      await expect(service.validateUser('notfound@test.com', 'pass'))
+        .rejects.toThrow('Invalid credentials');
     });
 
-    it('should return null when user is SUSPENDED', async () => {
+    it('should throw UnauthorizedException when user is SUSPENDED', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: '1', email: 'test@test.com', status: 'SUSPENDED',
         passwordHash: '$argon2id$v=19$test', organizationId: 'org1',
         organization: { id: 'org1', name: 'Test', slug: 'test' },
       });
-      const result = await service.validateUser('test@test.com', 'pass');
-      expect(result).toBeNull();
+      await expect(service.validateUser('test@test.com', 'pass'))
+        .rejects.toThrow('Account is not active');
     });
   });
 
