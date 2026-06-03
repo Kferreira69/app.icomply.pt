@@ -52,9 +52,16 @@ export class RisksController {
   update(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: UpdateRiskDto,
   ) {
-    return this.service.update(id, orgId, dto);
+    return this.service.update(id, orgId, dto, userId);
+  }
+
+  @Get(':id/history')
+  @ApiOperation({ summary: 'Get risk score history (snapshots)' })
+  getHistory(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
+    return this.service.getHistory(id, orgId);
   }
 
   @Patch(':id/treatment')

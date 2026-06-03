@@ -112,14 +112,26 @@ export class RisksService {
     return { ...risk, riskLevel: getRiskLevel(risk.inherentScore) };
   }
 
-  async update(id: string, organizationId: string, dto: UpdateRiskDto) {
-    await this.findOne(id, organizationId);
+  async update(id: string, organizationId: string, dto: UpdateRiskDto, userId?: string) {
+    const existing = await this.findOne(id, organizationId);
+
+    // Take snapshot before updating (for history chart)
+    await (this.prisma as any).riskSnapshot.create({
+      data: {
+        riskId:         id,
+        inherentScore:  existing.inherentScore,
+        residualScore:  existing.residualScore,
+        status:         existing.status,
+        likelihood:     existing.likelihood,
+        impact:         existing.impact,
+        capturedById:   userId,
+      },
+    }).catch(() => {}); // non-blocking
 
     const updateData: any = { ...dto };
     if (dto.likelihood || dto.impact) {
-      const current = await this.prisma.risk.findUnique({ where: { id } });
-      const l = dto.likelihood ? LIKELIHOOD_VALUES[dto.likelihood] : LIKELIHOOD_VALUES[current.likelihood];
-      const i = dto.impact ? IMPACT_VALUES[dto.impact] : IMPACT_VALUES[current.impact];
+      const l = dto.likelihood ? LIKELIHOOD_VALUES[dto.likelihood] : LIKELIHOOD_VALUES[existing.likelihood];
+      const i = dto.impact ? IMPACT_VALUES[dto.impact] : IMPACT_VALUES[existing.impact];
       updateData.inherentScore = l * i;
     }
 
@@ -129,6 +141,15 @@ export class RisksService {
       include: {
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
+    });
+  }
+
+  async getHistory(id: string, organizationId: string) {
+    await this.findOne(id, organizationId);
+    return (this.prisma as any).riskSnapshot.findMany({
+      where: { riskId: id },
+      orderBy: { capturedAt: 'asc' },
+      select: { inherentScore: true, residualScore: true, status: true, capturedAt: true },
     });
   }
 

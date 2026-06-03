@@ -56,7 +56,10 @@
     "rxjs": "^7.8.1",
     "uuid": "^9.0.0",
     "otplib": "^12.0.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "@sentry/node": "^8.0.0",
+    "@sentry/nestjs": "^8.0.0",
+    "prom-client": "^15.1.0"
   },
   "prisma": {
     "seed": "ts-node --transpile-only --project tsconfig.seed.json prisma/seed.ts"

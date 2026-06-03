@@ -54,6 +54,8 @@ import { RegulatoryChangeModule } from './regulatory-change/regulatory-change.mo
 import { OrgProfileModule } from './org-profile/org-profile.module';
 import { VendorQuestionnaireModule } from './vendor-questionnaire/vendor-questionnaire.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { SsoModule } from './sso/sso.module';
 
 @Module({
   imports: [
@@ -128,6 +130,8 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     OrgProfileModule,
     VendorQuestionnaireModule,
     WebhooksModule,
+    MetricsModule,
+    SsoModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

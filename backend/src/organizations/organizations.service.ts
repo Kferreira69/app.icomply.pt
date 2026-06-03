@@ -138,6 +138,18 @@ export class OrganizationsService {
     if (openFindings > 0)            alerts.push({ type: 'audit',    severity: 'medium',   message: `${openFindings} finding(s) de auditoria por resolver`,        count: openFindings,            href: '/audits' });
     if (pendingVendorAssessments > 0) alerts.push({ type: 'vendor',  severity: 'medium',   message: `${pendingVendorAssessments} fornecedor(es) de alto risco sem avaliação recente`, count: pendingVendorAssessments, href: '/vendors' });
 
+    // ── Compliance maturity scores (0-5 per domain) ──────────────
+    // 0=Not Started, 1=Initial, 2=Developing, 3=Defined, 4=Managed, 5=Optimising
+    const toMaturity = (pctVal: number): number => {
+      if (pctVal === 0)   return 0;
+      if (pctVal < 20)    return 1;
+      if (pctVal < 40)    return 2;
+      if (pctVal < 60)    return 3;
+      if (pctVal < 80)    return 4;
+      return 5;
+    };
+    const maturityScores = domainScores.map(d => ({ ...d, maturity: toMaturity(d.score) }));
+
     return {
       projects: { active: activeProjects, total: totalProjects, byStatus: projects },
       tasks: { overdue: overdueTasks },
@@ -149,6 +161,10 @@ export class OrganizationsService {
       audits: { active: activeAudits, openFindings },
       vendors: { highRiskNoAssessment: pendingVendorAssessments },
       domainScores,
+      maturityScores,
+      overallMaturity: maturityScores.length > 0
+        ? Math.round(maturityScores.reduce((s, d) => s + d.maturity, 0) / maturityScores.length * 10) / 10
+        : 0,
       alerts: alerts.sort((a, b) => {
         const order = { critical: 0, high: 1, medium: 2 };
         return order[a.severity] - order[b.severity];

@@ -146,6 +146,35 @@ export class MailService {
     );
   }
 
+  async sendWeeklyDigest(email: string, firstName: string, orgName: string, stats: { overdueTasks: number; highRisks: number; openCapas: number; expiringEvidence: number }): Promise<void> {
+    const items = [
+      stats.overdueTasks   > 0 ? `<li>⏰ <b>${stats.overdueTasks}</b> tarefa(s) em atraso</li>`       : '',
+      stats.highRisks      > 0 ? `<li>⚠️ <b>${stats.highRisks}</b> risco(s) alto/crítico</li>`         : '',
+      stats.openCapas      > 0 ? `<li>🔧 <b>${stats.openCapas}</b> CAPA(s) em aberto</li>`             : '',
+      stats.expiringEvidence > 0 ? `<li>📄 <b>${stats.expiringEvidence}</b> evidência(s) a expirar</li>` : '',
+    ].filter(Boolean).join('\n');
+
+    await this.send(
+      email,
+      `[iComply] Resumo semanal de conformidade — ${orgName}`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Resumo Semanal de Conformidade</h2>
+        <p>Olá ${firstName},</p>
+        <p>Aqui está o resumo semanal de conformidade para <strong>${orgName}</strong>:</p>
+        <ul style="line-height: 2;">${items}</ul>
+        <p style="margin: 24px 0;">
+          <a href="${this.frontendUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            Ver na plataforma
+          </a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System · Digest semanal (cada segunda-feira)</p>
+      </div>
+      `,
+    );
+  }
+
   async sendDsarConfirmation(email: string, subjectName: string, orgName: string, requestId: string): Promise<void> {
     await this.send(
       email,

@@ -134,6 +134,7 @@ export const risksApi = {
   update:          (id: string, data: any)    => api.patch(`/risks/${id}`, data),
   updateTreatment: (id: string, data: any)    => api.patch(`/risks/${id}/treatment`, data),
   acceptRisk:      (id: string, data: any)    => api.post(`/risks/${id}/accept`, data),
+  history:         (id: string)               => api.get(`/risks/${id}/history`),
 };
 
 export const evidenceApi = {
@@ -457,6 +458,32 @@ export const webhooksApi = {
   create:     (data: any)     => api.post('/webhooks', data),
   update:     (id: string, data: any) => api.put(`/webhooks/${id}`, data),
   remove:     (id: string)    => api.delete(`/webhooks/${id}`),
+};
+
+// ── SSO ───────────────────────────────────────────────────────
+
+export const ssoApi = {
+  getConfig:    ()          => api.get('/sso'),
+  upsertConfig: (data: any) => api.put('/sso', data),
+  test:         ()          => api.post('/sso/test', {}),
+  disable:      ()          => api.delete('/sso'),
+};
+
+// ── Audit Templates ───────────────────────────────────────────
+
+export const auditTemplatesApi = {
+  list:   (framework?: string) => api.get('/audit-templates', { params: { framework } }),
+  create: (data: any)          => api.post('/audit-templates', data),
+  remove: (id: string)         => api.delete(`/audit-templates/${id}`),
+};
+
+// ── Custom Roles ──────────────────────────────────────────────
+
+export const orgRolesApi = {
+  list:   ()              => api.get('/org-roles'),
+  create: (data: any)     => api.post('/org-roles', data),
+  update: (id: string, data: any) => api.put(`/org-roles/${id}`, data),
+  remove: (id: string)    => api.delete(`/org-roles/${id}`),
 };
 
 // ── HR Compliance ─────────────────────────────────────────────

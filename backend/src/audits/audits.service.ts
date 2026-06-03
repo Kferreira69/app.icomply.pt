@@ -89,11 +89,33 @@ export class AuditsService {
     });
   }
 
-  async createFinding(auditId: string, dto: CreateFindingDto, organizationId: string) {
+  async createFinding(auditId: string, dto: CreateFindingDto, organizationId: string, userId?: string) {
     await this.findOne(auditId, organizationId);
-    return this.prisma.finding.create({
+    const finding = await this.prisma.finding.create({
       data: { ...dto, auditId },
     });
+
+    // Auto-create CAPA for HIGH and CRITICAL findings
+    if (['HIGH', 'CRITICAL'].includes(dto.severity as string) && userId) {
+      try {
+        const capaId = `CAPA-${Date.now().toString().slice(-6)}`;
+        await this.prisma.capa.create({
+          data: {
+            capaId,
+            title:       `[Auto] ${finding.title || 'Finding ' + finding.id.slice(-6)}`,
+            description: `CAPA criado automaticamente a partir de finding de auditoria.\n\nFinding: ${finding.description || ''}`,
+            type:        'CORRECTIVE',
+            status:      'OPEN',
+            priority:    dto.severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+            source:      'AUDIT',
+            createdById: userId,
+            findingId:   finding.id,
+          } as any,
+        });
+      } catch { /* non-blocking — if CAPA creation fails, finding is still saved */ }
+    }
+
+    return finding;
   }
 
   async updateFinding(id: string, dto: Partial<CreateFindingDto>, organizationId: string) {

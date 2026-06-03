@@ -370,6 +370,37 @@ function ModuleStatus({ policyStats, gdprStats, dashData, summary }: any) {
   );
 }
 
+// ── Maturity Score ────────────────────────────────────────────
+function MaturityWidget({ maturityScores, overallMaturity }: { maturityScores: any[]; overallMaturity: number }) {
+  if (!maturityScores?.length) return null;
+  const LEVEL_LABELS = ['Não iniciado', 'Inicial', 'Desenvolvimento', 'Definido', 'Gerido', 'Optimizado'];
+  const LEVEL_COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#10B981'];
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-gray-900">Maturidade de Conformidade</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-bold" style={{ color: LEVEL_COLORS[Math.round(overallMaturity)] }}>
+            {overallMaturity.toFixed(1)}
+          </span>
+          <span className="text-xs text-gray-500">/5 — {LEVEL_LABELS[Math.round(overallMaturity)]}</span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {maturityScores.map(d => (
+          <div key={d.domain} className="flex items-center gap-3">
+            <span className="text-xs text-gray-600 w-24 flex-shrink-0 truncate">{d.domain}</span>
+            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${(d.maturity / 5) * 100}%`, backgroundColor: LEVEL_COLORS[d.maturity] }} />
+            </div>
+            <span className="text-xs font-medium w-4 text-right" style={{ color: LEVEL_COLORS[d.maturity] }}>{d.maturity}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Smart Alerts ──────────────────────────────────────────────
 function SmartAlerts({ alerts }: { alerts: any[] }) {
   if (!alerts?.length) return null;
@@ -610,11 +641,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Alerts + Domain Scores row */}
+      {/* Alerts + Domain Scores + Maturity row */}
       {((dashData?.alerts?.length ?? 0) > 0 || (dashData?.domainScores?.length ?? 0) > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <SmartAlerts alerts={dashData?.alerts ?? []} />
           <DomainScores scores={dashData?.domainScores ?? []} />
+          <MaturityWidget maturityScores={dashData?.maturityScores ?? []} overallMaturity={dashData?.overallMaturity ?? 0} />
         </div>
       )}
 

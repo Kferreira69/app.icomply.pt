@@ -11,6 +11,23 @@ import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
+// ── Sentry (initialise before anything else if DSN is set) ────
+if (process.env.SENTRY_DSN) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Sentry = require('@sentry/node');
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: 0.1,
+      release: process.env.APP_VERSION || 'unknown',
+    });
+    console.log('[Sentry] Initialised successfully');
+  } catch {
+    console.warn('[Sentry] Could not initialise — @sentry/node may not be installed yet');
+  }
+}
+
 async function bootstrap() {
   const isProdBuild = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

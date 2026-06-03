@@ -53,13 +53,14 @@ export class AuditsController {
   }
 
   @Post(':id/findings')
-  @ApiOperation({ summary: 'Add a finding to an audit' })
+  @ApiOperation({ summary: 'Add a finding (HIGH/CRITICAL auto-creates CAPA)' })
   createFinding(
     @Param('id') auditId: string,
     @Body() dto: CreateFindingDto,
     @CurrentUser('organizationId') orgId: string,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.service.createFinding(auditId, dto, orgId);
+    return this.service.createFinding(auditId, dto, orgId, userId);
   }
 
   @Patch(':auditId/findings/:findingId')

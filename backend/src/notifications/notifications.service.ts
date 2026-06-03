@@ -127,6 +127,42 @@ export class NotificationsService {
     return this.getPreferences(userId);
   }
 
+  // ── Cron: weekly digest (Monday 7:30 AM) ────────────────────
+
+  @Cron('30 7 * * 1') // Every Monday at 07:30
+  async sendWeeklyDigest() {
+    this.logger.log('Sending weekly compliance digest...');
+    try {
+      // Get all active organizations
+      const orgs = await this.prisma.organization.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, users: { where: { role: 'ADMIN', status: 'ACTIVE' }, select: { email: true, firstName: true } } },
+      });
+
+      for (const org of orgs) {
+        const [overdueTasks, highRisks, openCapas, expiringEvidence] = await Promise.all([
+          this.prisma.task.count({ where: { project: { organizationId: org.id }, status: { notIn: ['DONE','CANCELLED'] }, dueDate: { lt: new Date() } } }),
+          this.prisma.risk.count({ where: { organizationId: org.id, inherentScore: { gte: 12 }, status: { notIn: ['CLOSED','ACCEPTED'] } } }),
+          this.prisma.capa.count({ where: { createdBy: { organizationId: org.id }, status: { notIn: ['CLOSED'] } } }),
+          this.prisma.evidence.count({ where: { uploadedBy: { organizationId: org.id }, expiresAt: { lte: new Date(Date.now() + 30 * 86400000) } } }),
+        ]);
+
+        const hasIssues = overdueTasks > 0 || highRisks > 0 || openCapas > 0 || expiringEvidence > 0;
+        if (!hasIssues) continue;
+
+        for (const admin of org.users) {
+          if (!admin.email) continue;
+          await this.mail.sendWeeklyDigest(admin.email, admin.firstName, org.name, {
+            overdueTasks, highRisks, openCapas, expiringEvidence,
+          }).catch(e => this.logger.warn(`Weekly digest failed for ${admin.email}: ${e.message}`));
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Weekly digest cron failed: ${err.message}`);
+    }
+    this.logger.log('Weekly digest cron complete.');
+  }
+
   // ── Cron: deadline alerts (runs daily at 8:00 AM) ────────
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)

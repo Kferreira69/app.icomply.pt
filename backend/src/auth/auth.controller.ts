@@ -177,6 +177,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth('JWT')
+  @Throttle({ short: { limit: 5, ttl: 300000 } })  // 5 attempts / 5 min
   @Post('2fa/validate')
   @ApiOperation({ summary: 'Validate TOTP during login (called separately after password auth)' })
   @HttpCode(HttpStatus.OK)
