@@ -91,6 +91,7 @@
     "billing": "Billing",
     "notifications": "Notifications",
     "webhooks": "Webhooks",
+    "roles": "Roles & Permissions",
     "users": "Users",
     "security": "Security",
     "translations": "Translations",
