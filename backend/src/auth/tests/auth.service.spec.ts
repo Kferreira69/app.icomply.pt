@@ -74,13 +74,14 @@ describe('AuthService', () => {
 
   describe('hashPassword', () => {
     it('should produce a hash starting with $argon2', async () => {
-      const hash = await service.hashPassword('TestPassword123!');
+      // hashPassword is private — cast via any to test the algorithm
+      const hash = await (service as any).hashPassword('TestPassword123!');
       expect(hash).toMatch(/^\$argon2/);
     });
 
     it('should produce different hashes for the same password', async () => {
-      const hash1 = await service.hashPassword('same-pass');
-      const hash2 = await service.hashPassword('same-pass');
+      const hash1 = await (service as any).hashPassword('same-pass');
+      const hash2 = await (service as any).hashPassword('same-pass');
       expect(hash1).not.toBe(hash2);
     });
   });
