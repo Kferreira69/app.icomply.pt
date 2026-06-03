@@ -12,7 +12,7 @@ import {
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
-  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell, Webhook, ShieldCheck,
+  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell, Webhook,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useQuery } from '@tanstack/react-query';
