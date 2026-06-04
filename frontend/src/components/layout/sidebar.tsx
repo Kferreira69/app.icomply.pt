@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database,
-  Settings, Upload, ChevronLeft, ChevronDown,
+  Settings, Upload, ChevronLeft, ChevronDown, Pin, PinOff,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
@@ -135,7 +135,11 @@ function DomainGroup({
 
 // ── Main sidebar ──────────────────────────────────────────────
 
-export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
+export function Sidebar({ onClose, pinned = false, onTogglePin }: {
+  onClose?: () => void;
+  pinned?: boolean;
+  onTogglePin?: () => void;
+} = {}) {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const collapsed = false; // Always expanded — sidebar is now an overlay
@@ -375,11 +379,24 @@ export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
           <path fill="url(#sl-b)" d="M197.6.3C87.5-6.1-4.5,84.5.2,194.7c1.8,42.8,18.3,83.6,46.7,115.6l17.7-37.9C17.1,205.1,33.2,112,100.5,64.5c63.9-45.1,151.8-33.1,201.3,27.3l26.4-26.8C295.3,26.6,248.1,3.2,197.6.3zm173.2,156.1L335.7,192c-1,28.9-10.4,56.8-27,80.5l17.7,37.9C363.5,268.3,379.8,211.8,370.8,156.4z" />
         </svg>
         {!collapsed && <span className="text-lg font-bold text-white truncate flex-1">iComply</span>}
-        {onClose && (
-          <button onClick={onClose} className="ml-auto p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+          {/* Pin button — like MS Office panels */}
+          {onTogglePin && (
+            <button
+              onClick={onTogglePin}
+              title={pinned ? 'Desprender menu (overlay)' : 'Fixar menu (sempre visível)'}
+              className={`p-1.5 rounded-lg transition-colors ${pinned ? 'text-blue-400 bg-blue-900/40 hover:bg-blue-900/60' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+            >
+              {pinned ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
+            </button>
+          )}
+          {/* Close — only shown in overlay mode */}
+          {onClose && !pinned && (
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Navigation */}

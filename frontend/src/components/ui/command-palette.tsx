@@ -67,13 +67,8 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', handler);
   }, [open, selected, filtered, router, close_]);
 
-  if (!open) return (
-    <button onClick={open_} className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 hover:text-gray-200 text-sm transition-colors border border-gray-700">
-      <Search className="w-4 h-4" />
-      <span className="hidden md:inline">Pesquisar...</span>
-      <kbd className="hidden md:flex items-center gap-0.5 text-xs bg-gray-700 px-1.5 py-0.5 rounded ml-1">⌘K</kbd>
-    </button>
-  );
+  // No visible trigger — activated via Cmd+K or the topbar search button
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] p-4" onClick={close_}>

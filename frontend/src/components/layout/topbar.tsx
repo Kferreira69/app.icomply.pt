@@ -41,9 +41,10 @@ const PATH_TO_KEY: Record<string, string> = {
 interface TopbarProps {
   onMenuClick?: () => void;
   menuOpen?: boolean;
+  pinned?: boolean;
 }
 
-export function Topbar({ onMenuClick, menuOpen }: TopbarProps = {}) {
+export function Topbar({ onMenuClick, menuOpen, pinned }: TopbarProps = {}) {
   const pathname = usePathname();
   const { user, logoutWithServer } = useAuthStore();
   const t = useTranslations('nav');
@@ -85,7 +86,7 @@ export function Topbar({ onMenuClick, menuOpen }: TopbarProps = {}) {
           onClick={onMenuClick}
           className={cn(
             'p-2 rounded-xl transition-colors',
-            menuOpen ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900',
+            pinned && menuOpen ? 'bg-primary text-white' : menuOpen ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900',
           )}
           title="Menu de navegação"
         >
