@@ -6,13 +6,13 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
-  AlertTriangle, FileText, Shield, AlertCircle, BarChart2,
+  AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight, ChevronDown,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
-  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell, Webhook,
+  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell, Webhook, Rss,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useQuery } from '@tanstack/react-query';
@@ -194,12 +194,14 @@ export function Sidebar() {
           icon: ShieldCheck,
           color: 'bg-blue-600 text-white',
           items: [
-            { href: '/soa',   label: 'ISO 27001 — SoA',       icon: FileCheck2 },
-            { href: '/nis2',  label: 'NIS2 Compliance',        icon: Network },
-            { href: '/dora',  label: 'DORA — Resiliência ICT', icon: Activity },
-            { href: '/soc2',  label: 'SOC 2 — Trust Criteria', icon: Award },
-            { href: '/cis',   label: 'CIS Controls v8',        icon: Shield },
-            { href: '/tisax', label: 'TISAX — VDA ISA',        icon: Car },
+            { href: '/soa',             label: 'ISO 27001 — SoA',          icon: FileCheck2 },
+            { href: '/nis2',            label: 'NIS2 Compliance',           icon: Network },
+            { href: '/nis2/incidents',  label: '↳ Notificações Incidentes', icon: AlertTriangle },
+            { href: '/dora',            label: 'DORA — Resiliência ICT',    icon: Activity },
+            { href: '/dora/register',   label: '↳ Register of Information', icon: Database },
+            { href: '/soc2',            label: 'SOC 2 — Trust Criteria',    icon: Award },
+            { href: '/cis',             label: 'CIS Controls v8',           icon: Shield },
+            { href: '/tisax',           label: 'TISAX — VDA ISA',           icon: Car },
           ],
         },
         {
@@ -348,6 +350,19 @@ export function Sidebar() {
             { href: '/governance/obligations',   label: 'Regulatory Horizon',   icon: ScrollText },
           ],
         },
+      ],
+    },
+
+    // ── Intelligence & Operations
+    {
+      type: 'flat',
+      label: 'Intelligence',
+      items: [
+        { href: '/regulatory-feed',   label: 'Regulatory Intelligence', icon: Rss },
+        { href: '/board-reports',     label: 'Board Reports',           icon: FileText },
+        { href: '/management-body',   label: 'Órgão de Gestão',         icon: Users },
+        { href: '/auditor-sessions',  label: 'Portal de Auditoria',     icon: ShieldCheck },
+        { href: '/client-hub',        label: 'Client Hub',              icon: Building2 },
       ],
     },
 

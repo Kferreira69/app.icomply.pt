@@ -469,6 +469,81 @@ export const ssoApi = {
   disable:      ()          => api.delete('/sso'),
 };
 
+// ── DORA Register of Information ─────────────────────────────
+
+export const doraRegisterApi = {
+  dashboard: ()                          => api.get('/dora-register/dashboard'),
+  list:      (params?: any)              => api.get('/dora-register', { params }),
+  create:    (data: any)                 => api.post('/dora-register', data),
+  update:    (id: string, data: any)     => api.put(`/dora-register/${id}`, data),
+  remove:    (id: string)                => api.delete(`/dora-register/${id}`),
+  exportCsv: ()                          => api.get('/dora-register/export/csv', { responseType: 'blob' }),
+};
+
+// ── NIS2 Incident Notifications ──────────────────────────────
+
+export const nis2IncidentsApi = {
+  list:           ()                              => api.get('/nis2-incidents'),
+  get:            (id: string)                    => api.get(`/nis2-incidents/${id}`),
+  getNca:         ()                              => api.get('/nis2-incidents/nca'),
+  create:         (data: any)                     => api.post('/nis2-incidents', data),
+  update:         (id: string, data: any)         => api.put(`/nis2-incidents/${id}`, data),
+  submit:         (id: string, type: string)      => api.post(`/nis2-incidents/${id}/submit/${type}`, {}),
+  generateReport: (id: string, type: string)      => api.get(`/nis2-incidents/${id}/report/${type}`),
+};
+
+// ── Auditor Portal ────────────────────────────────────────────
+
+export const auditorPortalApi = {
+  listSessions:   ()                              => api.get('/auditor-portal/sessions'),
+  createSession:  (data: any)                     => api.post('/auditor-portal/sessions', data),
+  deactivate:     (id: string)                    => api.delete(`/auditor-portal/sessions/${id}`),
+  respond:        (id: string, response: string)  => api.put(`/auditor-portal/requests/${id}/respond`, { response }),
+  getPortal:      (token: string)                 => fetch(`${BASE_URL}/auditor-portal/public/${token}`).then(r => r.json()),
+  createRequest:  (token: string, data: any)      => fetch(`${BASE_URL}/auditor-portal/public/${token}/request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
+};
+
+// ── Management Body Liability ─────────────────────────────────
+
+export const managementBodyApi = {
+  getMembers:  ()                              => api.get('/management-body'),
+  getSummary:  ()                              => api.get('/management-body/summary'),
+  addMember:   (data: any)                     => api.post('/management-body', data),
+  updateMember:(id: string, data: any)         => api.put(`/management-body/${id}`, data),
+  removeMember:(id: string)                    => api.delete(`/management-body/${id}`),
+  addAction:   (memberId: string, data: any)   => api.post(`/management-body/${memberId}/actions`, data),
+  acknowledge: (actionId: string)              => api.put(`/management-body/actions/${actionId}/acknowledge`, {}),
+};
+
+// ── Board Reports ─────────────────────────────────────────────
+
+export const boardReportsApi = {
+  list:           ()                              => api.get('/board-reports'),
+  get:            (id: string)                    => api.get(`/board-reports/${id}`),
+  packData:       (id: string)                    => api.get(`/board-reports/${id}/pack-data`),
+  create:         (data: any)                     => api.post('/board-reports', data),
+  update:         (id: string, data: any)         => api.put(`/board-reports/${id}`, data),
+  requestSignoff: (id: string, signers: any[])    => api.post(`/board-reports/${id}/request-signoff`, { signers }),
+};
+
+// ── Regulatory Intelligence Feed ──────────────────────────────
+
+export const regulatoryFeedApi = {
+  list:        (params?: any)   => api.get('/regulatory-feed', { params }),
+  unreadCount: ()               => api.get('/regulatory-feed/unread-count'),
+  markRead:    (id: string)     => api.put(`/regulatory-feed/${id}/read`, {}),
+  markAllRead: ()               => api.put('/regulatory-feed/read-all', {}),
+  seed:        ()               => api.post('/regulatory-feed/seed', {}),
+};
+
+// ── Client Hub ────────────────────────────────────────────────
+
+export const clientHubApi = {
+  getDashboard: ()              => api.get('/client-hub'),
+  addClient:    (data: any)     => api.post('/client-hub', data),
+  removeClient: (id: string)    => api.delete(`/client-hub/${id}`),
+};
+
 // ── Audit Templates ───────────────────────────────────────────
 
 export const auditTemplatesApi = {

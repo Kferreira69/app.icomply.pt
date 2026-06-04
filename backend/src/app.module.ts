@@ -56,6 +56,13 @@ import { VendorQuestionnaireModule } from './vendor-questionnaire/vendor-questio
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { SsoModule } from './sso/sso.module';
+import { DoraRegisterModule } from './dora-register/dora-register.module';
+import { Nis2IncidentsModule } from './nis2-incidents/nis2-incidents.module';
+import { AuditorPortalModule } from './auditor-portal/auditor-portal.module';
+import { ManagementBodyModule } from './management-body/management-body.module';
+import { BoardReportsModule } from './board-reports/board-reports.module';
+import { RegulatoryFeedModule } from './regulatory-feed/regulatory-feed.module';
+import { ClientHubModule } from './client-hub/client-hub.module';
 
 @Module({
   imports: [
@@ -132,6 +139,13 @@ import { SsoModule } from './sso/sso.module';
     WebhooksModule,
     MetricsModule,
     SsoModule,
+    DoraRegisterModule,
+    Nis2IncidentsModule,
+    AuditorPortalModule,
+    ManagementBodyModule,
+    BoardReportsModule,
+    RegulatoryFeedModule,
+    ClientHubModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

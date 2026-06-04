@@ -197,6 +197,22 @@ export class MailService {
     );
   }
 
+  async sendAuditorInvite(email: string, auditorName: string, orgName: string, url: string, expiresAt: Date): Promise<void> {
+    await this.send(email, `Convite para Portal de Auditoria — ${orgName}`,
+      `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Acesso ao Portal de Auditoria</h2>
+        <p>Olá <strong>${auditorName}</strong>,</p>
+        <p>A <strong>${orgName}</strong> partilhou consigo acesso ao portal de auditoria iComply para revisão de evidências e controlos.</p>
+        <div style="background: #f0f9ff; border-left: 4px solid #1a56db; padding: 12px; margin: 20px 0;">
+          <p style="margin:0; color:#1a56db; font-size:14px;">Acesso válido até: <strong>${expiresAt.toLocaleDateString('pt-PT')}</strong></p>
+        </div>
+        <p style="margin: 24px 0;"><a href="${url}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Aceder ao Portal</a></p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System</p>
+      </div>`,
+    );
+  }
+
   async sendScheduledReport(email: string, reportName: string, orgName: string, downloadUrl: string, frequency: string): Promise<void> {
     const freqLabel: Record<string, string> = { DAILY: 'diário', WEEKLY: 'semanal', MONTHLY: 'mensal', QUARTERLY: 'trimestral' };
     await this.send(

@@ -286,10 +286,18 @@ model Organization {
   orgRoles        OrgRole[]
   aiCreditUsage   AiCreditUsage[]
   ssoConfig       SsoConfig?
-  // Multi-entity: parent/child organizations
+  // Multi-entity
   parentId        String?
   parent          Organization?  @relation("OrgHierarchy", fields: [parentId], references: [id])
   children        Organization[] @relation("OrgHierarchy")
+  // Sprint Premium
+  doraRegisterEntries       DoraRegisterEntry[]
+  nis2IncidentNotifications Nis2IncidentNotification[]
+  auditorSessions           AuditorSession[]
+  managementBodyMembers     ManagementBodyMember[]
+  boardReports              BoardReport[]
+  hubMembershipsAsHub       ClientHubMembership[] @relation("HubConsultancy")
+  hubMembershipsAsClient    ClientHubMembership[] @relation("HubClient")
 
   users             User[]
   projects          Project[]
@@ -456,6 +464,7 @@ model User {
   capaRecordsVerified      CapaRecord[]           @relation("CapaVerifier")
   regChangesOwned          RegulatoryChange[]     @relation("RegChangeResponsible")
   calendarItemsOwned       ComplianceCalendarItem[] @relation("CalendarResponsible")
+  nis2IncidentsResponsible Nis2IncidentNotification[] @relation("Nis2IncidentResponsible")
 
   @@map("users")
 }
@@ -3263,4 +3272,242 @@ model ComplianceCalendarItem {
   @@index([organizationId, eventDate])
   @@index([organizationId, status])
   @@map("compliance_calendar_items")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPRINT PREMIUM — New enterprise-grade modules
+// ═══════════════════════════════════════════════════════════════
+
+// ── DORA Register of Information ──────────────────────────────
+
+model DoraRegisterEntry {
+  id                String   @id @default(uuid())
+  organizationId    String
+  // Article 28 fields (ICT third-party service providers)
+  providerName      String
+  providerLei       String?   // LEI code
+  providerCnpj      String?
+  providerCountry   String    @default("PT")
+  serviceType       String    // ICT_SERVICES | CLOUD | SAAS | DATA_CENTER | NETWORK | OTHER
+  serviceDescription String?
+  contractRef       String?
+  contractStart     DateTime?
+  contractEnd       DateTime?
+  isCritical        Boolean   @default(false)  // Critical or important function?
+  subContractors    Json?     // array of sub-ICT providers
+  dataTypes         String[]  // types of data processed
+  dataLocations     String[]  // countries where data is processed
+  exitStrategy      String?
+  substitutability  String?   // EASY | MODERATE | DIFFICULT | IMPOSSIBLE
+  concentrationRisk Boolean   @default(false)
+  lastAssessedAt    DateTime?
+  status            String    @default("ACTIVE") // ACTIVE | TERMINATED | UNDER_REVIEW
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isCritical])
+  @@index([organizationId, status])
+  @@map("dora_register_entries")
+}
+
+// ── NIS2 Incident Notifications ───────────────────────────────
+
+model Nis2IncidentNotification {
+  id                String   @id @default(uuid())
+  organizationId    String
+  incidentRef       String   // AUTO: NIS2-INC-XXXXXX
+  title             String
+  description       String?
+  incidentDate      DateTime
+  detectionDate     DateTime
+  severity          String   // SIGNIFICANT | MAJOR | CRITICAL
+  affectedSystems   String[]
+  affectedServices  String[]
+  rootCause         String?
+  impactDescription String?
+  // NIS2 Article 23 timeline
+  earlyWarningAt    DateTime?  // 24h deadline
+  initialReportAt   DateTime?  // 72h deadline
+  finalReportAt     DateTime?  // 1 month deadline
+  earlyWarningText  String?    @db.Text
+  initialReportText String?    @db.Text
+  finalReportText   String?    @db.Text
+  // Authority submission
+  authorityName     String?   // e.g. "CNCS", "BSI", "ANSSI"
+  authorityCountry  String?   // PT, DE, FR, ES, etc.
+  submittedAt       DateTime?
+  submissionRef     String?   // reference given by authority
+  status            String    @default("DRAFT") // DRAFT | EARLY_WARNING_SENT | INITIAL_REPORT_SENT | FINAL_REPORT_SENT | CLOSED
+  responsibleId     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  responsible  User?        @relation("Nis2IncidentResponsible", fields: [responsibleId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, incidentDate])
+  @@map("nis2_incident_notifications")
+}
+
+// ── External Auditor Portal ────────────────────────────────────
+
+model AuditorSession {
+  id             String   @id @default(uuid())
+  organizationId String
+  auditId        String?  // linked audit if applicable
+  token          String   @unique @default(uuid())
+  auditorName    String
+  auditorFirm    String?
+  auditorEmail   String
+  scope          Json?    // what they can access: { frameworks, dateRange, modules }
+  permissions    String[] // EVIDENCE | CONTROLS | FINDINGS | POLICIES | RISKS
+  expiresAt      DateTime
+  lastAccessAt   DateTime?
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requests     AuditorRequest[]
+
+  @@index([organizationId, isActive])
+  @@map("auditor_sessions")
+}
+
+model AuditorRequest {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     AuditorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type        String   // EVIDENCE_REQUEST | CLARIFICATION | FINDING
+  subject     String
+  message     String?  @db.Text
+  entityType  String?  // Evidence | Control | Policy | Risk
+  entityId    String?
+  status      String   @default("OPEN") // OPEN | RESPONDED | CLOSED
+  response    String?  @db.Text
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, status])
+  @@map("auditor_requests")
+}
+
+// ── Management Body Liability (NIS2 Art. 20) ──────────────────
+
+model ManagementBodyMember {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  title          String   // e.g. "CEO", "CFO", "Board Member"
+  email          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actions      ManagementBodyAction[]
+
+  @@index([organizationId, isActive])
+  @@map("management_body_members")
+}
+
+model ManagementBodyAction {
+  id          String   @id @default(uuid())
+  memberId    String
+  member      ManagementBodyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  type        String   // APPROVAL | AWARENESS | TRAINING | REVIEW | SIGN_OFF
+  title       String
+  description String?
+  framework   String?  // NIS2, DORA, GDPR, etc.
+  documentUrl String?
+  acknowledgedAt DateTime?
+  evidenceRef  String?
+  createdAt   DateTime @default(now())
+
+  @@index([memberId, type])
+  @@map("management_body_actions")
+}
+
+// ── Board Reports ──────────────────────────────────────────────
+
+model BoardReport {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  period         String   // e.g. "Q1 2025", "Annual 2025"
+  sections       Json?    // selected sections to include
+  status         String   @default("DRAFT") // DRAFT | PENDING_APPROVAL | APPROVED | PUBLISHED
+  pdfUrl         String?
+  approvedById   String?
+  approvedAt     DateTime?
+  publishedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  signoffs     BoardReportSignoff[]
+
+  @@index([organizationId, status])
+  @@map("board_reports")
+}
+
+model BoardReportSignoff {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    BoardReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  memberId  String?  // ManagementBodyMember
+  name      String
+  email     String
+  role      String?
+  signedAt  DateTime?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("board_report_signoffs")
+}
+
+// ── Regulatory Intelligence Feed ──────────────────────────────
+
+model RegulatoryFeedItem {
+  id             String   @id @default(uuid())
+  source         String   // EU_OJ | ENISA | EBA | EIOPA | ESMA | CNCS | BSI | ANSSI | CNPD | OTHER
+  sourceUrl      String?
+  title          String
+  summary        String?  @db.Text
+  publishedAt    DateTime
+  frameworks     String[] // affected frameworks
+  jurisdiction   String   @default("EU")
+  importance     String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  isRead         Boolean  @default(false)
+  aiSummary      String?  @db.Text // AI-generated plain language summary
+  affectedControls Json?  // suggested control IDs to review
+  createdAt      DateTime @default(now())
+
+  @@index([publishedAt])
+  @@index([importance])
+  @@map("regulatory_feed_items")
+}
+
+// ── Client Hub (multi-client for consultants) ─────────────────
+
+model ClientHubMembership {
+  id             String   @id @default(uuid())
+  hubOrgId       String   // the consultancy org
+  clientOrgId    String   // the client org
+  role           String   @default("MANAGER") // MANAGER | VIEWER | AUDITOR
+  isActive       Boolean  @default(true)
+  addedById      String?
+  createdAt      DateTime @default(now())
+
+  hubOrg    Organization @relation("HubConsultancy", fields: [hubOrgId], references: [id], onDelete: Cascade)
+  clientOrg Organization @relation("HubClient",      fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  @@unique([hubOrgId, clientOrgId])
+  @@map("client_hub_memberships")
 }
