@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
-  AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database, Activity,
+  AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight, ChevronDown,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
