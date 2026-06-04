@@ -12,7 +12,7 @@ import {
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
-  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Webhook, Rss,
+  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Webhook, Rss, Bell, ChevronUp,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -368,6 +368,20 @@ export function Sidebar() {
     { href: '/settings/translations', label: t('translations'), icon: ScrollText },
   ];
 
+  // ── Settings items (moved to user dropdown)
+  const settingsItems: NavLeaf[] = [
+    { href: '/settings/organization', label: t('organization'), icon: Settings },
+    { href: '/settings/billing',       label: t('billing'),       icon: CreditCard },
+    { href: '/settings/notifications', label: t('notifications'), icon: Bell },
+    { href: '/settings/webhooks',      label: t('webhooks'),      icon: Webhook },
+    { href: '/settings/roles',         label: t('roles'),         icon: ShieldCheck },
+    { href: '/settings/sso',           label: 'SSO',              icon: Shield },
+    { href: '/settings/ai-usage',      label: 'Utilização IA',    icon: Brain },
+    { href: '/settings/users',         label: t('users'),         icon: Users },
+    { href: '/settings/trust-center',  label: t('trustCenter'),   icon: Globe },
+    { href: '/settings/translations',  label: t('translations'),  icon: ScrollText },
+  ];
+
   // ── Which domains are open by default (has active child)
   const getDefaultOpen = (domain: NavDomain) =>
     domain.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
@@ -410,14 +424,6 @@ export function Sidebar() {
                 key={item.href}
                 item={item}
                 isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
-              />
-            ))}
-            <div className="border-t border-gray-700/60 my-2" />
-            {settingsItems.map(item => (
-              <CollapsedLink
-                key={item.href}
-                item={item}
-                isActive={pathname === item.href}
               />
             ))}
           </div>
@@ -472,59 +478,20 @@ export function Sidebar() {
               </div>
             ))}
 
-            {/* Settings section */}
-            <div>
-              <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
-                {t('settings')}
-              </p>
-              <div className="space-y-0.5">
-                {settingsItems.map(item => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                        isActive
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-300 hover:bg-gray-800 hover:text-white',
-                      )}
-                    >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
       </nav>
 
-      {/* User footer */}
-      <div className="border-t border-gray-700/60 p-3 flex-shrink-0">
-        {!collapsed && user && (
-          <div className="flex items-center gap-3 mb-3 px-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {user.firstName?.[0]}{user.lastName?.[0]}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user.firstName} {user.lastName}</p>
-              <p className="text-xs text-gray-400 truncate">{user.role}</p>
-            </div>
-          </div>
-        )}
-        <LocaleSwitcher collapsed={collapsed} />
-        <button
-          onClick={logoutWithServer}
-          className="flex items-center gap-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg px-3 py-2 text-sm w-full transition-colors mt-1"
-        >
-          <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>{t('logout')}</span>}
-        </button>
-      </div>
+      {/* User footer with settings dropdown */}
+      <UserFooter
+        user={user}
+        collapsed={collapsed}
+        settingsItems={settingsItems}
+        pathname={pathname}
+        onLogout={logoutWithServer}
+        logoutLabel={t('logout')}
+        settingsLabel={t('settings')}
+      />
 
       {/* Collapse toggle */}
       <button
@@ -534,5 +501,92 @@ export function Sidebar() {
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>
     </aside>
+  );
+}
+
+// ── User Footer with dropdown ─────────────────────────────────
+
+function UserFooter({ user, collapsed, settingsItems, pathname, onLogout, logoutLabel, settingsLabel }: {
+  user: any; collapsed: boolean; settingsItems: NavLeaf[]; pathname: string;
+  onLogout: () => void; logoutLabel: string; settingsLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-t border-gray-700/60 flex-shrink-0 relative">
+      {/* Settings dropdown — opens upward */}
+      {open && !collapsed && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 mx-2 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          {/* User header inside dropdown */}
+          {user && (
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-700/60">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                {user.firstName?.[0]}{user.lastName?.[0]}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{user.firstName} {user.lastName}</p>
+                <p className="text-xs text-gray-400 truncate">{user.organization?.name || user.role}</p>
+              </div>
+            </div>
+          )}
+          {/* Settings label */}
+          <p className="px-4 pt-3 pb-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            {settingsLabel}
+          </p>
+          {/* Settings links */}
+          <div className="pb-2 px-1">
+            {settingsItems.map(item => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
+                  className={cn('flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white')}>
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+          {/* Logout */}
+          <div className="border-t border-gray-700/60 p-2">
+            <button onClick={() => { setOpen(false); onLogout(); }}
+              className="flex items-center gap-3 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded-lg px-3 py-2 text-sm w-full transition-colors font-medium">
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              {logoutLabel}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Click outside to close */}
+      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+
+      {/* Footer bar — click to toggle dropdown */}
+      <div className="p-2">
+        <button onClick={() => setOpen(o => !o)}
+          className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left',
+            open ? 'bg-gray-700' : 'hover:bg-gray-800')}>
+          {/* Avatar */}
+          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white">
+            {user?.firstName?.[0]}{user?.lastName?.[0]}
+          </div>
+          {!collapsed && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate leading-tight">{user?.firstName} {user?.lastName}</p>
+                <p className="text-xs text-gray-400 truncate">{user?.organization?.name || user?.role}</p>
+              </div>
+              <ChevronUp className={cn('w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200', open ? 'rotate-180' : '')} />
+            </>
+          )}
+        </button>
+        {!open && (
+          <div className="mt-1">
+            <LocaleSwitcher collapsed={collapsed} />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
