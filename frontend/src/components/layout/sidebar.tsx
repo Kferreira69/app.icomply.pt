@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database,
-  Settings, Upload, ChevronLeft, ChevronRight, ChevronDown,
+  Settings, Upload, ChevronLeft, ChevronDown,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
@@ -135,10 +135,10 @@ function DomainGroup({
 
 // ── Main sidebar ──────────────────────────────────────────────
 
-export function Sidebar() {
+export function Sidebar({ onClose }: { onClose?: () => void } = {}) {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = false; // Always expanded — sidebar is now an overlay
   const t = useTranslations('nav');
 
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
@@ -359,12 +359,7 @@ export function Sidebar() {
     domain.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
 
   return (
-    <aside
-      className={cn(
-        'relative flex flex-col bg-gray-900 text-white transition-all duration-300 ease-in-out flex-shrink-0',
-        collapsed ? 'w-16' : 'w-64',
-      )}
-    >
+    <aside className="w-72 h-full flex flex-col bg-gray-900 text-white flex-shrink-0 shadow-2xl">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-700/60 flex-shrink-0">
         <svg className="w-8 h-8 flex-shrink-0" viewBox="-20 -5 400 325" xmlns="http://www.w3.org/2000/svg">
@@ -379,29 +374,17 @@ export function Sidebar() {
           <path fill="url(#sl-a)" d="M446.7,50.2l-81.4,82.4-31.2,31.6L190,310.2h-.1l-90.2-89c-4.6-4.5-4.6-11.9-.1-16.4l20.9-21.2c4.5-4.6,11.8-4.6,16.4-.1l52.4,51.7L314,108.9l27-27.3,67.9-68.8c4.5-4.6,11.9-4.6,16.4-.1l21.3,21c4.5,4.5,4.6,11.9.1,16.5z" />
           <path fill="url(#sl-b)" d="M197.6.3C87.5-6.1-4.5,84.5.2,194.7c1.8,42.8,18.3,83.6,46.7,115.6l17.7-37.9C17.1,205.1,33.2,112,100.5,64.5c63.9-45.1,151.8-33.1,201.3,27.3l26.4-26.8C295.3,26.6,248.1,3.2,197.6.3zm173.2,156.1L335.7,192c-1,28.9-10.4,56.8-27,80.5l17.7,37.9C363.5,268.3,379.8,211.8,370.8,156.4z" />
         </svg>
-        {!collapsed && <span className="text-lg font-bold text-white truncate">iComply</span>}
+        {!collapsed && <span className="text-lg font-bold text-white truncate flex-1">iComply</span>}
+        {onClose && (
+          <button onClick={onClose} className="ml-auto p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 py-3 overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700">
-        {collapsed ? (
-          // ── Collapsed: show all leaf icons
-          <div className="space-y-1 px-1.5">
-            {sections.flatMap(s =>
-              s.type === 'flat'
-                ? (s.items || [])
-                : (s.domains || []).flatMap(d => d.items),
-            ).map(item => (
-              <CollapsedLink
-                key={item.href}
-                item={item}
-                isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
-              />
-            ))}
-          </div>
-        ) : (
-          // ── Expanded: domain groups
-          <div className="space-y-4 px-2">
+        <div className="space-y-4 px-2">
             {sections.map((section, si) => (
               <div key={si}>
                 {/* Section label */}
@@ -451,7 +434,6 @@ export function Sidebar() {
             ))}
 
           </div>
-        )}
       </nav>
 
       {/* Language switcher only — user menu moved to topbar */}
@@ -459,13 +441,6 @@ export function Sidebar() {
         <LocaleSwitcher collapsed={collapsed} />
       </div>
 
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-6 bg-gray-800 border border-gray-600 rounded-full p-1 text-gray-400 hover:text-white transition-colors z-10"
-      >
-        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
-      </button>
     </aside>
   );
 }

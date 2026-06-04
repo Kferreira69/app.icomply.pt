@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import {
   Search, Settings, CreditCard, Bell, Webhook, ShieldCheck, Shield,
-  Brain, Users, Globe, ScrollText, LogOut, ChevronDown,
+  Brain, Users, Globe, ScrollText, LogOut, ChevronDown, Menu, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,12 @@ const PATH_TO_KEY: Record<string, string> = {
   '/settings/translations': 'translations',
 };
 
-export function Topbar() {
+interface TopbarProps {
+  onMenuClick?: () => void;
+  menuOpen?: boolean;
+}
+
+export function Topbar({ onMenuClick, menuOpen }: TopbarProps = {}) {
   const pathname = usePathname();
   const { user, logoutWithServer } = useAuthStore();
   const t = useTranslations('nav');
@@ -73,9 +78,21 @@ export function Topbar() {
   ];
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
-      {/* Page title */}
-      <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+    <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
+      {/* Left: hamburger + page title */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className={cn(
+            'p-2 rounded-xl transition-colors',
+            menuOpen ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900',
+          )}
+          title="Menu de navegação"
+        >
+          {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+        <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+      </div>
 
       {/* Right side */}
       <div className="flex items-center gap-3">
