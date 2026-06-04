@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { evidenceApi } from '@/lib/api';
-import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2, CheckCheck, Square, CheckSquare } from 'lucide-react';
 import { cn, formatDate, formatBytes, formatRelative, getStatusColor } from '@/lib/utils';
 
 function StatusIcon({ status }: { status: string }) {
@@ -95,8 +95,11 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 
 export default function EvidencePage() {
   const t = useTranslations('evidence');
+  const qc = useQueryClient();
   const [showUpload, setShowUpload] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulking, setBulking] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['evidence', statusFilter],
@@ -104,6 +107,20 @@ export default function EvidencePage() {
   });
 
   const evidences = data?.data || [];
+
+  const handleBulkStatus = async (status: string) => {
+    if (!selected.size) return;
+    setBulking(true);
+    try {
+      await evidenceApi.bulkStatus(Array.from(selected), status);
+      qc.invalidateQueries({ queryKey: ['evidence'] });
+      setSelected(new Set());
+    } finally { setBulking(false); }
+  };
+
+  const toggleSelect = (id: string) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAll = () => setSelected(new Set(evidences.map((e: any) => e.id)));
+  const clearSelection = () => setSelected(new Set());
 
   const STATUS_KEYS = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
 
@@ -140,6 +157,29 @@ export default function EvidencePage() {
         ))}
       </div>
 
+      {/* Bulk action toolbar */}
+      {evidences.length > 0 && (
+        <div className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl px-4 py-2.5 shadow-sm">
+          <button onClick={selected.size === evidences.length ? clearSelection : selectAll} className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700">
+            {selected.size === evidences.length ? <CheckCheck className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+            {selected.size === evidences.length ? 'Desseleccionar' : 'Seleccionar tudo'}
+          </button>
+          {selected.size > 0 && (
+            <>
+              <span className="text-gray-300">|</span>
+              <span className="text-xs text-primary font-medium">{selected.size} selecionada(s)</span>
+              <button onClick={() => handleBulkStatus('APPROVED')} disabled={bulking} className="flex items-center gap-1.5 text-xs bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50">
+                {bulking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />} Aprovar
+              </button>
+              <button onClick={() => handleBulkStatus('REJECTED')} disabled={bulking} className="flex items-center gap-1.5 text-xs bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50">
+                <XCircle className="w-3.5 h-3.5" /> Rejeitar
+              </button>
+              <button onClick={clearSelection} className="text-xs text-gray-400 hover:text-gray-600 ml-auto">Limpar</button>
+            </>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -149,6 +189,7 @@ export default function EvidencePage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-4 py-3 w-8" />
                 {[t('colFile'), t('colLinkedTo'), t('colStatus'), t('colUploadedBy'), t('colDate'), t('colSize')].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
                 ))}
@@ -163,7 +204,12 @@ export default function EvidencePage() {
                   </td>
                 </tr>
               ) : evidences.map((e: any) => (
-                <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr key={e.id} className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', selected.has(e.id) && 'bg-blue-50')}>
+                  <td className="px-4 py-3">
+                    <button onClick={() => toggleSelect(e.id)} className="p-0.5">
+                      {selected.has(e.id) ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-gray-300" />}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />

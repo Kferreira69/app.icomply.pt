@@ -365,6 +365,7 @@ export function Sidebar() {
         { href: '/auditor-sessions',   label: 'Portal de Auditoria',     icon: ShieldCheck },
         { href: '/client-hub',         label: 'Client Hub',              icon: Building2 },
         { href: '/ai-tools',           label: 'AI Compliance Tools',     icon: Brain },
+        { href: '/audit-templates',    label: 'Audit Templates',          icon: ClipboardList },
       ],
     },
 
@@ -387,8 +388,9 @@ export function Sidebar() {
     { href: '/settings/notifications',  label: t('notifications'),  icon: Bell },
     { href: '/settings/webhooks',       label: t('webhooks'),       icon: Webhook },
     { href: '/settings/roles',  label: t('roles'),  icon: ShieldCheck },
-    { href: '/settings/sso',    label: 'SSO',        icon: Shield },
-    { href: '/settings/users',  label: t('users'),  icon: Users },
+    { href: '/settings/sso',      label: 'SSO',           icon: Shield },
+    { href: '/settings/ai-usage', label: 'Utilização IA',  icon: Brain },
+    { href: '/settings/users',    label: t('users'),      icon: Users },
     { href: '/settings/trust-center', label: t('trustCenter'), icon: Globe },
     { href: '/settings/translations', label: t('translations'), icon: ScrollText },
   ];
