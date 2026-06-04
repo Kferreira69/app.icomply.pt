@@ -12,11 +12,9 @@ import {
   Activity, MessageSquareWarning, Globe, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
-  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Bell, Webhook, Rss,
+  HardHat, ClipboardList, CalendarDays, Handshake, CreditCard, Webhook, Rss,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
-import { useQuery } from '@tanstack/react-query';
-import { notificationsApi } from '@/lib/api';
 import { useState } from 'react';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
 
@@ -132,31 +130,6 @@ function DomainGroup({
         </div>
       )}
     </div>
-  );
-}
-
-// ── Notification Bell ─────────────────────────────────────────
-
-function NotificationBell({ collapsed }: { collapsed: boolean }) {
-  const { data } = useQuery({
-    queryKey: ['notifications-unread'],
-    queryFn: () => notificationsApi.unreadCount().then(r => r.data),
-    refetchInterval: 60000, // refresh every 60s
-  });
-  const count = data?.count ?? 0;
-  return (
-    <Link href="/settings/notifications"
-      className="relative flex items-center gap-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg px-3 py-2 text-sm w-full transition-colors mb-1">
-      <div className="relative flex-shrink-0">
-        <Bell className="w-4 h-4" />
-        {count > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5">
-            {count > 99 ? '99+' : count}
-          </span>
-        )}
-      </div>
-      {!collapsed && <span>Notificações{count > 0 ? ` (${count})` : ''}</span>}
-    </Link>
   );
 }
 
@@ -544,7 +517,6 @@ export function Sidebar() {
           </div>
         )}
         <LocaleSwitcher collapsed={collapsed} />
-        <NotificationBell collapsed={collapsed} />
         <button
           onClick={logoutWithServer}
           className="flex items-center gap-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg px-3 py-2 text-sm w-full transition-colors mt-1"
