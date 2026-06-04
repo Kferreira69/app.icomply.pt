@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ClipboardCheck, FolderOpen, CheckSquare,
-  AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database,
+  AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database, Activity,
   Settings, Upload, LogOut, ChevronLeft, ChevronRight, ChevronDown,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Globe, Bot, Brain,
@@ -358,11 +358,13 @@ export function Sidebar() {
       type: 'flat',
       label: 'Intelligence',
       items: [
-        { href: '/regulatory-feed',   label: 'Regulatory Intelligence', icon: Rss },
-        { href: '/board-reports',     label: 'Board Reports',           icon: FileText },
-        { href: '/management-body',   label: 'Órgão de Gestão',         icon: Users },
-        { href: '/auditor-sessions',  label: 'Portal de Auditoria',     icon: ShieldCheck },
-        { href: '/client-hub',        label: 'Client Hub',              icon: Building2 },
+        { href: '/compliance-monitor', label: 'Compliance Monitor',     icon: Activity },
+        { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss },
+        { href: '/board-reports',      label: 'Board Reports',           icon: FileText },
+        { href: '/management-body',    label: 'Órgão de Gestão',         icon: Users },
+        { href: '/auditor-sessions',   label: 'Portal de Auditoria',     icon: ShieldCheck },
+        { href: '/client-hub',         label: 'Client Hub',              icon: Building2 },
+        { href: '/ai-tools',           label: 'AI Compliance Tools',     icon: Brain },
       ],
     },
 
@@ -384,8 +386,9 @@ export function Sidebar() {
     { href: '/settings/billing',        label: t('billing'),        icon: CreditCard },
     { href: '/settings/notifications',  label: t('notifications'),  icon: Bell },
     { href: '/settings/webhooks',       label: t('webhooks'),       icon: Webhook },
-    { href: '/settings/roles',          label: t('roles'),          icon: ShieldCheck },
-    { href: '/settings/users',          label: t('users'),          icon: Users },
+    { href: '/settings/roles',  label: t('roles'),  icon: ShieldCheck },
+    { href: '/settings/sso',    label: 'SSO',        icon: Shield },
+    { href: '/settings/users',  label: t('users'),  icon: Users },
     { href: '/settings/trust-center', label: t('trustCenter'), icon: Globe },
     { href: '/settings/translations', label: t('translations'), icon: ScrollText },
   ];

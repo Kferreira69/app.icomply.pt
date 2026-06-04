@@ -240,4 +240,28 @@ export class ItsmService {
       data: { ...data, ...extraFields },
     });
   }
+
+  // ── DORA Integration ──────────────────────────────────────────
+
+  async escalateToDora(incidentId: string, organizationId: string, userId: string) {
+    const incident = await (this.prisma as any).itsmIncident.findFirst({ where: { id: incidentId, organizationId } });
+    if (!incident) throw new NotFoundException('ITSM Incident not found');
+
+    const doraRef = 'DORA-' + Date.now().toString().slice(-6);
+    const doraIncident = await this.prisma.doraIncident.create({
+      data: {
+        organizationId,
+        referenceId: doraRef,
+        title: `[ITSM→DORA] ${incident.title}`,
+        description: `Escalado de incidente ITSM ${incident.incidentId}:\n\n${incident.description || ''}`,
+        severity: incident.priority === 'P1' ? 'CRITICAL' : incident.priority === 'P2' ? 'MAJOR' : 'SIGNIFICANT',
+        status: 'OPEN',
+        incidentDate: incident.createdAt,
+        detectedAt: incident.createdAt,
+        reportedBy: userId,
+      } as any,
+    });
+
+    return { doraIncident, doraRef };
+  }
 }

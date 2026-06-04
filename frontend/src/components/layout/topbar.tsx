@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuthStore } from '@/store/auth-store';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { Search } from 'lucide-react';
 
 // Map URL path segments to nav translation keys
 const PATH_TO_KEY: Record<string, string> = {
@@ -46,6 +47,14 @@ export function Topbar() {
     <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
       <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
       <div className="flex items-center gap-4">
+        {/* Cmd+K search hint */}
+        <button
+          onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, metaKey: true, bubbles: true }))}
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-500 text-sm transition-colors">
+          <Search className="w-3.5 h-3.5" />
+          <span className="text-xs">Pesquisar</span>
+          <kbd className="text-[10px] bg-gray-200 px-1 rounded">⌘K</kbd>
+        </button>
         <NotificationBell />
         {user && (
           <div className="flex items-center gap-2">

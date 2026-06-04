@@ -398,8 +398,14 @@ export const permissionsApi = {
 };
 
 export const aiAssistantApi = {
-  chat: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) =>
-    api.post('/ai-assistant/chat', { messages }),
+  chat:           (messages: Array<{ role: 'user' | 'assistant'; content: string }>, currentModule?: string) =>
+    api.post('/ai-assistant/chat', { messages, currentModule }),
+  generatePolicy: (data: { policyType: string; framework: string; language?: string }) =>
+    api.post('/ai-assistant/generate-policy', data),
+  gapAnalysis:    (data: { framework: string }) =>
+    api.post('/ai-assistant/gap-analysis', data),
+  auditPrep:      (data: { framework: string; auditType: string }) =>
+    api.post('/ai-assistant/audit-prep', data),
 };
 
 export const translationsApi = {

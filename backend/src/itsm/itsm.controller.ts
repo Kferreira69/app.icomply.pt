@@ -73,4 +73,9 @@ export class ItsmController {
   updateProblem(@Param('id') id: string, @Body() data: any, @CurrentUser() user: any) {
     return this.service.updateProblem(id, user.organizationId, data);
   }
+
+  @Post('incidents/:id/escalate-dora')
+  escalateToDora(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.escalateToDora(id, user.organizationId, user.id);
+  }
 }

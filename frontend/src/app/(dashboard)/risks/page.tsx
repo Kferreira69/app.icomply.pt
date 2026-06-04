@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { risksApi } from '@/lib/api';
-import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield, CheckCircle2 } from 'lucide-react';
+import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield, CheckCircle2, TrendingDown, TrendingUp, History } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { cn, getRiskColor, getRiskLabel, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
@@ -139,7 +140,13 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
   const t = useTranslations('risks');
   const tCommon = useTranslations('common');
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'risk' | 'treatment'>('risk');
+  const [tab, setTab] = useState<'risk' | 'treatment' | 'history'>('risk');
+
+  const { data: historyData = [] } = useQuery({
+    queryKey: ['risk-history', risk?.id],
+    queryFn: () => risksApi.history(risk.id).then(r => r.data),
+    enabled: !!risk?.id && tab === 'history',
+  });
 
   const { register, handleSubmit } = useForm({
     defaultValues: {
@@ -189,8 +196,9 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
           <h3 className="text-lg font-bold text-gray-900 mb-3">{t('editRisk')}</h3>
           <div className="flex gap-1 border-b border-gray-100">
             {[
-              { key: 'risk',      label: 'Risco',              icon: AlertTriangle },
+                      { key: 'risk',      label: 'Risco',              icon: AlertTriangle },
               { key: 'treatment', label: 'Plano de Tratamento', icon: Shield },
+              { key: 'history',   label: 'Histórico',           icon: History },
             ].map(({ key, label, icon: Icon }) => (
               <button key={key} onClick={() => setTab(key as any)}
                 className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
@@ -306,6 +314,46 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* History tab */}
+          {tab === 'history' && (
+            <div className="space-y-4">
+              {(historyData as any[]).length === 0 ? (
+                <div className="flex flex-col items-center py-8 text-gray-400">
+                  <History className="w-8 h-8 mb-2" />
+                  <p className="text-sm">Sem histórico disponível</p>
+                  <p className="text-xs mt-1">O histórico começa a ser registado a partir da próxima atualização</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                    Evolução do score de risco ao longo do tempo
+                  </div>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={(historyData as any[]).map((h: any) => ({ date: new Date(h.capturedAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }), inerente: h.inherentScore, residual: h.residualScore }))}>
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                      <YAxis domain={[0, 25]} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <ReferenceLine y={20} stroke="#dc2626" strokeDasharray="3 3" label={{ value: 'Crítico', fontSize: 9 }} />
+                      <ReferenceLine y={12} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'Alto', fontSize: 9 }} />
+                      <Line type="monotone" dataKey="inerente" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} name="Score Inerente" />
+                      <Line type="monotone" dataKey="residual" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Score Residual" strokeDasharray="5 5" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-1">
+                    {(historyData as any[]).slice().reverse().slice(0, 5).map((h: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3 text-xs text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50">
+                        <span className="text-gray-400 w-20 flex-shrink-0">{new Date(h.capturedAt).toLocaleDateString('pt-PT')}</span>
+                        <span>Score: <strong>{h.inherentScore}</strong></span>
+                        {h.residualScore && <span>Residual: <strong className="text-green-600">{h.residualScore}</strong></span>}
+                        <span className={cn('text-xs px-1.5 py-0.5 rounded-full', h.status === 'CLOSED' ? 'bg-gray-100' : h.status === 'MITIGATED' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')}>{h.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
