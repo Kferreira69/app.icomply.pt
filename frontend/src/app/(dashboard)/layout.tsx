@@ -13,13 +13,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isAuthenticated } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-  const [navOpen, setNavOpen]   = useState(false);
-  const [pinned, setPinned]     = useState(false);
 
-  // Load pin preference from localStorage
+  // collapsed = icon-only (56px) | expanded = full labels (256px)
+  const [collapsed, setCollapsed] = useState(false);
+  const [pinned, setPinned]       = useState(false);
+
+  // Load pin preference — pinned = always expanded
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(PIN_KEY) : null;
-    if (stored === 'true') { setPinned(true); setNavOpen(true); }
+    if (stored === 'true') { setPinned(true); setCollapsed(false); }
   }, []);
 
   useEffect(() => {
@@ -29,48 +31,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isAuthenticated, router, pathname]);
 
-  // Close overlay on route change (not if pinned)
+  // Collapse on route change unless pinned
   useEffect(() => {
-    if (!pinned) setNavOpen(false);
+    if (!pinned) setCollapsed(true);
   }, [pathname, pinned]);
+
+  const toggleCollapsed = useCallback(() => {
+    if (pinned) return; // pinned = always expanded, hamburger does nothing
+    setCollapsed(c => !c);
+  }, [pinned]);
 
   const togglePin = useCallback(() => {
     const next = !pinned;
     setPinned(next);
     localStorage.setItem(PIN_KEY, String(next));
-    if (!next) setNavOpen(false); // unpin → close
+    if (next) setCollapsed(false);  // pin → expand
   }, [pinned]);
 
   if (!isAuthenticated) return null;
+
+  const expanded = !collapsed;
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <CommandPalette />
 
-      {/* ── Pinned sidebar (fixed, shifts content) ──────────────── */}
-      {pinned && navOpen && (
-        <div className="flex-shrink-0">
-          <Sidebar onClose={() => { setNavOpen(false); }} pinned onTogglePin={togglePin} />
-        </div>
-      )}
+      {/* Sidebar — ALWAYS visible, never hides */}
+      <Sidebar collapsed={collapsed} pinned={pinned} onTogglePin={togglePin} />
 
-      {/* ── Main area ──────────────────────────────────────────── */}
+      {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar onMenuClick={() => setNavOpen(o => !o)} menuOpen={navOpen} pinned={pinned} />
+        <Topbar
+          onMenuClick={toggleCollapsed}
+          menuOpen={expanded}
+          pinned={pinned}
+        />
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>
       </div>
-
-      {/* ── Overlay sidebar (doesn't shift content) ─────────────── */}
-      {!pinned && navOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
-          <div className="fixed top-0 left-0 h-full z-50 animate-in slide-in-from-left duration-200">
-            <Sidebar onClose={() => setNavOpen(false)} pinned={false} onTogglePin={togglePin} />
-          </div>
-        </>
-      )}
     </div>
   );
 }

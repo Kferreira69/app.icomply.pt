@@ -7,7 +7,8 @@ import { useAuthStore } from '@/store/auth-store';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import {
   Search, Settings, CreditCard, Bell, Webhook, ShieldCheck, Shield,
-  Brain, Users, Globe, ScrollText, LogOut, ChevronDown, Menu, X, UserCircle, KeyRound,
+  Brain, Users, Globe, ScrollText, LogOut, ChevronDown,
+  PanelLeftOpen, PanelLeftClose, UserCircle, KeyRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -87,11 +88,14 @@ export function Topbar({ onMenuClick, menuOpen, pinned }: TopbarProps = {}) {
           onClick={onMenuClick}
           className={cn(
             'p-2 rounded-xl transition-colors',
-            pinned && menuOpen ? 'bg-primary text-white' : menuOpen ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900',
+            pinned ? 'text-primary' : menuOpen ? 'text-gray-900' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700',
           )}
-          title="Menu de navegação"
+          title={menuOpen ? 'Colapsar menu' : 'Expandir menu'}
         >
-          {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {menuOpen
+            ? <PanelLeftClose className="w-5 h-5" />
+            : <PanelLeftOpen  className="w-5 h-5" />
+          }
         </button>
         <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
       </div>
