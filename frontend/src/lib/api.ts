@@ -91,6 +91,11 @@ export const usersApi = {
   setPassword: (id: string, password: string) => api.post(`/users/${id}/set-password`, { password }),
   changePassword: (currentPassword: string, newPassword: string) => api.post('/users/me/change-password', { currentPassword, newPassword }),
   resendInvite: (id: string) => api.post(`/users/${id}/resend-invite`),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/users/me/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export const frameworksApi = {

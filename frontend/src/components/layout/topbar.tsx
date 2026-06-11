@@ -125,9 +125,14 @@ export function Topbar({ onMenuClick, menuOpen, pinned }: TopbarProps = {}) {
               )}
             >
               {/* Avatar */}
-              <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-                {user.firstName?.[0]}{user.lastName?.[0]}
-              </div>
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`}
+                  className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-7 h-7 bg-primary rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+                  {user.firstName?.[0]}{user.lastName?.[0]}
+                </div>
+              )}
               {/* Name */}
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-gray-900 leading-tight">{user.firstName} {user.lastName}</p>

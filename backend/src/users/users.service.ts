@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MailService } from '../common/mail/mail.service';
+import { StorageService } from '../common/storage/storage.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '@prisma/client';
@@ -17,6 +19,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private storage: StorageService,
   ) {}
 
   async create(dto: CreateUserDto, organizationId: string, creatorRole: UserRole) {
@@ -161,6 +164,17 @@ export class UsersService {
       data: { inviteToken, inviteExpiresAt, status: 'INVITED' },
       select: this.safeSelect(),
     });
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File): Promise<{ avatarUrl: string }> {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.mimetype)) throw new BadRequestException('Formato inválido. Use JPEG, PNG ou WebP.');
+    if (file.size > 2 * 1024 * 1024) throw new BadRequestException('Imagem demasiado grande (máx 2MB).');
+
+    const { url } = await this.storage.uploadFile(file.buffer, file.originalname, file.mimetype, 'avatars');
+
+    await this.prisma.user.update({ where: { id: userId }, data: { avatarUrl: url } });
+    return { avatarUrl: url };
   }
 
   private safeSelect() {

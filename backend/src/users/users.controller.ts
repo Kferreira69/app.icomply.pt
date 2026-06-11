@@ -1,8 +1,10 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query,
   ParseIntPipe, DefaultValuePipe, HttpCode, HttpStatus,
+  UploadedFile, UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiConsumes } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -96,5 +98,17 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   resendInvite(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.resendInvite(id, orgId);
+  }
+
+  @Post('me/avatar')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload avatar image for the current user' })
+  uploadAvatar(
+    @CurrentUser('id') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadAvatar(userId, file);
   }
 }
