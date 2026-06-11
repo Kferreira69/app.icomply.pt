@@ -292,8 +292,7 @@ model Organization {
   orgRoles        OrgRole[]
   aiCreditUsage   AiCreditUsage[]
   raciAssignments   RaciAssignment[]
-  approvalRequests  ApprovalRequest[] @relation("ApprovalRequester")
-  approvalVotes     ApprovalVote[]    @relation("ApprovalVoter")
+  approvalRequests  ApprovalRequest[]
   ssoConfig         SsoConfig?
   // Multi-entity
   parentId        String?
@@ -475,6 +474,8 @@ model User {
   calendarItemsOwned       ComplianceCalendarItem[] @relation("CalendarResponsible")
   nis2IncidentsResponsible Nis2IncidentNotification[] @relation("Nis2IncidentResponsible")
   raciAssignments          RaciAssignment[]
+  approvalRequests         ApprovalRequest[] @relation("ApprovalRequester")
+  approvalVotes            ApprovalVote[]    @relation("ApprovalVoter")
 
   @@map("users")
 }
