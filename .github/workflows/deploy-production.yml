@@ -31,6 +31,10 @@ jobs:
         working-directory: backend
         run: npm install
 
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
       - name: Run backend unit tests
         working-directory: backend
         run: npm test -- --passWithNoTests --testPathPattern="spec.ts$" --forceExit
