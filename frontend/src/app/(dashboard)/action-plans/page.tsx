@@ -19,10 +19,10 @@ const PLAN_STATUS = {
 };
 
 const TASK_STATUS = {
-  TODO:        { label: 'Por fazer',  color: 'text-gray-400',   icon: <Circle className="w-3.5 h-3.5" /> },
-  IN_PROGRESS: { label: 'Em curso',   color: 'text-blue-500',   icon: <Play className="w-3.5 h-3.5" /> },
-  DONE:        { label: 'Feito',      color: 'text-green-500',  icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-  BLOCKED:     { label: 'Bloqueado',  color: 'text-red-500',    icon: <XCircle className="w-3.5 h-3.5" /> },
+  TODO:        { label: 'Por fazer',  color: 'text-gray-500',   bg: 'bg-gray-50',   icon: <Circle className="w-3.5 h-3.5" /> },
+  IN_PROGRESS: { label: 'Em curso',   color: 'text-blue-600',   bg: 'bg-blue-50',   icon: <Play className="w-3.5 h-3.5" /> },
+  DONE:        { label: 'Feito',      color: 'text-green-600',  bg: 'bg-green-50',  icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+  BLOCKED:     { label: 'Bloqueado',  color: 'text-red-600',    bg: 'bg-red-50',    icon: <XCircle className="w-3.5 h-3.5" /> },
 };
 
 function GanttBar({ task, planStart, planEnd }: { task: any; planStart: Date; planEnd: Date }) {
@@ -65,7 +65,7 @@ function TaskRow({ task, planId, planStart, planEnd, orgUsers }: {
     <div className="grid grid-cols-[2fr_1fr_1fr_1fr_2fr_auto] gap-2 items-center py-2 px-3 hover:bg-gray-50 rounded-lg text-sm">
       <span className="truncate text-gray-800 font-medium">{task.title}</span>
       <select value={task.status} onChange={e => updateMutation.mutate({ status: e.target.value })}
-        className={cn('text-xs border-0 rounded-lg px-2 py-1 font-medium focus:outline-none cursor-pointer', sm.color, sm.bg.replace('text-', 'bg-').replace('-600', '-50').replace('-500', '-50').replace('-400', '-50'))}>
+        className={cn('text-xs border-0 rounded-lg px-2 py-1 font-medium focus:outline-none cursor-pointer', sm.color, sm.bg)}>
         {Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
       </select>
       <div className="flex items-center gap-1 text-xs text-gray-400">

@@ -14,7 +14,7 @@ import {
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
-  GanttChart, BookTemplate, Zap,
+  GanttChart, BookTemplate,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
