@@ -53,7 +53,7 @@ export class MailService {
   }
 
   private get frontendUrl(): string {
-    return this.appUrl.replace('https://api.', 'https://');
+    return this.config.get<string>('FRONTEND_URL', 'https://app.icomply.pt');
   }
 
   getMode(): string { return this.mode; }
