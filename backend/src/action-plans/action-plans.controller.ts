@@ -3,7 +3,7 @@ import {
   Param, Body, Query, Req, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ActionPlansService } from './action-plans.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ActionPlanStatus } from '@prisma/client';
 
 @UseGuards(JwtAuthGuard)

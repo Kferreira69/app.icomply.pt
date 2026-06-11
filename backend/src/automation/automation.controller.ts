@@ -3,7 +3,7 @@ import {
   Param, Body, Req, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { AutomationService } from './automation.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('automation')
