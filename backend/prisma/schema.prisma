@@ -15,6 +15,12 @@ datasource db {
 
 // ─── Enums ───────────────────────────────────────────────────
 
+enum RagStatus {
+  RED
+  AMBER
+  GREEN
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -654,6 +660,8 @@ model Project {
   startDate        DateTime?
   targetDate       DateTime?
   completedAt      DateTime?
+  ragStatus        RagStatus?
+  statusNarrative  String?       @db.Text
   metadata         Json?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -754,6 +762,8 @@ model Risk {
   reviewDate      DateTime?
   closedAt        DateTime?
   tags            String[]
+  ragStatus       RagStatus?
+  statusNarrative String?        @db.Text
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -838,11 +848,13 @@ model Audit {
   startDate      DateTime?
   endDate        DateTime?
   completedAt    DateTime?
-  leadAuditor    String?
-  summary        String?
-  score          Float?      // 0-100
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  leadAuditor      String?
+  summary          String?
+  score            Float?      // 0-100
+  ragStatus        RagStatus?
+  statusNarrative  String?     @db.Text
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   organization Organization      @relation(fields: [organizationId], references: [id])
   project      Project?          @relation(fields: [projectId], references: [id])
@@ -901,13 +913,15 @@ model Capa {
   rootCause    String?
   correctiveAction String?
   preventiveAction String?
-  status       CapaStatus @default(OPEN)
-  dueDate      DateTime?
-  verifiedAt   DateTime?
-  closedAt     DateTime?
-  evidence     String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  status           CapaStatus @default(OPEN)
+  dueDate          DateTime?
+  verifiedAt       DateTime?
+  closedAt         DateTime?
+  evidence         String?
+  ragStatus        RagStatus?
+  statusNarrative  String?    @db.Text
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   finding    Finding? @relation(fields: [findingId], references: [id])
   assignee   User?    @relation("CapaAssignee", fields: [assigneeId], references: [id])

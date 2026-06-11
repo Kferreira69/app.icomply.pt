@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { GanttChart, type GanttItem } from '@/components/gantt/GanttChart';
+import { RagBadge, RagEditor } from '@/components/rag/rag-badge';
 
 // Status → Gantt bar colour
 const PROJECT_COLORS: Record<string, string> = {
@@ -50,9 +51,12 @@ function ProjectCard({ project }: { project: any }) {
             <h3 className="font-semibold text-gray-900 truncate">{project.name}</h3>
             <p className="text-xs text-gray-500 mt-0.5">{project.framework?.name}</p>
           </div>
-          <span className={cn('ml-2 text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap', getStatusColor(project.status))}>
-            {project.status}
-          </span>
+          <div className="ml-2 flex flex-col items-end gap-1">
+            <span className={cn('text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap', getStatusColor(project.status))}>
+              {project.status}
+            </span>
+            <RagBadge status={project.ragStatus} size="xs" />
+          </div>
         </div>
 
         {/* Compliance score bar */}

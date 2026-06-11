@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ProjectStatus } from '@prisma/client';
+import { ProjectStatus, RagStatus } from '@prisma/client';
 
 const emptyToUndefined = ({ value }: { value: any }) =>
   value === '' || value === null ? undefined : value;
@@ -49,4 +49,15 @@ export class CreateProjectDto {
   @Transform(emptyToUndefined)
   @IsDateString()
   targetDate?: string;
+
+  @ApiPropertyOptional({ enum: RagStatus })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsEnum(RagStatus)
+  ragStatus?: RagStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  statusNarrative?: string;
 }
