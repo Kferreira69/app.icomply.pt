@@ -31,9 +31,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isAuthenticated, router, pathname]);
 
-  // Collapse on route change unless pinned
+  // On mobile (<768px) collapse after navigation
   useEffect(() => {
-    if (!pinned) setCollapsed(true);
+    if (!pinned && window.innerWidth < 768) setCollapsed(true);
   }, [pathname, pinned]);
 
   const toggleCollapsed = useCallback(() => {
