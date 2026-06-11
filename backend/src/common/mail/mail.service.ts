@@ -44,6 +44,10 @@ export class MailService {
     return this.config.get<string>('SMTP_FROM', 'iComply <noreply@app.icomply.pt>');
   }
 
+  private get replyTo(): string {
+    return this.config.get<string>('SMTP_REPLY_TO', 'iComply Support <support@icomply.pt>');
+  }
+
   private get appUrl(): string {
     return this.config.get<string>('APP_URL', 'https://app.icomply.pt');
   }
@@ -96,14 +100,14 @@ export class MailService {
     }
 
     if (this.mode === 'sendgrid' && sgMail) {
-      const msg = { to, from: this.from, subject, html };
+      const msg = { to, from: this.from, replyTo: this.replyTo, subject, html };
       const res = await sgMail.send(msg);
       this.logger.log(`[SendGrid] Sent to ${to} | Status: ${res?.[0]?.statusCode} | Subject: ${subject}`);
       return;
     }
 
     if (this.mode === 'smtp' && this.transporter) {
-      const info = await this.transporter.sendMail({ from: this.from, to, subject, html });
+      const info = await this.transporter.sendMail({ from: this.from, replyTo: this.replyTo, to, subject, html });
       this.logger.log(`[SMTP] Sent to ${to} | MessageId: ${info.messageId} | Subject: ${subject}`);
       return;
     }
