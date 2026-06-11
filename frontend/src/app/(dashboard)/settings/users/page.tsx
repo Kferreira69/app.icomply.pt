@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { usersApi } from '@/lib/api';
@@ -204,6 +204,8 @@ function UserActionsMenu({ user, onSetPassword, onPermissions }: {
   onPermissions: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
   const qc = useQueryClient();
 
   const suspendMutation = useMutation({
@@ -219,10 +221,22 @@ function UserActionsMenu({ user, onSetPassword, onPermissions }: {
     onSuccess: () => setOpen(false),
   });
 
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const menuHeight = 220;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow < menuHeight ? rect.top - menuHeight - 4 : rect.bottom + 4;
+      setMenuPos({ top, right: window.innerWidth - rect.right });
+    }
+    setOpen(o => !o);
+  };
+
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={btnRef}
+        onClick={handleOpen}
         className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
       >
         <MoreVertical className="w-4 h-4" />
@@ -230,9 +244,11 @@ function UserActionsMenu({ user, onSetPassword, onPermissions }: {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-20 overflow-hidden py-1">
-
+          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-[70] overflow-hidden py-1"
+            style={{ top: menuPos.top, right: menuPos.right }}
+          >
             <button
               onClick={() => { setOpen(false); onPermissions(); }}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
