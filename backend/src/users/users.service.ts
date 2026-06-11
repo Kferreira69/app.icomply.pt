@@ -159,11 +159,21 @@ export class UsersService {
     const inviteToken = uuid();
     const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: { inviteToken, inviteExpiresAt, status: 'INVITED' },
-      select: this.safeSelect(),
+      include: { organization: true },
     });
+
+    await this.mail.sendInvite(
+      updated.email,
+      inviteToken,
+      updated.firstName || updated.email,
+      updated.organization.name,
+    );
+
+    const { organization, passwordHash, ...safe } = updated as any;
+    return safe;
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File): Promise<{ avatarUrl: string }> {

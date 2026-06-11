@@ -93,11 +93,11 @@ export class RaciService {
       orderBy: [{ entityId: 'asc' }, { role: 'asc' }],
     });
 
-    // Group by entityId → roles → users
-    const matrix: Record<string, Record<RaciRole, typeof assignments[0]['user'][]>> = {};
+    // Group by entityId into an array of rows
+    const rowMap = new Map<string, { entityId: string; assignments: typeof assignments }>();
     for (const a of assignments) {
-      if (!matrix[a.entityId]) matrix[a.entityId] = { R: [], A: [], C: [], I: [] };
-      matrix[a.entityId][a.role].push(a.user);
+      if (!rowMap.has(a.entityId)) rowMap.set(a.entityId, { entityId: a.entityId, assignments: [] });
+      rowMap.get(a.entityId)!.assignments.push(a);
     }
 
     // Get unique users involved
@@ -105,9 +105,8 @@ export class RaciService {
     for (const a of assignments) userMap.set(a.user.id, a.user);
 
     return {
-      matrix,
+      matrix: Array.from(rowMap.values()),
       users: Array.from(userMap.values()),
-      entityIds: Object.keys(matrix),
     };
   }
 
