@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { boardReportsApi } from '@/lib/api';
-import { FileText, Plus, CheckCircle, Clock, Users, Download, Send, Loader2, Shield, X } from 'lucide-react';
+import { FileText, Plus, CheckCircle, Clock, Users, Download, Send, Loader2, Shield, X, Edit2 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -32,11 +32,14 @@ export default function BoardReportsPage() {
   const [selected, setSelected] = useState<any>(null);
   const [newForm, setNewForm] = useState({ title: '', period: '', sections: SECTIONS.map(s => s.key) });
   const [signerForm, setSignerForm] = useState([{ name: '', email: '', role: '' }]);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', period: '', sections: [] as string[] });
 
   const { data: reports = [] } = useQuery({ queryKey: ['board-reports'], queryFn: () => boardReportsApi.list().then(r => r.data) });
   const { data: packData } = useQuery({ queryKey: ['board-pack', selected?.id], queryFn: () => selected ? boardReportsApi.packData(selected.id).then(r => r.data) : null, enabled: !!selected?.id });
 
   const createMutation = useMutation({ mutationFn: (d: any) => boardReportsApi.create(d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['board-reports'] }); setShowNew(false); } });
+  const updateMutation = useMutation({ mutationFn: (d: any) => boardReportsApi.update(selected!.id, d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['board-reports'] }); setShowEdit(false); } });
   const requestSignoffMutation = useMutation({ mutationFn: ({ id, signers }: any) => boardReportsApi.requestSignoff(id, signers), onSuccess: () => qc.invalidateQueries({ queryKey: ['board-reports'] }) });
 
   const inp = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none';
@@ -92,7 +95,15 @@ export default function BoardReportsPage() {
                 <h3 className="font-bold text-gray-900">{selected.title}</h3>
                 <p className="text-xs text-gray-500 mt-0.5">{selected.period}</p>
               </div>
-              <span className={cn('text-xs px-2.5 py-1 rounded-full font-semibold', STATUS_CONFIG[selected.status]?.color || '')}>{STATUS_CONFIG[selected.status]?.label}</span>
+              <div className="flex items-center gap-2">
+                <span className={cn('text-xs px-2.5 py-1 rounded-full font-semibold', STATUS_CONFIG[selected.status]?.color || '')}>{STATUS_CONFIG[selected.status]?.label}</span>
+                {selected.status === 'DRAFT' && (
+                  <button onClick={() => { setEditForm({ title: selected.title, period: selected.period, sections: selected.sections ?? [] }); setShowEdit(true); }}
+                    className="flex items-center gap-1.5 text-xs text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-xl font-medium">
+                    <Edit2 className="w-3.5 h-3.5" /> Editar
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="p-5 space-y-5">
@@ -168,6 +179,40 @@ export default function BoardReportsPage() {
           </div>
         )}
       </div>
+
+      {showEdit && selected && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Editar Relatório</h2>
+              <button onClick={() => setShowEdit(false)} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Título</label><input className={inp} value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} /></div>
+              <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Período</label><input className={inp} value={editForm.period} onChange={e => setEditForm(p => ({ ...p, period: e.target.value }))} /></div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2">Secções a incluir</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {SECTIONS.map(s => (
+                    <label key={s.key} className={cn('flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer text-xs transition-colors', editForm.sections.includes(s.key) ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-600')}>
+                      <input type="checkbox" checked={editForm.sections.includes(s.key)} onChange={e => setEditForm(p => ({ ...p, sections: e.target.checked ? [...p.sections, s.key] : p.sections.filter((x: string) => x !== s.key) }))} className="w-3.5 h-3.5" />
+                      {s.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowEdit(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600">Cancelar</button>
+                <button onClick={() => updateMutation.mutate(editForm)} disabled={!editForm.title || updateMutation.isPending}
+                  className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50">
+                  {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                  Guardar alterações
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showNew && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

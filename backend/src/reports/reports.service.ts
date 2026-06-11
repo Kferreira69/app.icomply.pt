@@ -96,9 +96,14 @@ export class ReportsService {
       return new StreamableFile(buffer);
     }
 
-    // S3: issue a fresh pre-signed URL and redirect
-    const freshUrl = await this.storage.getPresignedUrl(report.s3Key);
-    res.redirect(302, freshUrl);
+    // S3/MinIO: stream through backend (presigned URLs use internal Docker network — can't redirect browser)
+    const s3Buffer = await this.storage.readS3Buffer(report.s3Key);
+    if (s3Buffer) {
+      res.set('Content-Length', String(s3Buffer.length));
+      return new StreamableFile(s3Buffer);
+    }
+
+    throw new NotFoundException('Report file not available');
   }
 
   async getComplianceSummary(organizationId: string, projectId?: string) {

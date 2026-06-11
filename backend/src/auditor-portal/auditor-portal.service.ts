@@ -45,6 +45,15 @@ export class AuditorPortalService {
     return (this.prisma as any).auditorSession.update({ where: { id }, data: { isActive: false } });
   }
 
+  async resendInvite(id: string, organizationId: string) {
+    const s = await (this.prisma as any).auditorSession.findFirst({ where: { id, organizationId } });
+    if (!s) throw new NotFoundException('Session not found');
+    const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
+    const url = `${process.env.FRONTEND_URL || 'https://app.icomply.pt'}/auditor/${s.token}`;
+    await this.mail.sendAuditorInvite(s.auditorEmail, s.auditorName, org?.name || 'iComply', url, s.expiresAt);
+    return { ok: true };
+  }
+
   // ── Public portal (no auth — token-based) ────────────────────
 
   async getPortal(token: string) {

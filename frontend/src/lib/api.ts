@@ -512,6 +512,7 @@ export const auditorPortalApi = {
   listSessions:   ()                              => api.get('/auditor-portal/sessions'),
   createSession:  (data: any)                     => api.post('/auditor-portal/sessions', data),
   deactivate:     (id: string)                    => api.delete(`/auditor-portal/sessions/${id}`),
+  resendInvite:   (id: string)                    => api.post(`/auditor-portal/sessions/${id}/resend`),
   respond:        (id: string, response: string)  => api.put(`/auditor-portal/requests/${id}/respond`, { response }),
   getPortal:      (token: string)                 => fetch(`${BASE_URL}/auditor-portal/public/${token}`).then(r => r.json()),
   createRequest:  (token: string, data: any)      => fetch(`${BASE_URL}/auditor-portal/public/${token}/request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
@@ -563,6 +564,7 @@ export const clientHubApi = {
 export const auditTemplatesApi = {
   list:   (framework?: string) => api.get('/audit-templates', { params: { framework } }),
   create: (data: any)          => api.post('/audit-templates', data),
+  update: (id: string, data: any) => api.patch(`/audit-templates/${id}`, data),
   remove: (id: string)         => api.delete(`/audit-templates/${id}`),
 };
 

@@ -6,7 +6,7 @@ import { automationApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   Zap, Plus, Loader2, Trash2, Play, ToggleRight, ToggleLeft,
-  CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, History,
+  CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp, History, Edit2,
 } from 'lucide-react';
 
 const TRIGGERS: Record<string, string> = {
@@ -52,7 +52,7 @@ const PRESET_RULES = [
   },
 ];
 
-function RuleCard({ rule }: { rule: any }) {
+function RuleCard({ rule, onEdit }: { rule: any; onEdit: (r: any) => void }) {
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(false);
 
@@ -68,7 +68,10 @@ function RuleCard({ rule }: { rule: any }) {
 
   const triggerMutation = useMutation({
     mutationFn: () => automationApi.trigger(rule.id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['automation-rules'] }); qc.invalidateQueries({ queryKey: ['automation-logs', rule.id] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['automation-rules'] });
+      qc.invalidateQueries({ queryKey: ['automation-logs', rule.id] });
+    },
   });
 
   const { data: logs } = useQuery({
@@ -110,6 +113,10 @@ function RuleCard({ rule }: { rule: any }) {
                 {triggerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Executar
               </button>
             )}
+            <button onClick={() => onEdit(rule)}
+              className="p-1.5 hover:bg-gray-100 rounded-lg" title="Editar regra">
+              <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+            </button>
             <button onClick={() => toggleMutation.mutate()} disabled={toggleMutation.isPending}
               className="p-1.5 hover:bg-gray-100 rounded-lg" title={rule.isActive ? 'Desativar' : 'Ativar'}>
               {rule.isActive ? <ToggleRight className="w-4 h-4 text-green-500" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
@@ -170,27 +177,47 @@ function RuleCard({ rule }: { rule: any }) {
   );
 }
 
-function NewRuleModal({ onClose }: { onClose: () => void }) {
+function RuleModal({ existing, onClose }: { existing?: any; onClose: () => void }) {
   const qc = useQueryClient();
-  const [name, setName]       = useState('');
-  const [desc, setDesc]       = useState('');
-  const [trigger, setTrigger] = useState('MANUAL');
-  const [actions, setActions] = useState([{ type: 'SEND_NOTIFICATION', params: { message: '' } }]);
+  const isEdit = !!existing;
+  const [name, setName]       = useState(existing?.name ?? '');
+  const [desc, setDesc]       = useState(existing?.description ?? '');
+  const [trigger, setTrigger] = useState(existing?.trigger ?? 'MANUAL');
+  const [actions, setActions] = useState(
+    existing?.actions?.length ? [{ type: existing.actions[0].type, params: existing.actions[0].params ?? { message: '' } }]
+    : [{ type: 'SEND_NOTIFICATION', params: { message: '' } }]
+  );
 
-  const mutation = useMutation({
+  const createMutation = useMutation({
     mutationFn: () => automationApi.create({ name, description: desc || undefined, trigger: trigger as any, conditions: [], actions }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['automation-rules'] }); onClose(); },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: () => automationApi.update(existing!.id, { name, description: desc || undefined, trigger, actions }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['automation-rules'] }); onClose(); },
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const submit = () => isEdit ? updateMutation.mutate() : createMutation.mutate();
+
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-4">
-        <h2 className="text-base font-bold text-gray-800">Nova Regra de Automação</h2>
+        <h2 className="text-base font-bold text-gray-800">
+          {isEdit ? 'Editar Regra de Automação' : 'Nova Regra de Automação'}
+        </h2>
         <div>
           <label className="text-xs font-semibold text-gray-500 block mb-1">Nome *</label>
           <input value={name} onChange={e => setName(e.target.value)} autoFocus
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="Ex: Alerta risco crítico" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 block mb-1">Descrição</label>
+          <input value={desc} onChange={e => setDesc(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="Descreve o comportamento desta regra" />
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-500 block mb-1">Trigger</label>
@@ -206,11 +233,22 @@ function NewRuleModal({ onClose }: { onClose: () => void }) {
             {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
+        {(actions[0].type === 'SEND_NOTIFICATION' || actions[0].type === 'CREATE_TASK') && (
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1">
+              {actions[0].type === 'SEND_NOTIFICATION' ? 'Mensagem da notificação' : 'Título da tarefa'}
+            </label>
+            <input value={actions[0].params?.message ?? ''} onChange={e => setActions([{ ...actions[0], params: { ...actions[0].params, message: e.target.value } }])}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              placeholder={actions[0].type === 'SEND_NOTIFICATION' ? 'Ex: Risco crítico detetado' : 'Ex: Follow-up urgente'} />
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
-          <button onClick={() => mutation.mutate()} disabled={!name.trim() || mutation.isPending}
+          <button onClick={submit} disabled={!name.trim() || isPending}
             className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl disabled:opacity-40 hover:opacity-90 flex items-center gap-1.5">
-            {mutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Criar regra
+            {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {isEdit ? 'Guardar alterações' : 'Criar regra'}
           </button>
         </div>
       </div>
@@ -221,6 +259,7 @@ function NewRuleModal({ onClose }: { onClose: () => void }) {
 export default function AutomationPage() {
   const qc = useQueryClient();
   const [showNew, setShowNew] = useState(false);
+  const [editingRule, setEditingRule] = useState<any>(null);
 
   const { data: summary } = useQuery({
     queryKey: ['automation-summary'],
@@ -299,11 +338,18 @@ export default function AutomationPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {(rules ?? []).map((r: any) => <RuleCard key={r.id} rule={r} />)}
+          {(rules ?? []).map((r: any) => (
+            <RuleCard key={r.id} rule={r} onEdit={setEditingRule} />
+          ))}
         </div>
       )}
 
-      {showNew && <NewRuleModal onClose={() => setShowNew(false)} />}
+      {(showNew || editingRule) && (
+        <RuleModal
+          existing={editingRule ?? undefined}
+          onClose={() => { setShowNew(false); setEditingRule(null); }}
+        />
+      )}
     </div>
   );
 }

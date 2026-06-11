@@ -59,6 +59,7 @@ import { SsoModule } from './sso/sso.module';
 import { DoraRegisterModule } from './dora-register/dora-register.module';
 import { Nis2IncidentsModule } from './nis2-incidents/nis2-incidents.module';
 import { AuditorPortalModule } from './auditor-portal/auditor-portal.module';
+import { AuditTemplatesModule } from './audit-templates/audit-templates.module';
 import { ManagementBodyModule } from './management-body/management-body.module';
 import { BoardReportsModule } from './board-reports/board-reports.module';
 import { RegulatoryFeedModule } from './regulatory-feed/regulatory-feed.module';
@@ -148,6 +149,7 @@ import { AutomationModule } from './automation/automation.module';
     DoraRegisterModule,
     Nis2IncidentsModule,
     AuditorPortalModule,
+    AuditTemplatesModule,
     ManagementBodyModule,
     BoardReportsModule,
     RegulatoryFeedModule,

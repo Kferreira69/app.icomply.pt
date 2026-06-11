@@ -36,6 +36,14 @@ export class AuditorPortalController {
 
   @ApiBearerAuth('JWT')
   @UseGuards(JwtAuthGuard)
+  @Post('sessions/:id/resend')
+  @ApiOperation({ summary: 'Resend auditor invite email' })
+  resendInvite(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
+    return this.svc.resendInvite(id, orgId);
+  }
+
+  @ApiBearerAuth('JWT')
+  @UseGuards(JwtAuthGuard)
   @Put('requests/:id/respond')
   respond(@Param('id') id: string, @CurrentUser('organizationId') orgId: string, @Body() body: { response: string }) {
     return this.svc.respondToRequest(id, orgId, body.response);

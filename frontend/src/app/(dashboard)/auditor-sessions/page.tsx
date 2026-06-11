@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { auditorPortalApi } from '@/lib/api';
-import { Shield, Plus, Trash2, Copy, CheckCircle, Loader2, Clock, X } from 'lucide-react';
+import { Shield, Plus, Trash2, Copy, CheckCircle, Loader2, Clock, X, Mail } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 
 const PERMISSIONS = ['EVIDENCE','CONTROLS','FINDINGS','POLICIES','RISKS'];
@@ -17,6 +17,7 @@ export default function AuditorSessionsPage() {
   const { data: sessions = [] } = useQuery({ queryKey: ['auditor-sessions'], queryFn: () => auditorPortalApi.listSessions().then(r => r.data) });
   const createMutation = useMutation({ mutationFn: (d: any) => auditorPortalApi.createSession(d), onSuccess: () => { qc.invalidateQueries({ queryKey: ['auditor-sessions'] }); setShowNew(false); } });
   const deactivateMutation = useMutation({ mutationFn: (id: string) => auditorPortalApi.deactivate(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['auditor-sessions'] }) });
+  const resendMutation = useMutation({ mutationFn: (id: string) => auditorPortalApi.resendInvite(id), onSuccess: () => alert('Convite reenviado!') });
 
   const copyLink = (token: string) => {
     const url = `${window.location.origin}/auditor/${token}`;
@@ -76,9 +77,15 @@ export default function AuditorSessionsPage() {
                     {copied === s.token ? <><CheckCircle className="w-3.5 h-3.5" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar link</>}
                   </button>
                   {s.isActive && (
-                    <button onClick={() => deactivateMutation.mutate(s.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button onClick={() => resendMutation.mutate(s.id)} disabled={resendMutation.isPending}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100" title="Reenviar email de convite">
+                        {resendMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} Reenviar
+                      </button>
+                      <button onClick={() => deactivateMutation.mutate(s.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

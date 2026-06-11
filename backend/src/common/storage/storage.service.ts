@@ -125,4 +125,16 @@ export class StorageService {
     if (!fs.existsSync(localPath)) return null;
     return fs.readFileSync(localPath);
   }
+
+  /** Stream an S3/MinIO file through the backend (avoids exposing internal network URLs) */
+  async readS3Buffer(key: string): Promise<Buffer | null> {
+    if (!this.useS3 || !this.s3) return null;
+    try {
+      const obj = await this.s3.getObject({ Bucket: this.bucket!, Key: key }).promise();
+      return obj.Body as Buffer;
+    } catch (e) {
+      console.error('[StorageService] S3 read failed:', e);
+      return null;
+    }
+  }
 }
