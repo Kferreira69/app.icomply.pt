@@ -13,7 +13,7 @@ import {
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
-  Plus, X, AlertOctagon,
+  Plus, X, AlertOctagon, Grid3X3,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -267,6 +267,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       type: 'flat',
       label: 'Intelligence',
       items: [
+        { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3 },
         { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity },
         { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss },
         { href: '/board-reports',      label: 'Board Reports',           icon: FileText },
