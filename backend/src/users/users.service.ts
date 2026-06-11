@@ -177,14 +177,16 @@ export class UsersService {
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File): Promise<{ avatarUrl: string }> {
+    if (!file) throw new BadRequestException('Nenhum ficheiro recebido.');
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowed.includes(file.mimetype)) throw new BadRequestException('Formato inválido. Use JPEG, PNG ou WebP.');
     if (file.size > 2 * 1024 * 1024) throw new BadRequestException('Imagem demasiado grande (máx 2MB).');
 
-    const { url } = await this.storage.uploadFile(file.buffer, file.originalname, file.mimetype, 'avatars');
+    // Store as base64 data URL — avoids S3/local serving complexity and never expires
+    const avatarUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
-    await this.prisma.user.update({ where: { id: userId }, data: { avatarUrl: url } });
-    return { avatarUrl: url };
+    await this.prisma.user.update({ where: { id: userId }, data: { avatarUrl } });
+    return { avatarUrl };
   }
 
   private safeSelect() {

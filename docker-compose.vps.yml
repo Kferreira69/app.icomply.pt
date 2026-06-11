@@ -120,6 +120,7 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
       ENABLE_AUDIT_LOG: 'true'
       # ── AI ──────────────────────────────────────────────────────
