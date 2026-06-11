@@ -87,6 +87,9 @@ export const usersApi = {
   invite: (data: any) => api.post('/users', data),
   update: (id: string, data: any) => api.patch(`/users/${id}`, data),
   suspend: (id: string) => api.patch(`/users/${id}/suspend`),
+  reactivate: (id: string) => api.patch(`/users/${id}/reactivate`),
+  setPassword: (id: string, password: string) => api.post(`/users/${id}/set-password`, { password }),
+  changePassword: (currentPassword: string, newPassword: string) => api.post('/users/me/change-password', { currentPassword, newPassword }),
   resendInvite: (id: string) => api.post(`/users/${id}/resend-invite`),
 };
 

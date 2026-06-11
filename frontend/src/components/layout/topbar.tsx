@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import {
   Search, Settings, CreditCard, Bell, Webhook, ShieldCheck, Shield,
-  Brain, Users, Globe, ScrollText, LogOut, ChevronDown, Menu, X,
+  Brain, Users, Globe, ScrollText, LogOut, ChevronDown, Menu, X, UserCircle, KeyRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -66,6 +66,7 @@ export function Topbar({ onMenuClick, menuOpen, pinned }: TopbarProps = {}) {
   }, []);
 
   const settingsLinks = [
+    { href: '/settings/profile',      label: 'Perfil & Password',  icon: UserCircle },
     { href: '/settings/organization', label: t('organization'), icon: Settings },
     { href: '/settings/billing',       label: t('billing'),       icon: CreditCard },
     { href: '/settings/notifications', label: t('notifications'), icon: Bell },

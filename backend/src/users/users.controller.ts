@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query,
-  ParseIntPipe, DefaultValuePipe,
+  ParseIntPipe, DefaultValuePipe, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -60,6 +60,36 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   suspend(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.suspend(id, orgId);
+  }
+
+  @Patch(':id/reactivate')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Reactivate a suspended user' })
+  reactivate(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
+    return this.service.reactivate(id, orgId);
+  }
+
+  @Post(':id/set-password')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Admin sets a new password for a user' })
+  adminSetPassword(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+    @Body('password') password: string,
+  ) {
+    return this.service.adminSetPassword(id, orgId, password);
+  }
+
+  @Post('me/change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Self-service password change' })
+  selfChangePassword(
+    @CurrentUser('id') id: string,
+    @Body('currentPassword') currentPassword: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.service.selfChangePassword(id, currentPassword, newPassword);
   }
 
   @Post(':id/resend-invite')

@@ -114,6 +114,43 @@ export class UsersService {
     });
   }
 
+  async reactivate(id: string, organizationId: string) {
+    await this.findOne(id, organizationId);
+    return this.prisma.user.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+      select: this.safeSelect(),
+    });
+  }
+
+  async adminSetPassword(id: string, organizationId: string, newPassword: string) {
+    await this.findOne(id, organizationId);
+    if (newPassword.length < 8) {
+      throw new ForbiddenException('Password must be at least 8 characters');
+    }
+    const hashed = await bcrypt.hash(newPassword, 12);
+    return this.prisma.user.update({
+      where: { id },
+      data: { passwordHash: hashed },
+      select: this.safeSelect(),
+    });
+  }
+
+  async selfChangePassword(id: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.passwordHash) {
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) throw new ForbiddenException('Current password is incorrect');
+    }
+    if (newPassword.length < 8) {
+      throw new ForbiddenException('Password must be at least 8 characters');
+    }
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({ where: { id }, data: { passwordHash: hashed } });
+    return { success: true };
+  }
+
   async resendInvite(id: string, organizationId: string) {
     const user = await this.findOne(id, organizationId);
     const inviteToken = uuid();
