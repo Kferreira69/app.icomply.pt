@@ -561,6 +561,29 @@ export const auditTemplatesApi = {
   remove: (id: string)         => api.delete(`/audit-templates/${id}`),
 };
 
+// ── RACI Matrix ───────────────────────────────────────────────
+
+export type RaciRole = 'R' | 'A' | 'C' | 'I';
+export type RaciEntityType =
+  | 'CONTROL' | 'RISK' | 'POLICY' | 'AUDIT' | 'CAPA'
+  | 'PROCESS' | 'VENDOR' | 'INCIDENT' | 'BOARD_REPORT' | 'PROJECT' | 'TASK';
+
+export const raciApi = {
+  getForEntity: (entityType: RaciEntityType, entityId: string) =>
+    api.get(`/raci/entity/${entityType}/${entityId}`),
+  assign: (data: { entityType: RaciEntityType; entityId: string; userId: string; role: RaciRole; notes?: string }) =>
+    api.post('/raci/assign', data),
+  bulkSet: (entityType: RaciEntityType, entityId: string, assignments: Array<{ userId: string; role: RaciRole; notes?: string }>) =>
+    api.post('/raci/bulk', { entityType, entityId, assignments }),
+  remove: (id: string) => api.delete(`/raci/${id}`),
+  getMyRoles: (entityType?: RaciEntityType) =>
+    api.get('/raci/me', { params: entityType ? { entityType } : {} }),
+  getForUser: (userId: string, entityType?: RaciEntityType) =>
+    api.get(`/raci/user/${userId}`, { params: entityType ? { entityType } : {} }),
+  getMatrix: (entityType: RaciEntityType) => api.get(`/raci/matrix/${entityType}`),
+  getSummary: () => api.get('/raci/summary'),
+};
+
 // ── Custom Roles ──────────────────────────────────────────────
 
 export const orgRolesApi = {

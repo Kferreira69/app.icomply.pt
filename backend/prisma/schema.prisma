@@ -285,6 +285,7 @@ model Organization {
   webhooks        Webhook[]
   orgRoles        OrgRole[]
   aiCreditUsage   AiCreditUsage[]
+  raciAssignments RaciAssignment[]
   ssoConfig       SsoConfig?
   // Multi-entity
   parentId        String?
@@ -465,6 +466,7 @@ model User {
   regChangesOwned          RegulatoryChange[]     @relation("RegChangeResponsible")
   calendarItemsOwned       ComplianceCalendarItem[] @relation("CalendarResponsible")
   nis2IncidentsResponsible Nis2IncidentNotification[] @relation("Nis2IncidentResponsible")
+  raciAssignments          RaciAssignment[]
 
   @@map("users")
 }
@@ -3511,3 +3513,49 @@ model ClientHubMembership {
   @@unique([hubOrgId, clientOrgId])
   @@map("client_hub_memberships")
 }
+
+// ── RACI Matrix ───────────────────────────────────────────────
+// Universal RACI assignment — attaches to any entity type
+
+model RaciAssignment {
+  id             String     @id @default(uuid())
+  organizationId String
+  entityType     RaciEntityType
+  entityId       String
+  userId         String
+  role           RaciRole
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId, role])
+  @@index([organizationId, entityType])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("raci_assignments")
+}
+
+enum RaciRole {
+  R  // Responsible  — does the work
+  A  // Accountable  — owns the outcome, signs off
+  C  // Consulted    — provides input before decisions
+  I  // Informed     — notified of decisions/progress
+}
+
+enum RaciEntityType {
+  CONTROL
+  RISK
+  POLICY
+  AUDIT
+  CAPA
+  PROCESS        // GDPR data processing activities
+  VENDOR         // TPRM / third-party
+  INCIDENT       // NIS2 / ITSM incidents
+  BOARD_REPORT
+  PROJECT
+  TASK
+}
+
