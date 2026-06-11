@@ -291,8 +291,10 @@ model Organization {
   webhooks        Webhook[]
   orgRoles        OrgRole[]
   aiCreditUsage   AiCreditUsage[]
-  raciAssignments RaciAssignment[]
-  ssoConfig       SsoConfig?
+  raciAssignments   RaciAssignment[]
+  approvalRequests  ApprovalRequest[] @relation("ApprovalRequester")
+  approvalVotes     ApprovalVote[]    @relation("ApprovalVoter")
+  ssoConfig         SsoConfig?
   // Multi-entity
   parentId        String?
   parent          Organization?  @relation("OrgHierarchy", fields: [parentId], references: [id])
@@ -365,6 +367,7 @@ model Organization {
   capaRecords         CapaRecord[]           @relation("CapaRecords")
   regulatoryChanges   RegulatoryChange[]     @relation("RegulatoryChanges")
   calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
+  approvalRequests    ApprovalRequest[]
 
   @@map("organizations")
 }
@@ -3571,5 +3574,72 @@ enum RaciEntityType {
   BOARD_REPORT
   PROJECT
   TASK
+}
+
+// ── Approvals ─────────────────────────────────────────────────
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+  ABSTAIN
+}
+
+enum ApprovalEntityType {
+  POLICY
+  CAPA
+  AUDIT
+  RISK
+  BOARD_REPORT
+  SOA_STATEMENT
+  EVIDENCE
+  PROJECT
+  DOCUMENT
+}
+
+model ApprovalRequest {
+  id             String             @id @default(uuid())
+  organizationId String
+  entityType     ApprovalEntityType
+  entityId       String
+  title          String
+  description    String?
+  requestedById  String
+  status         ApprovalStatus     @default(PENDING)
+  threshold      Int                @default(1)  // min approvals needed
+  dueDate        DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  requestedBy  User            @relation("ApprovalRequester", fields: [requestedById], references: [id])
+  votes        ApprovalVote[]
+
+  @@index([organizationId, status])
+  @@index([entityType, entityId])
+  @@map("approval_requests")
+}
+
+model ApprovalVote {
+  id                String           @id @default(uuid())
+  approvalRequestId String
+  approverId        String
+  decision          ApprovalDecision?
+  comment           String?
+  votedAt           DateTime?
+  createdAt         DateTime         @default(now())
+
+  request  ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  approver User            @relation("ApprovalVoter", fields: [approverId], references: [id])
+
+  @@unique([approvalRequestId, approverId])
+  @@map("approval_votes")
 }
 

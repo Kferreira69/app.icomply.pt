@@ -64,6 +64,7 @@ import { BoardReportsModule } from './board-reports/board-reports.module';
 import { RegulatoryFeedModule } from './regulatory-feed/regulatory-feed.module';
 import { ClientHubModule } from './client-hub/client-hub.module';
 import { RaciModule } from './raci/raci.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 
 @Module({
   imports: [
@@ -148,6 +149,7 @@ import { RaciModule } from './raci/raci.module';
     RegulatoryFeedModule,
     ClientHubModule,
     RaciModule,
+    ApprovalsModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

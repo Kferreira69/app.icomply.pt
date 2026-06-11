@@ -589,6 +589,27 @@ export const raciApi = {
   getSummary: () => api.get('/raci/summary'),
 };
 
+// ── Approvals ────────────────────────────────────────────────
+
+export type ApprovalEntityType =
+  | 'POLICY' | 'CAPA' | 'AUDIT' | 'RISK' | 'BOARD_REPORT'
+  | 'SOA_STATEMENT' | 'EVIDENCE' | 'PROJECT' | 'DOCUMENT';
+
+export const approvalsApi = {
+  create: (data: {
+    entityType: ApprovalEntityType; entityId: string; title: string;
+    description?: string; approverIds: string[]; threshold?: number; dueDate?: string;
+  }) => api.post('/approvals', data),
+  getForEntity: (entityType: ApprovalEntityType, entityId: string) =>
+    api.get(`/approvals/entity/${entityType}/${entityId}`),
+  getMyPending: () => api.get('/approvals/me'),
+  getAll: (status?: string) => api.get('/approvals', { params: status ? { status } : {} }),
+  getSummary: () => api.get('/approvals/summary'),
+  vote: (id: string, decision: 'APPROVED' | 'REJECTED' | 'ABSTAIN', comment?: string) =>
+    api.patch(`/approvals/${id}/vote`, { decision, comment }),
+  cancel: (id: string) => api.patch(`/approvals/${id}/cancel`),
+};
+
 // ── Custom Roles ──────────────────────────────────────────────
 
 export const orgRolesApi = {

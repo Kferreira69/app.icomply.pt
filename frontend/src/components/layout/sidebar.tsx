@@ -267,6 +267,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       type: 'flat',
       label: 'Intelligence',
       items: [
+        { href: '/approvals',          label: 'Aprovações',              icon: CheckSquare },
         { href: '/portfolio',          label: 'Portfolio GRC',           icon: LayoutDashboard },
         { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3 },
         { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity },
