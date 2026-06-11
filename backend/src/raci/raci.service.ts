@@ -113,33 +113,45 @@ export class RaciService {
 
   /** Summary stats for dashboard */
   async getSummary(organizationId: string) {
-    const [total, byEntityType, unassigned] = await Promise.all([
+    const [total, byEntityType, allUsers, accountableEntityIds] = await Promise.all([
       this.prisma.raciAssignment.count({ where: { organizationId } }),
       this.prisma.raciAssignment.groupBy({
         by: ['entityType'],
         where: { organizationId },
         _count: { id: true },
       }),
-      // Controls with no Accountable (A) person — compliance gap
-      this.prisma.control.count({
-        where: {
-          organizationId,
-          NOT: {
-            id: {
-              in: (await this.prisma.raciAssignment.findMany({
-                where: { organizationId, entityType: 'CONTROL', role: 'A' },
-                select: { entityId: true },
-              })).map(r => r.entityId),
-            },
-          },
-        },
-      }).catch(() => 0),
+      this.prisma.raciAssignment.findMany({
+        where: { organizationId },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
+      this.prisma.raciAssignment.findMany({
+        where: { organizationId, entityType: 'CONTROL', role: 'A' },
+        select: { entityId: true },
+        distinct: ['entityId'],
+      }),
     ]);
+
+    const allEntityIds = await this.prisma.raciAssignment.findMany({
+      where: { organizationId, entityType: 'CONTROL' },
+      select: { entityId: true },
+      distinct: ['entityId'],
+    });
+
+    const accountableSet = new Set(accountableEntityIds.map(r => r.entityId));
+    const entitiesWithoutAccountable = allEntityIds.filter(r => !accountableSet.has(r.entityId)).length;
+    const entitiesCovered = await this.prisma.raciAssignment.findMany({
+      where: { organizationId },
+      select: { entityId: true },
+      distinct: ['entityId'],
+    }).then(r => r.length);
 
     return {
       total,
       byEntityType: Object.fromEntries(byEntityType.map(r => [r.entityType, r._count.id])),
-      controlsWithoutAccountable: unassigned,
+      usersWithRoles: allUsers.length,
+      entitiesCovered,
+      entitiesWithoutAccountable,
     };
   }
 }
