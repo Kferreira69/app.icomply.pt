@@ -14,6 +14,7 @@ import {
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
+  GanttChart, BookTemplate, Zap,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -270,6 +271,10 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         { href: '/approvals',          label: 'Aprovações',              icon: CheckSquare },
         { href: '/portfolio',          label: 'Portfolio GRC',           icon: LayoutDashboard },
         { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3 },
+        { href: '/intake',             label: 'Intake Forms',            icon: ClipboardList },
+        { href: '/action-plans',       label: 'Planos de Ação',          icon: GanttChart },
+        { href: '/program-templates',  label: 'Templates de Programa',   icon: BookTemplate },
+        { href: '/automation',         label: 'Motor de Automações',     icon: Zap },
         { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity },
         { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss },
         { href: '/board-reports',      label: 'Board Reports',           icon: FileText },

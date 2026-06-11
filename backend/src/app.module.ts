@@ -65,6 +65,10 @@ import { RegulatoryFeedModule } from './regulatory-feed/regulatory-feed.module';
 import { ClientHubModule } from './client-hub/client-hub.module';
 import { RaciModule } from './raci/raci.module';
 import { ApprovalsModule } from './approvals/approvals.module';
+import { IntakeModule } from './intake/intake.module';
+import { ActionPlansModule } from './action-plans/action-plans.module';
+import { ProgramTemplatesModule } from './program-templates/program-templates.module';
+import { AutomationModule } from './automation/automation.module';
 
 @Module({
   imports: [
@@ -150,6 +154,10 @@ import { ApprovalsModule } from './approvals/approvals.module';
     ClientHubModule,
     RaciModule,
     ApprovalsModule,
+    IntakeModule,
+    ActionPlansModule,
+    ProgramTemplatesModule,
+    AutomationModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

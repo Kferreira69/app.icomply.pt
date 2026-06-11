@@ -843,3 +843,64 @@ export const regulatoryChangeApi = {
   updateCalendarItem: (id: string, data: any)                              => api.patch(`/regulatory-change/calendar/${id}`, data),
   removeCalendarItem: (id: string)                                         => api.delete(`/regulatory-change/calendar/${id}`),
 };
+
+// ── Intake Forms ──────────────────────────────────────────────
+
+export type IntakeFieldType = 'text' | 'textarea' | 'email' | 'phone' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'file';
+
+export interface IntakeField {
+  id: string;
+  type: IntakeFieldType;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+  options?: string[];
+}
+
+export const intakeApi = {
+  getSummary:        ()                                     => api.get('/intake/summary'),
+  list:              ()                                     => api.get('/intake'),
+  get:               (id: string)                           => api.get(`/intake/${id}`),
+  create:            (data: { title: string; description?: string; fields: IntakeField[] }) => api.post('/intake', data),
+  update:            (id: string, data: any)                => api.patch(`/intake/${id}`, data),
+  remove:            (id: string)                           => api.delete(`/intake/${id}`),
+  getSubmissions:    (id: string, page = 1, limit = 20)     => api.get(`/intake/${id}/submissions`, { params: { page, limit } }),
+  getPublicForm:     (token: string)                        => api.get(`/public/intake/${token}`),
+  submitPublic:      (token: string, data: { answers: Record<string, any>; submitterName?: string; submitterEmail?: string }) =>
+                       api.post(`/public/intake/${token}/submit`, data),
+};
+
+// ── Action Plans ──────────────────────────────────────────────
+
+export const actionPlansApi = {
+  getSummary:  ()                              => api.get('/action-plans/summary'),
+  list:        (status?: string)               => api.get('/action-plans', { params: status ? { status } : {} }),
+  get:         (id: string)                    => api.get(`/action-plans/${id}`),
+  create:      (data: any)                     => api.post('/action-plans', data),
+  update:      (id: string, data: any)         => api.patch(`/action-plans/${id}`, data),
+  remove:      (id: string)                    => api.delete(`/action-plans/${id}`),
+  createTask:  (planId: string, data: any)     => api.post(`/action-plans/${planId}/tasks`, data),
+  updateTask:  (planId: string, taskId: string, data: any) => api.patch(`/action-plans/${planId}/tasks/${taskId}`, data),
+  removeTask:  (planId: string, taskId: string) => api.delete(`/action-plans/${planId}/tasks/${taskId}`),
+};
+
+// ── Program Templates ─────────────────────────────────────────
+
+export const programTemplatesApi = {
+  list:           ()                                         => api.get('/program-templates'),
+  getActivations: ()                                         => api.get('/program-templates/activations'),
+  activate:       (id: string, data: { startDate: string }) => api.post(`/program-templates/${id}/activate`, data),
+};
+
+// ── Automation ────────────────────────────────────────────────
+
+export const automationApi = {
+  getSummary: ()                         => api.get('/automation/summary'),
+  list:       ()                         => api.get('/automation'),
+  create:     (data: any)                => api.post('/automation', data),
+  update:     (id: string, data: any)    => api.patch(`/automation/${id}`, data),
+  remove:     (id: string)               => api.delete(`/automation/${id}`),
+  getLogs:    (id: string)               => api.get(`/automation/${id}/logs`),
+  trigger:    (id: string)               => api.post(`/automation/${id}/trigger`),
+};
+
