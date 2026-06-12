@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { reportsApi } from '@/lib/api';
-import { BarChart2, Download, Loader2, CheckCircle, XCircle, Clock, CalendarClock, Plus, Trash2, Mail } from 'lucide-react';
+import { BarChart2, Download, Loader2, CheckCircle, XCircle, Clock, CalendarClock, Plus, Trash2, Mail, Edit2, X } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 
@@ -27,8 +27,9 @@ async function triggerDownload(report: any) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  } catch (e) {
+  } catch (e: any) {
     console.error('Download failed', e);
+    alert(`Erro ao descarregar relatório: ${e?.response?.data?.message || e?.message || 'Erro desconhecido'}`);
   }
 }
 
@@ -36,6 +37,8 @@ function ScheduledReportsPanel() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [newSched, setNewSched] = useState({ name: '', type: 'COMPLIANCE_SUMMARY', format: 'PDF', frequency: 'MONTHLY', recipients: '' });
+  const [editingSchedule, setEditingSchedule] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ name: '', type: '', format: 'PDF', frequency: 'MONTHLY', recipients: '' });
 
   const { data: schedules = [] } = useQuery({
     queryKey: ['report-schedules'],
@@ -47,6 +50,11 @@ function ScheduledReportsPanel() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-schedules'] }); setShowForm(false); },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: any) => reportsApi.updateSchedule(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['report-schedules'] }); setEditingSchedule(null); },
+  });
+
   const removeMutation = useMutation({
     mutationFn: (id: string) => reportsApi.removeSchedule(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['report-schedules'] }),
@@ -56,6 +64,11 @@ function ScheduledReportsPanel() {
     mutationFn: ({ id, isActive }: any) => reportsApi.updateSchedule(id, { isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['report-schedules'] }),
   });
+
+  const openEdit = (s: any) => {
+    setEditForm({ name: s.name, type: s.type, format: s.format || 'PDF', frequency: s.frequency, recipients: (s.recipients || []).join(', ') });
+    setEditingSchedule(s);
+  };
 
   const FREQ_LABELS: Record<string, string> = { DAILY: 'Diário', WEEKLY: 'Semanal', MONTHLY: 'Mensal', QUARTERLY: 'Trimestral' };
   const inp = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none';
@@ -104,6 +117,46 @@ function ScheduledReportsPanel() {
         </div>
       )}
 
+      {editingSchedule && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Editar Agendamento</h2>
+              <button onClick={() => setEditingSchedule(null)} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-3">
+              <input className={inp} value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} placeholder="Nome do agendamento" />
+              <div className="grid grid-cols-2 gap-3">
+                <select className={inp} value={editForm.type} onChange={e => setEditForm(p => ({ ...p, type: e.target.value }))}>
+                  <option value="COMPLIANCE_SUMMARY">Resumo Conformidade</option>
+                  <option value="RISK_REGISTER">Registo de Riscos</option>
+                  <option value="TASK_STATUS">Estado de Tarefas</option>
+                  <option value="EVIDENCE_GAP">Gap de Evidências</option>
+                </select>
+                <select className={inp} value={editForm.format} onChange={e => setEditForm(p => ({ ...p, format: e.target.value }))}>
+                  <option value="PDF">PDF</option>
+                  <option value="EXCEL">Excel</option>
+                  <option value="JSON">JSON</option>
+                </select>
+              </div>
+              <select className={inp} value={editForm.frequency} onChange={e => setEditForm(p => ({ ...p, frequency: e.target.value }))}>
+                {Object.entries(FREQ_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <input className={inp} value={editForm.recipients} onChange={e => setEditForm(p => ({ ...p, recipients: e.target.value }))} placeholder="Emails dos destinatários (separados por vírgula)" />
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setEditingSchedule(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600">Cancelar</button>
+                <button
+                  onClick={() => updateMutation.mutate({ id: editingSchedule.id, data: { ...editForm, recipients: editForm.recipients.split(',').map((e: string) => e.trim()).filter(Boolean) } })}
+                  disabled={!editForm.name || updateMutation.isPending}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-primary/90">
+                  {updateMutation.isPending ? 'A guardar...' : 'Guardar alterações'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {(schedules as any[]).length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-6">Sem agendamentos configurados</p>
       ) : (
@@ -124,6 +177,10 @@ function ScheduledReportsPanel() {
                 <button onClick={() => toggleMutation.mutate({ id: s.id, isActive: !s.isActive })}
                   className={`text-xs px-2 py-1 rounded-lg font-medium ${s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                   {s.isActive ? 'Ativo' : 'Pausado'}
+                </button>
+                <button onClick={() => openEdit(s)}
+                  className="p-1.5 hover:bg-blue-50 rounded-lg text-gray-400 hover:text-blue-500 transition-colors" title="Editar">
+                  <Edit2 className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => removeMutation.mutate(s.id)}
                   className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors">
