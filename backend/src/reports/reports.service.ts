@@ -156,7 +156,8 @@ export class ReportsService {
   // ── PDF generation ────────────────────────────────────────────
 
   private async generatePdf(data: any, type: ReportType, orgName: string): Promise<Buffer> {
-    const PDFDocument = (await import('pdfkit')).default;
+    const pdfkit = await import('pdfkit');
+    const PDFDocument = (pdfkit as any).default ?? pdfkit;
 
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
@@ -327,8 +328,9 @@ export class ReportsService {
   // ── Excel generation ──────────────────────────────────────────
 
   private async generateExcel(data: any, type: ReportType, orgName: string): Promise<Buffer> {
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.default.Workbook();
+    const exceljs = await import('exceljs');
+    const ExcelJS = (exceljs as any).default ?? exceljs;
+    const wb = new ExcelJS.Workbook();
     wb.creator = 'iComply';
 
     // ── Sheet 1: Summary ──────────────────────────────────
