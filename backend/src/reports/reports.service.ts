@@ -7,17 +7,46 @@ import { StorageService } from '../common/storage/storage.service';
 import { MailService } from '../common/mail/mail.service';
 import { ReportType, ReportFormat } from '@prisma/client';
 
-// ── Colour palette ────────────────────────────────────────────
 const BRAND = {
-  primary:   '#1E40AF', // blue-800
-  accent:    '#3B82F6', // blue-500
-  dark:      '#1E293B', // slate-800
-  muted:     '#64748B', // slate-500
-  light:     '#F1F5F9', // slate-100
-  white:     '#FFFFFF',
-  success:   '#16A34A',
-  warning:   '#D97706',
-  danger:    '#DC2626',
+  primary: '#1E40AF',
+  accent:  '#3B82F6',
+  dark:    '#1E293B',
+  muted:   '#64748B',
+  light:   '#F1F5F9',
+  white:   '#FFFFFF',
+  success: '#16A34A',
+  warning: '#D97706',
+  danger:  '#DC2626',
+  border:  '#E2E8F0',
+};
+
+// ── Portuguese label maps ─────────────────────────────────────
+const REPORT_TYPE_PT: Record<string, string> = {
+  COMPLIANCE_SUMMARY: 'Sumário de Conformidade',
+  RISK_REGISTER:      'Registo de Riscos',
+  TASK_STATUS:        'Estado de Tarefas',
+  EVIDENCE_GAP:       'Gap de Evidências',
+  EXECUTIVE_SUMMARY:  'Sumário Executivo',
+  AUDIT_REPORT:       'Relatório de Auditoria',
+  GAP_ANALYSIS:       'Análise de Gap',
+};
+const RISK_LEVEL_PT: Record<string, string> = {
+  CRITICAL: 'Crítico', HIGH: 'Alto', MEDIUM: 'Médio', LOW: 'Baixo',
+};
+const RISK_STATUS_PT: Record<string, string> = {
+  IDENTIFIED: 'Identificado', IN_TREATMENT: 'Em Tratamento',
+  MITIGATED:  'Mitigado',     ACCEPTED:     'Aceite',  CLOSED: 'Fechado',
+};
+const TASK_STATUS_PT: Record<string, string> = {
+  TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão',
+  DONE: 'Concluída', CANCELLED: 'Cancelada',
+};
+const EVIDENCE_STATUS_PT: Record<string, string> = {
+  APPROVED: 'Aprovada', PENDING: 'Pendente', REJECTED: 'Rejeitada',
+  EXPIRED:  'Expirada', DRAFT:   'Rascunho',
+};
+const PROJECT_STATUS_PT: Record<string, string> = {
+  ACTIVE: 'Ativo', DRAFT: 'Rascunho', COMPLETED: 'Concluído', ARCHIVED: 'Arquivado',
 };
 
 @Injectable()
@@ -29,6 +58,8 @@ export class ReportsService {
     private storage: StorageService,
     private mail: MailService,
   ) {}
+
+  // ── Public API ────────────────────────────────────────────────
 
   async generate(
     organizationId: string,
@@ -84,19 +115,16 @@ export class ReportsService {
     const extensions: Record<string, string> = { PDF: 'pdf', EXCEL: 'xlsx', JSON: 'json' };
     const mime = mimeTypes[report.format] ?? 'application/octet-stream';
     const ext  = extensions[report.format] ?? 'bin';
-    const filename = `${report.name}.${ext}`;
 
     res.set('Content-Type', mime);
-    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    res.set('Content-Disposition', `attachment; filename="${report.name}.${ext}"`);
 
-    // Try local storage first
     const buffer = this.storage.readLocalFile(report.s3Key);
     if (buffer) {
       res.set('Content-Length', String(buffer.length));
       return new StreamableFile(buffer);
     }
 
-    // S3/MinIO: stream through backend (presigned URLs use internal Docker network — can't redirect browser)
     const s3Buffer = await this.storage.readS3Buffer(report.s3Key);
     if (s3Buffer) {
       res.set('Content-Length', String(s3Buffer.length));
@@ -105,6 +133,8 @@ export class ReportsService {
 
     throw new NotFoundException('Report file not available');
   }
+
+  // ── Data fetchers ─────────────────────────────────────────────
 
   async getComplianceSummary(organizationId: string, projectId?: string) {
     const where: any = { organizationId, ...(projectId && { id: projectId }) };
@@ -118,7 +148,7 @@ export class ReportsService {
         this.prisma.task.groupBy({ by: ['status'], where: { project: { organizationId } }, _count: true }),
         this.prisma.risk.findMany({
           where: { organizationId },
-          select: { title: true, status: true, inherentScore: true },
+          select: { id: true, title: true, status: true, inherentScore: true, residualScore: true },
           orderBy: { inherentScore: 'desc' },
         }),
         this.prisma.evidence.groupBy({ by: ['status'], where: { uploadedBy: { organizationId } }, _count: true }),
@@ -153,9 +183,187 @@ export class ReportsService {
     };
   }
 
-  // ── PDF generation ────────────────────────────────────────────
+  private async getRiskRegisterData(organizationId: string) {
+    const risks = await this.prisma.risk.findMany({
+      where: { organizationId },
+      orderBy: { inherentScore: 'desc' },
+    });
+    return risks.map((r: any) => ({
+      ...r,
+      level: r.inherentScore >= 20 ? 'CRITICAL'
+        : r.inherentScore >= 12 ? 'HIGH'
+        : r.inherentScore >= 6  ? 'MEDIUM'
+        : 'LOW',
+    }));
+  }
 
-  private async generatePdf(data: any, type: ReportType, orgName: string): Promise<Buffer> {
+  private async getEvidenceGapData(organizationId: string) {
+    return this.prisma.evidence.findMany({
+      where: { project: { organizationId } },
+      select: {
+        id: true, title: true, status: true, expiresAt: true,
+        project:    { select: { name: true } },
+        uploadedBy: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: [{ status: 'asc' }, { expiresAt: 'asc' }],
+      take: 500,
+    });
+  }
+
+  private async getTaskStatusData(organizationId: string) {
+    return this.prisma.task.findMany({
+      where: { project: { organizationId } },
+      select: {
+        id: true, title: true, status: true, priority: true, dueDate: true,
+        project:  { select: { name: true } },
+        assignee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: [{ status: 'asc' }, { dueDate: 'asc' }],
+      take: 500,
+    });
+  }
+
+  // ── PDF helpers ───────────────────────────────────────────────
+
+  private truncate(text: string, maxPts: number, fontSize = 9): string {
+    const avgCharWidth = fontSize * 0.52;
+    const maxChars = Math.floor(maxPts / avgCharWidth);
+    if (!text || text.length <= maxChars) return text || '';
+    return text.substring(0, maxChars - 3) + '...';
+  }
+
+  private pdfHeader(doc: any, orgName: string, type: string, dateStr: string): void {
+    const W = doc.page.width;
+    const M = 50;
+    doc.rect(0, 0, W, 90).fill(BRAND.primary);
+    doc.fillColor(BRAND.white).font('Helvetica-Bold').fontSize(22)
+      .text('iComply', M, 22, { continued: true })
+      .font('Helvetica').fillColor('#93C5FD')
+      .text('  Compliance Platform');
+    doc.fillColor('#BFDBFE').font('Helvetica').fontSize(11)
+      .text(REPORT_TYPE_PT[type] ?? type, M, 50);
+    doc.fillColor('#93C5FD').fontSize(9)
+      .text(`${orgName}  ·  Gerado em ${dateStr}`, M, 68);
+    doc.y = 110;
+  }
+
+  private pdfKpis(doc: any, items: Array<{ label: string; value: string | number; color?: string }>): void {
+    const W = doc.page.width;
+    const M = 50;
+    const gap = 6;
+    const available = W - 2 * M;
+    const boxW = Math.floor((available - gap * (items.length - 1)) / items.length);
+    const boxH = 54;
+    const startY = doc.y;
+    let x = M;
+    const smallFont = items.length > 4 ? 16 : 20;
+
+    items.forEach(item => {
+      doc.rect(x, startY, boxW, boxH).fill(BRAND.light);
+      doc.rect(x, startY, boxW, boxH).strokeColor(BRAND.border).lineWidth(0.5).stroke();
+      doc.fillColor(item.color || BRAND.primary).font('Helvetica-Bold').fontSize(smallFont)
+        .text(String(item.value), x, startY + 8, { width: boxW, align: 'center', lineBreak: false });
+      doc.fillColor(BRAND.muted).font('Helvetica').fontSize(7)
+        .text(item.label, x, startY + smallFont + 14, { width: boxW, align: 'center', lineBreak: false });
+      x += boxW + gap;
+    });
+    doc.y = startY + boxH + 14;
+  }
+
+  private pdfSectionTitle(doc: any, title: string): void {
+    const M = 50;
+    const W = doc.page.width;
+    doc.moveDown(0.5);
+    if (doc.y + 30 > doc.page.height - 80) { doc.addPage(); doc.y = 40; }
+    doc.moveTo(M, doc.y).lineTo(W - M, doc.y)
+      .strokeColor(BRAND.border).lineWidth(0.8).stroke();
+    doc.y += 6;
+    doc.fillColor(BRAND.primary).font('Helvetica-Bold').fontSize(10)
+      .text(title.toUpperCase(), M, doc.y, { characterSpacing: 0.4, lineBreak: false });
+    doc.y += 16;
+    doc.fillColor(BRAND.dark).font('Helvetica').fontSize(9);
+  }
+
+  private pdfTable(
+    doc: any,
+    headers: string[],
+    rows: string[][],
+    colWidths: number[],
+    startX: number,
+  ): void {
+    const ROW_H = 18;
+    const PAD   = 4;
+    const totalW = colWidths.reduce((a, b) => a + b, 0);
+
+    // Header row
+    if (doc.y + ROW_H > doc.page.height - 80) { doc.addPage(); doc.y = 50; }
+    const headerY = doc.y;
+    doc.rect(startX, headerY, totalW, ROW_H).fill(BRAND.primary);
+    let cx = startX;
+    headers.forEach((h, i) => {
+      doc.fillColor(BRAND.white).font('Helvetica-Bold').fontSize(8)
+        .text(
+          this.truncate(h, colWidths[i] - PAD * 2, 8),
+          cx + PAD, headerY + PAD,
+          { width: colWidths[i] - PAD * 2, lineBreak: false },
+        );
+      cx += colWidths[i];
+    });
+    doc.y = headerY + ROW_H;
+
+    if (rows.length === 0) {
+      doc.fillColor(BRAND.muted).font('Helvetica').fontSize(9)
+        .text('Sem dados disponíveis.', startX + PAD, doc.y + PAD);
+      doc.y += ROW_H;
+      return;
+    }
+
+    // Data rows — key fix: save rowY before any text() call
+    rows.forEach((row, ri) => {
+      if (doc.y + ROW_H > doc.page.height - 80) { doc.addPage(); doc.y = 50; }
+      const rowY = doc.y; // capture once for all columns in this row
+      if (ri % 2 === 0) {
+        doc.rect(startX, rowY, totalW, ROW_H).fill(BRAND.light);
+      }
+      cx = startX;
+      row.forEach((cell, i) => {
+        doc.fillColor(BRAND.dark).font('Helvetica').fontSize(9)
+          .text(
+            this.truncate(cell || '—', colWidths[i] - PAD * 2, 9),
+            cx + PAD, rowY + PAD,
+            { width: colWidths[i] - PAD * 2, lineBreak: false },
+          );
+        cx += colWidths[i];
+      });
+      doc.y = rowY + ROW_H; // advance by exactly one row height
+    });
+  }
+
+  private pdfFooter(doc: any, orgName: string, dateStr: string): void {
+    const W = doc.page.width;
+    const M = 50;
+    const pages = doc.bufferedPageRange();
+    for (let i = 0; i < pages.count; i++) {
+      doc.switchToPage(pages.start + i);
+      doc.rect(0, doc.page.height - 30, W, 30).fill(BRAND.dark);
+      doc.fillColor(BRAND.white).font('Helvetica').fontSize(8)
+        .text(
+          `iComply Compliance Platform  ·  ${orgName}  ·  ${dateStr}`,
+          M, doc.page.height - 18,
+          { width: W - 2 * M - 60, lineBreak: false },
+        );
+      doc.fillColor('#94A3B8').font('Helvetica').fontSize(8)
+        .text(
+          `Pág. ${i + 1} / ${pages.count}`,
+          W - M - 55, doc.page.height - 18,
+          { width: 55, align: 'right', lineBreak: false },
+        );
+    }
+  }
+
+  // ── Type-specific PDF generators ──────────────────────────────
+
+  private async generateComplianceSummaryPdf(data: any, orgName: string): Promise<Buffer> {
     const pdfkit = await import('pdfkit');
     const PDFDocument = (pdfkit as any).default ?? pdfkit;
 
@@ -167,162 +375,332 @@ export class ReportsService {
       doc.on('error', reject);
 
       const W = doc.page.width;
-      const M = 50; // margin
-
-      // ── Helper: horizontal rule ──────────────────────────
-      const hr = (y?: number) => {
-        const yy = y ?? doc.y;
-        doc.moveTo(M, yy).lineTo(W - M, yy).strokeColor('#E2E8F0').lineWidth(1).stroke();
-      };
-
-      // ── Header band ──────────────────────────────────────
-      doc.rect(0, 0, W, 90).fill(BRAND.primary);
-      doc.fillColor(BRAND.white)
-        .font('Helvetica-Bold').fontSize(22)
-        .text('iComply', M, 22, { continued: true })
-        .font('Helvetica').fillColor('#93C5FD')
-        .text('  Compliance Platform', { continued: false });
-
-      const typeLabel: Record<string, string> = {
-        COMPLIANCE_REPORT: 'Relatório de Conformidade',
-        RISK_ASSESSMENT: 'Avaliação de Risco',
-        AUDIT_REPORT: 'Relatório de Auditoria',
-        GAP_ANALYSIS: 'Análise de Gap',
-        EXECUTIVE_SUMMARY: 'Sumário Executivo',
-      };
-      doc.fillColor('#BFDBFE').font('Helvetica').fontSize(11)
-        .text(typeLabel[type] ?? type, M, 50);
-
+      const M = 50;
+      // Available table width: 595 - 2*50 = 495
       const dateStr = new Date(data.generatedAt).toLocaleDateString('pt-PT', {
         day: '2-digit', month: 'long', year: 'numeric',
       });
-      doc.fillColor('#93C5FD').fontSize(9)
-        .text(`${orgName}  ·  Gerado em ${dateStr}`, M, 68);
 
-      doc.y = 110;
+      this.pdfHeader(doc, orgName, 'COMPLIANCE_SUMMARY', dateStr);
 
-      // ── Compliance Score ─────────────────────────────────
-      const score = data.complianceScore;
+      // Score band
+      const score = data.complianceScore ?? 0;
       const scoreColor = score >= 80 ? BRAND.success : score >= 60 ? BRAND.warning : BRAND.danger;
-
-      doc.rect(M, doc.y, W - 2 * M, 72).fill(BRAND.light);
-      const scoreY = doc.y + 10;
-      doc.fillColor(scoreColor).font('Helvetica-Bold').fontSize(48)
-        .text(`${score}%`, M + 20, scoreY, { width: 120, align: 'left' });
+      const bandY = doc.y;
+      doc.rect(M, bandY, W - 2 * M, 68).fill(BRAND.light);
+      doc.fillColor(scoreColor).font('Helvetica-Bold').fontSize(44)
+        .text(`${score}%`, M + 16, bandY + 8, { width: 110, align: 'left', lineBreak: false });
       doc.fillColor(BRAND.dark).font('Helvetica-Bold').fontSize(13)
-        .text('Pontuação de Conformidade', M + 140, scoreY + 8);
+        .text('Pontuação de Conformidade', M + 136, bandY + 10, { lineBreak: false });
       doc.fillColor(BRAND.muted).font('Helvetica').fontSize(9)
-        .text('Média ponderada de todos os projetos ativos', M + 140, scoreY + 28);
+        .text('Média ponderada de todos os projetos ativos', M + 136, bandY + 30, { lineBreak: false });
+      const bX = M + 136, bY = bandY + 50, bW = W - 2 * M - 156;
+      doc.rect(bX, bY, bW, 6).fill(BRAND.border);
+      doc.rect(bX, bY, Math.round(bW * score / 100), 6).fill(scoreColor);
+      doc.y = bandY + 82;
 
-      // Score bar
-      const barX = M + 140, barY = scoreY + 48, barW = W - 2 * M - 160;
-      doc.rect(barX, barY, barW, 6).fill('#E2E8F0');
-      doc.rect(barX, barY, Math.round(barW * score / 100), 6).fill(scoreColor);
-      doc.y += 92;
+      // KPI row
+      const risks = data.risks ?? [];
+      const highCount = risks.filter((r: any) => ['HIGH', 'CRITICAL'].includes(r.level)).length;
+      this.pdfKpis(doc, [
+        { label: 'Projetos', value: data.projects?.total ?? 0 },
+        { label: 'Riscos Críticos/Altos', value: highCount, color: highCount > 0 ? BRAND.danger : BRAND.success },
+        { label: 'Auditorias Concluídas', value: data.auditsCompleted ?? 0, color: BRAND.success },
+        { label: 'CAPA em Aberto', value: data.openCapas ?? 0, color: (data.openCapas ?? 0) > 0 ? BRAND.warning : BRAND.success },
+      ]);
 
-      // ── Section: Projects ────────────────────────────────
-      const section = (title: string) => {
-        doc.moveDown(0.6);
-        hr();
-        doc.moveDown(0.4);
-        doc.fillColor(BRAND.primary).font('Helvetica-Bold').fontSize(12)
-          .text(title.toUpperCase(), { characterSpacing: 0.5 });
-        doc.moveDown(0.3);
-        doc.fillColor(BRAND.dark).font('Helvetica').fontSize(10);
-      };
-
-      const tableRow = (cols: string[], widths: number[], isHeader = false) => {
-        const x = M;
-        let cx = x;
-        const rowH = 18;
-        if (isHeader) doc.rect(M, doc.y, W - 2 * M, rowH).fill(BRAND.primary);
-        else if ((doc.y - 110) % 36 < 18) doc.rect(M, doc.y, W - 2 * M, rowH).fill(BRAND.light);
-
-        cols.forEach((col, i) => {
-          doc.fillColor(isHeader ? BRAND.white : BRAND.dark)
-            .font(isHeader ? 'Helvetica-Bold' : 'Helvetica')
-            .fontSize(isHeader ? 8 : 9)
-            .text(col, cx + 4, doc.y + 4, { width: widths[i] - 8, lineBreak: false });
-          cx += widths[i];
-        });
-        doc.y += rowH;
-      };
-
-      section('Projetos');
-      const pW = [W - 2 * M - 200, 80, 80, 80];
-      tableRow(['Nome', 'Framework', 'Estado', 'Score'], pW, true);
-      if (data.projects.list.length === 0) {
-        doc.fillColor(BRAND.muted).fontSize(9).text('Sem projetos registados.', M + 4);
-      } else {
-        data.projects.list.forEach((p: any) => {
-          tableRow([
-            p.name,
-            p.framework?.name ?? '—',
-            p.status,
-            `${p.complianceScore ?? 0}%`,
-          ], pW);
-        });
-      }
-
-      // ── Section: Risk Overview ───────────────────────────
-      section('Riscos');
-      const highRisks = data.risks.filter((r: any) => ['HIGH', 'CRITICAL'].includes(r.level));
-      const medRisks  = data.risks.filter((r: any) => r.level === 'MEDIUM');
-      const lowRisks  = data.risks.filter((r: any) => r.level === 'LOW');
-
-      doc.fillColor(BRAND.dark).font('Helvetica').fontSize(9).text(
-        `Total: ${data.risks.length}  ·  Críticos/Altos: ${highRisks.length}  ·  Médios: ${medRisks.length}  ·  Baixos: ${lowRisks.length}`,
+      // Projects table — 495 = 195+150+80+70
+      this.pdfSectionTitle(doc, 'Projetos');
+      this.pdfTable(doc,
+        ['Nome', 'Framework', 'Estado', 'Score'],
+        (data.projects?.list ?? []).map((p: any) => [
+          p.name,
+          p.framework?.name ?? '—',
+          PROJECT_STATUS_PT[p.status] ?? p.status,
+          `${p.complianceScore ?? 0}%`,
+        ]),
+        [195, 150, 80, 70], M,
       );
-      doc.moveDown(0.3);
 
-      if (highRisks.length > 0) {
-        const rW = [W - 2 * M - 120, 60, 60];
-        tableRow(['Título', 'Nível', 'Score'], rW, true);
-        highRisks.slice(0, 10).forEach((r: any) => {
-          tableRow([r.title, r.level, String(r.inherentScore ?? '—')], rW);
-        });
-        if (highRisks.length > 10) {
-          doc.fillColor(BRAND.muted).fontSize(8).text(`  … e mais ${highRisks.length - 10} riscos.`);
-        }
+      // Risk overview — 495 = 255+80+80+80
+      this.pdfSectionTitle(doc, 'Riscos');
+      const medCount = risks.filter((r: any) => r.level === 'MEDIUM').length;
+      const lowCount = risks.filter((r: any) => r.level === 'LOW').length;
+      doc.fillColor(BRAND.dark).font('Helvetica').fontSize(9)
+        .text(
+          `Total: ${risks.length}  ·  Críticos/Altos: ${highCount}  ·  Médios: ${medCount}  ·  Baixos: ${lowCount}`,
+          M, doc.y,
+        );
+      doc.y += 10;
+
+      const topRisks = risks.filter((r: any) => ['HIGH', 'CRITICAL'].includes(r.level)).slice(0, 10);
+      if (topRisks.length > 0) {
+        this.pdfTable(doc,
+          ['Título', 'Nível', 'Score Inerente', 'Estado'],
+          topRisks.map((r: any) => [
+            r.title,
+            RISK_LEVEL_PT[r.level] ?? r.level,
+            String(r.inherentScore ?? '—'),
+            RISK_STATUS_PT[r.status] ?? r.status,
+          ]),
+          [255, 80, 80, 80], M,
+        );
       }
 
-      // ── Section: Tasks ───────────────────────────────────
-      section('Tarefas');
-      const taskStatLabels: Record<string, string> = {
-        TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão',
-        DONE: 'Concluídas', CANCELLED: 'Canceladas',
-      };
-      const taskTotal = Object.values(data.tasks as Record<string, number>).reduce((s, v) => s + v, 0);
-      doc.text(`Total: ${taskTotal}`, { continued: true });
-      Object.entries(data.tasks as Record<string, number>).forEach(([k, v], i) => {
-        if (i === 0) doc.text('');
-        doc.text(`  • ${taskStatLabels[k] ?? k}: ${v}`);
-      });
+      // Tasks by status — 495 = 380+115
+      this.pdfSectionTitle(doc, 'Tarefas por Estado');
+      const taskEntries = Object.entries(data.tasks as Record<string, number>);
+      this.pdfTable(doc,
+        ['Estado', 'Quantidade'],
+        taskEntries.map(([k, v]) => [TASK_STATUS_PT[k] ?? k, String(v)]),
+        [380, 115], M,
+      );
 
-      // ── Section: Audits & CAPA ───────────────────────────
-      section('Auditorias & CAPA');
-      doc.text(`Auditorias concluídas: ${data.auditsCompleted} / ${data.totalAudits}`);
-      doc.text(`CAPA em aberto: ${data.openCapas} / ${data.totalCapas}`);
-
-      // ── Footer on every page ─────────────────────────────
-      const pages = doc.bufferedPageRange();
-      for (let i = 0; i < pages.count; i++) {
-        doc.switchToPage(pages.start + i);
-        doc.rect(0, doc.page.height - 36, W, 36).fill(BRAND.dark);
-        doc.fillColor(BRAND.white).font('Helvetica').fontSize(8)
-          .text(
-            `iComply Compliance Platform  ·  ${orgName}  ·  Gerado em ${dateStr}`,
-            M, doc.page.height - 22, { width: W - 2 * M - 60, lineBreak: false },
-          )
-          .text(
-            `Página ${i + 1} / ${pages.count}`,
-            W - M - 60, doc.page.height - 22,
-            { width: 60, align: 'right', lineBreak: false },
-          );
+      // Evidence by status
+      const evidenceMap = data.evidence as Record<string, number>;
+      const evidenceEntries = Object.entries(evidenceMap ?? {});
+      if (evidenceEntries.length > 0) {
+        this.pdfSectionTitle(doc, 'Evidências por Estado');
+        this.pdfTable(doc,
+          ['Estado', 'Quantidade'],
+          evidenceEntries.map(([k, v]) => [EVIDENCE_STATUS_PT[k] ?? k, String(v)]),
+          [380, 115], M,
+        );
       }
 
+      // Audits & CAPA
+      this.pdfSectionTitle(doc, 'Auditorias & CAPA');
+      this.pdfTable(doc,
+        ['Indicador', 'Valor'],
+        [
+          ['Auditorias Concluídas', `${data.auditsCompleted ?? 0} / ${data.totalAudits ?? 0}`],
+          ['CAPA em Aberto', `${data.openCapas ?? 0} / ${data.totalCapas ?? 0}`],
+        ],
+        [380, 115], M,
+      );
+
+      this.pdfFooter(doc, orgName, dateStr);
       doc.end();
     });
+  }
+
+  private async generateRiskRegisterPdf(data: any, orgName: string): Promise<Buffer> {
+    const pdfkit = await import('pdfkit');
+    const PDFDocument = (pdfkit as any).default ?? pdfkit;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const M = 50;
+      const dateStr = new Date(data.generatedAt).toLocaleDateString('pt-PT', {
+        day: '2-digit', month: 'long', year: 'numeric',
+      });
+
+      this.pdfHeader(doc, orgName, 'RISK_REGISTER', dateStr);
+
+      const risks = data.fullRisks ?? data.risks ?? [];
+      const critical = risks.filter((r: any) => r.level === 'CRITICAL').length;
+      const high     = risks.filter((r: any) => r.level === 'HIGH').length;
+      const medium   = risks.filter((r: any) => r.level === 'MEDIUM').length;
+      const low      = risks.filter((r: any) => r.level === 'LOW').length;
+
+      this.pdfKpis(doc, [
+        { label: 'Total Riscos',  value: risks.length },
+        { label: 'Críticos',      value: critical, color: '#7C3AED' },
+        { label: 'Altos',         value: high,     color: BRAND.danger },
+        { label: 'Médios',        value: medium,   color: BRAND.warning },
+        { label: 'Baixos',        value: low,       color: BRAND.success },
+      ]);
+
+      // Full risk table — 495 = 185+70+80+70+90
+      this.pdfSectionTitle(doc, 'Registo Completo de Riscos');
+      this.pdfTable(doc,
+        ['Título', 'Nível', 'Estado', 'Inerente', 'Tratamento'],
+        risks.map((r: any) => [
+          r.title,
+          RISK_LEVEL_PT[r.level] ?? r.level,
+          RISK_STATUS_PT[r.status] ?? r.status,
+          `${r.inherentScore ?? 0}${r.residualScore ? ` → ${r.residualScore}` : ''}`,
+          r.treatmentType ?? '—',
+        ]),
+        [185, 70, 80, 70, 90], M,
+      );
+
+      // By level breakdown
+      const byLevel = [
+        { level: 'CRITICAL', label: 'Críticos', items: risks.filter((r: any) => r.level === 'CRITICAL') },
+        { level: 'HIGH',     label: 'Altos',    items: risks.filter((r: any) => r.level === 'HIGH') },
+      ];
+      for (const group of byLevel) {
+        if (group.items.length === 0) continue;
+        this.pdfSectionTitle(doc, `Riscos ${group.label}`);
+        this.pdfTable(doc,
+          ['Título', 'Estado', 'Score Inerente', 'Score Residual'],
+          group.items.map((r: any) => [
+            r.title,
+            RISK_STATUS_PT[r.status] ?? r.status,
+            String(r.inherentScore ?? '—'),
+            String(r.residualScore ?? '—'),
+          ]),
+          [225, 100, 90, 80], M,
+        );
+      }
+
+      this.pdfFooter(doc, orgName, dateStr);
+      doc.end();
+    });
+  }
+
+  private async generateEvidenceGapPdf(data: any, orgName: string): Promise<Buffer> {
+    const pdfkit = await import('pdfkit');
+    const PDFDocument = (pdfkit as any).default ?? pdfkit;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const M = 50;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+
+      this.pdfHeader(doc, orgName, 'EVIDENCE_GAP', dateStr);
+
+      const evidences = data.evidenceData ?? [];
+      const approved = evidences.filter((e: any) => e.status === 'APPROVED').length;
+      const pending  = evidences.filter((e: any) => e.status === 'PENDING').length;
+      const expired  = evidences.filter((e: any) =>
+        e.status === 'EXPIRED' || (e.expiresAt && new Date(e.expiresAt) < now),
+      ).length;
+      const rejected = evidences.filter((e: any) => e.status === 'REJECTED').length;
+
+      this.pdfKpis(doc, [
+        { label: 'Total Evidências', value: evidences.length },
+        { label: 'Aprovadas',        value: approved, color: BRAND.success },
+        { label: 'Pendentes',        value: pending,  color: BRAND.warning },
+        { label: 'Expiradas/Rejeit.', value: expired + rejected, color: BRAND.danger },
+      ]);
+
+      // Evidence table — 495 = 195+120+80+100
+      this.pdfSectionTitle(doc, 'Evidências por Estado');
+      this.pdfTable(doc,
+        ['Título', 'Projeto', 'Estado', 'Expira em'],
+        evidences.slice(0, 60).map((e: any) => [
+          e.title,
+          e.project?.name ?? '—',
+          EVIDENCE_STATUS_PT[e.status] ?? e.status,
+          e.expiresAt ? new Date(e.expiresAt).toLocaleDateString('pt-PT') : '—',
+        ]),
+        [195, 120, 80, 100], M,
+      );
+
+      // Expiring soon
+      const in30 = new Date(now.getTime() + 30 * 86400000);
+      const expiringSoon = evidences.filter((e: any) => {
+        if (!e.expiresAt) return false;
+        const exp = new Date(e.expiresAt);
+        return exp > now && exp <= in30;
+      });
+      if (expiringSoon.length > 0) {
+        this.pdfSectionTitle(doc, 'A Expirar nos Próximos 30 Dias');
+        this.pdfTable(doc,
+          ['Título', 'Projeto', 'Expira em'],
+          expiringSoon.map((e: any) => [
+            e.title,
+            e.project?.name ?? '—',
+            new Date(e.expiresAt).toLocaleDateString('pt-PT'),
+          ]),
+          [255, 140, 100], M,
+        );
+      }
+
+      this.pdfFooter(doc, orgName, dateStr);
+      doc.end();
+    });
+  }
+
+  private async generateTaskStatusPdf(data: any, orgName: string): Promise<Buffer> {
+    const pdfkit = await import('pdfkit');
+    const PDFDocument = (pdfkit as any).default ?? pdfkit;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const M = 50;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+
+      this.pdfHeader(doc, orgName, 'TASK_STATUS', dateStr);
+
+      const tasks = data.taskData ?? [];
+      const todo   = tasks.filter((t: any) => t.status === 'TODO').length;
+      const inProg = tasks.filter((t: any) => t.status === 'IN_PROGRESS').length;
+      const done   = tasks.filter((t: any) => t.status === 'DONE').length;
+      const overdue = tasks.filter((t: any) =>
+        t.dueDate && new Date(t.dueDate) < now && !['DONE', 'CANCELLED'].includes(t.status),
+      ).length;
+
+      this.pdfKpis(doc, [
+        { label: 'Total',      value: tasks.length },
+        { label: 'A Fazer',    value: todo },
+        { label: 'Em Curso',   value: inProg,  color: BRAND.warning },
+        { label: 'Concluídas', value: done,    color: BRAND.success },
+        { label: 'Atrasadas',  value: overdue, color: BRAND.danger },
+      ]);
+
+      // Tasks table — 495 = 175+120+80+60+60
+      this.pdfSectionTitle(doc, 'Lista de Tarefas');
+      this.pdfTable(doc,
+        ['Título', 'Projeto', 'Estado', 'Prioridade', 'Prazo'],
+        tasks.slice(0, 80).map((t: any) => [
+          t.title,
+          t.project?.name ?? '—',
+          TASK_STATUS_PT[t.status] ?? t.status,
+          t.priority ?? '—',
+          t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-PT') : '—',
+        ]),
+        [175, 120, 80, 60, 60], M,
+      );
+
+      // Overdue tasks
+      const overdueList = tasks.filter((t: any) =>
+        t.dueDate && new Date(t.dueDate) < now && !['DONE', 'CANCELLED'].includes(t.status),
+      );
+      if (overdueList.length > 0) {
+        this.pdfSectionTitle(doc, 'Tarefas Atrasadas');
+        this.pdfTable(doc,
+          ['Título', 'Projeto', 'Prazo'],
+          overdueList.map((t: any) => [
+            t.title,
+            t.project?.name ?? '—',
+            t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-PT') : '—',
+          ]),
+          [255, 140, 100], M,
+        );
+      }
+
+      this.pdfFooter(doc, orgName, dateStr);
+      doc.end();
+    });
+  }
+
+  private async generatePdf(data: any, type: ReportType, orgName: string): Promise<Buffer> {
+    switch (type) {
+      case 'RISK_REGISTER': return this.generateRiskRegisterPdf(data, orgName);
+      case 'EVIDENCE_GAP':  return this.generateEvidenceGapPdf(data, orgName);
+      case 'TASK_STATUS':   return this.generateTaskStatusPdf(data, orgName);
+      default:              return this.generateComplianceSummaryPdf(data, orgName);
+    }
   }
 
   // ── Excel generation ──────────────────────────────────────────
@@ -333,60 +711,134 @@ export class ReportsService {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'iComply';
 
-    // ── Sheet 1: Summary ──────────────────────────────────
-    const ws = wb.addWorksheet('Resumo');
-    ws.columns = [
-      { width: 30 }, { width: 20 }, { width: 20 }, { width: 15 }, { width: 15 },
-    ];
+    const hStyle = (cell: any) => {
+      cell.font  = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+      cell.border = {
+        bottom: { style: 'thin', color: { argb: 'FF3B82F6' } },
+      };
+    };
 
-    const titleRow = ws.addRow(['iComply — Relatório de Conformidade']);
-    titleRow.font = { bold: true, size: 16, color: { argb: 'FF1E40AF' } };
+    // ── Summary sheet (all types) ─────────────────────────────
+    const ws = wb.addWorksheet('Resumo');
+    ws.columns = [{ width: 35 }, { width: 22 }, { width: 18 }, { width: 14 }];
+    const t1 = ws.addRow([`iComply — ${REPORT_TYPE_PT[type as string] ?? type}`]);
+    t1.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF1E40AF' } };
     ws.addRow([`Organização: ${orgName}`]);
     ws.addRow([`Gerado em: ${new Date(data.generatedAt).toLocaleDateString('pt-PT')}`]);
     ws.addRow([]);
 
-    const scoreRow = ws.addRow(['Pontuação de Conformidade', `${data.complianceScore}%`]);
-    scoreRow.font = { bold: true, size: 14 };
+    const sc = data.complianceScore ?? 0;
+    const scoreRow = ws.addRow(['Pontuação de Conformidade', `${sc}%`]);
+    scoreRow.getCell(1).font = { bold: true, size: 12 };
     scoreRow.getCell(2).font = {
-      bold: true, size: 14,
-      color: { argb: data.complianceScore >= 80 ? 'FF16A34A' : data.complianceScore >= 60 ? 'FFD97706' : 'FFDC2626' },
+      bold: true, size: 12,
+      color: { argb: sc >= 80 ? 'FF16A34A' : sc >= 60 ? 'FFD97706' : 'FFDC2626' },
     };
     ws.addRow([]);
 
     // Projects
-    ws.addRow(['PROJETOS']).font = { bold: true, color: { argb: 'FF1E40AF' } };
-    const pHeader = ws.addRow(['Nome', 'Framework', 'Estado', 'Score']);
-    pHeader.font = { bold: true };
-    pHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-    data.projects.list.forEach((p: any) => {
-      ws.addRow([p.name, p.framework?.name ?? '—', p.status, `${p.complianceScore ?? 0}%`]);
+    ws.addRow(['PROJETOS']).getCell(1).font = { bold: true, color: { argb: 'FF1E40AF' } };
+    const ph = ws.addRow(['Nome', 'Framework', 'Estado', 'Score']);
+    ['A', 'B', 'C', 'D'].forEach(col => hStyle(ph.getCell(col)));
+    (data.projects?.list ?? []).forEach((p: any) => {
+      ws.addRow([
+        p.name,
+        p.framework?.name ?? '—',
+        PROJECT_STATUS_PT[p.status] ?? p.status,
+        `${p.complianceScore ?? 0}%`,
+      ]);
     });
     ws.addRow([]);
 
-    // Risks
-    ws.addRow(['RISCOS']).font = { bold: true, color: { argb: 'FF1E40AF' } };
-    const rHeader = ws.addRow(['Título', 'Nível', 'Estado', 'Score Inerente']);
-    rHeader.font = { bold: true };
-    rHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-    data.risks.forEach((r: any) => {
-      const row = ws.addRow([r.title, r.level, r.status, r.inherentScore ?? '']);
-      if (['HIGH', 'CRITICAL'].includes(r.level)) {
-        row.getCell(2).font = { bold: true, color: { argb: 'FFDC2626' } };
-      }
-    });
-    ws.addRow([]);
-
-    // Tasks
-    ws.addRow(['TAREFAS POR ESTADO']).font = { bold: true, color: { argb: 'FF1E40AF' } };
+    // Tasks by status
+    ws.addRow(['TAREFAS POR ESTADO']).getCell(1).font = { bold: true, color: { argb: 'FF1E40AF' } };
+    const th = ws.addRow(['Estado', 'Quantidade']);
+    hStyle(th.getCell('A')); hStyle(th.getCell('B'));
     Object.entries(data.tasks as Record<string, number>).forEach(([k, v]) => {
-      ws.addRow([k, v]);
+      ws.addRow([TASK_STATUS_PT[k] ?? k, v]);
+    });
+    ws.addRow([]);
+
+    // Evidence by status
+    const evidMap = data.evidence as Record<string, number> | undefined;
+    if (evidMap && Object.keys(evidMap).length > 0) {
+      ws.addRow(['EVIDÊNCIAS POR ESTADO']).getCell(1).font = { bold: true, color: { argb: 'FF1E40AF' } };
+      const eh = ws.addRow(['Estado', 'Quantidade']);
+      hStyle(eh.getCell('A')); hStyle(eh.getCell('B'));
+      Object.entries(evidMap).forEach(([k, v]) => { ws.addRow([EVIDENCE_STATUS_PT[k] ?? k, v]); });
+      ws.addRow([]);
+    }
+
+    ws.addRow(['Auditorias Concluídas', `${data.auditsCompleted ?? 0} / ${data.totalAudits ?? 0}`]);
+    ws.addRow(['CAPA em Aberto', `${data.openCapas ?? 0} / ${data.totalCapas ?? 0}`]);
+
+    // ── Risks sheet ───────────────────────────────────────────
+    const wsR = wb.addWorksheet('Riscos');
+    wsR.columns = [
+      { width: 40 }, { width: 12 }, { width: 18 }, { width: 14 }, { width: 14 }, { width: 20 },
+    ];
+    const rh = wsR.addRow(['Título', 'Nível', 'Estado', 'Score Inerente', 'Score Residual', 'Tratamento']);
+    ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => hStyle(rh.getCell(col)));
+    const risks = data.fullRisks ?? data.risks ?? [];
+    const levelArgb: Record<string, string> = {
+      CRITICAL: 'FF7C3AED', HIGH: 'FFDC2626', MEDIUM: 'FFD97706', LOW: 'FF16A34A',
+    };
+    risks.forEach((r: any) => {
+      const row = wsR.addRow([
+        r.title,
+        RISK_LEVEL_PT[r.level] ?? r.level,
+        RISK_STATUS_PT[r.status] ?? r.status,
+        r.inherentScore ?? '',
+        r.residualScore ?? '',
+        r.treatmentType ?? '—',
+      ]);
+      if (levelArgb[r.level]) row.getCell('B').font = { bold: true, color: { argb: levelArgb[r.level] } };
     });
 
-    // ── Sheet 2: Risks detail ─────────────────────────────
-    const wsR = wb.addWorksheet('Riscos');
-    wsR.columns = [{ width: 40 }, { width: 12 }, { width: 15 }, { width: 15 }];
-    wsR.addRow(['Título', 'Nível', 'Estado', 'Score']).font = { bold: true };
-    data.risks.forEach((r: any) => wsR.addRow([r.title, r.level, r.status, r.inherentScore ?? '']));
+    // ── Evidence sheet (when available) ──────────────────────
+    const evidenceData = data.evidenceData;
+    if (evidenceData?.length > 0) {
+      const wsE = wb.addWorksheet('Evidências');
+      wsE.columns = [{ width: 35 }, { width: 25 }, { width: 14 }, { width: 14 }, { width: 22 }];
+      const eh2 = wsE.addRow(['Título', 'Projeto', 'Estado', 'Expira em', 'Enviado por']);
+      ['A', 'B', 'C', 'D', 'E'].forEach(col => hStyle(eh2.getCell(col)));
+      evidenceData.forEach((e: any) => {
+        wsE.addRow([
+          e.title,
+          e.project?.name ?? '—',
+          EVIDENCE_STATUS_PT[e.status] ?? e.status,
+          e.expiresAt ? new Date(e.expiresAt).toLocaleDateString('pt-PT') : '—',
+          e.uploadedBy
+            ? `${e.uploadedBy.firstName ?? ''} ${e.uploadedBy.lastName ?? ''}`.trim()
+            : '—',
+        ]);
+      });
+    }
+
+    // ── Tasks sheet (when available) ─────────────────────────
+    const taskData = data.taskData;
+    if (taskData?.length > 0) {
+      const wsT = wb.addWorksheet('Tarefas');
+      wsT.columns = [
+        { width: 35 }, { width: 25 }, { width: 14 }, { width: 12 }, { width: 14 }, { width: 22 },
+      ];
+      const th2 = wsT.addRow(['Título', 'Projeto', 'Estado', 'Prioridade', 'Prazo', 'Responsável']);
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => hStyle(th2.getCell(col)));
+      taskData.forEach((t: any) => {
+        wsT.addRow([
+          t.title,
+          t.project?.name ?? '—',
+          TASK_STATUS_PT[t.status] ?? t.status,
+          t.priority ?? '—',
+          t.dueDate ? new Date(t.dueDate).toLocaleDateString('pt-PT') : '—',
+          t.assignee
+            ? `${t.assignee.firstName ?? ''} ${t.assignee.lastName ?? ''}`.trim()
+            : '—',
+        ]);
+      });
+    }
 
     return Buffer.from(await wb.xlsx.writeBuffer() as any);
   }
@@ -402,7 +854,19 @@ export class ReportsService {
     parameters: Record<string, any>,
   ) {
     try {
-      const data = await this.getComplianceSummary(organizationId, parameters.projectId);
+      const base = await this.getComplianceSummary(organizationId, parameters.projectId);
+
+      // Fetch type-specific data
+      const data: any = { ...base };
+      if (type === 'RISK_REGISTER' || format === 'EXCEL') {
+        data.fullRisks = await this.getRiskRegisterData(organizationId);
+      }
+      if (type === 'EVIDENCE_GAP' || format === 'EXCEL') {
+        data.evidenceData = await this.getEvidenceGapData(organizationId);
+      }
+      if (type === 'TASK_STATUS' || format === 'EXCEL') {
+        data.taskData = await this.getTaskStatusData(organizationId);
+      }
 
       let buffer: Buffer;
       let mimeType: string;
@@ -417,7 +881,6 @@ export class ReportsService {
         mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         ext = 'xlsx';
       } else {
-        // Real branded PDF via PDFKit
         buffer = await this.generatePdf(data, type, orgName);
         mimeType = 'application/pdf';
         ext = 'pdf';
@@ -510,7 +973,6 @@ export class ReportsService {
 
     for (const schedule of due) {
       try {
-        // Generate the report
         const report = await this.generate(
           schedule.organizationId,
           schedule.type,
@@ -518,7 +980,6 @@ export class ReportsService {
           schedule.parameters || {},
         );
 
-        // Wait for it to complete (poll for up to 60s)
         let ready = false;
         for (let i = 0; i < 12; i++) {
           await new Promise(r => setTimeout(r, 5000));
@@ -527,7 +988,6 @@ export class ReportsService {
           if (r?.status === 'FAILED') break;
         }
 
-        // Email recipients
         if (ready && schedule.recipients?.length > 0) {
           const r = await this.prisma.report.findUnique({ where: { id: report.id } });
           const downloadLink = r?.s3Url || '';
@@ -542,7 +1002,6 @@ export class ReportsService {
           }
         }
 
-        // Update next run date
         await (this.prisma as any).reportSchedule.update({
           where: { id: schedule.id },
           data: { lastRunAt: now, nextRunAt: this.calcNextRun(schedule.frequency) },
