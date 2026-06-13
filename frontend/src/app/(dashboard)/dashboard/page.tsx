@@ -12,7 +12,7 @@ import {
   Settings, Calendar, Shield, X,
 } from 'lucide-react';
 import {
-  LineChart, Line, BarChart, Bar, Cell,
+  BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { cn, formatDate, getRiskColor, getStatusColor, getPriorityColor, formatRelative } from '@/lib/utils';
@@ -537,30 +537,61 @@ const SCORE_TREND = [
 ];
 
 function ScoreTrendChart() {
+  const W = 400, H = 140;
+  const padL = 28, padR = 8, padT = 10, padB = 24;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = SCORE_TREND.length;
+
+  const cx = (i: number) => padL + (i / (n - 1)) * plotW;
+  const cy = (v: number) => padT + (1 - v / 100) * plotH;
+
+  const linePath = SCORE_TREND.map((p, i) => `${i === 0 ? 'M' : 'L'}${cx(i)},${cy(p.score)}`).join(' ');
+  const areaPath = `${linePath} L${cx(n - 1)},${padT + plotH} L${cx(0)},${padT + plotH} Z`;
+
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
       <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <TrendingUp className="w-4 h-4 text-blue-600" /> Evolução do Score
       </h3>
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={SCORE_TREND} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-          <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-          <Tooltip
-            contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-            formatter={(value: number) => [`${value}%`, 'Score']}
-          />
-          <Line
-            type="monotone"
-            dataKey="score"
-            stroke="#2563eb"
-            strokeWidth={2}
-            dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
-            activeDot={{ r: 5 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }} aria-hidden="true">
+        <defs>
+          <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563eb" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Grid lines */}
+        {[0, 25, 50, 75, 100].map(v => (
+          <line key={v} x1={padL} y1={cy(v)} x2={W - padR} y2={cy(v)} stroke="#f3f4f6" strokeWidth="1" />
+        ))}
+        {/* Y axis labels */}
+        {[0, 50, 100].map(v => (
+          <text key={v} x={padL - 4} y={cy(v) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">{v}%</text>
+        ))}
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#scoreGrad)" />
+        {/* Line */}
+        <path d={linePath} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Dots + X labels */}
+        {SCORE_TREND.map((p, i) => (
+          <g key={p.month}>
+            <circle cx={cx(i)} cy={cy(p.score)} r="3.5" fill="#2563eb" />
+            <text x={cx(i)} y={H - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">{p.month}</text>
+          </g>
+        ))}
+        {/* Last value label */}
+        <text
+          x={cx(n - 1) - 6}
+          y={cy(SCORE_TREND[n - 1].score) - 8}
+          textAnchor="end"
+          fontSize="11"
+          fontWeight="600"
+          fill="#2563eb"
+        >
+          {SCORE_TREND[n - 1].score}%
+        </text>
+      </svg>
     </div>
   );
 }
