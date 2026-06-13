@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Response } from 'express';
 import { StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
 import { MailService } from '../common/mail/mail.service';
@@ -57,7 +58,12 @@ export class ReportsService {
     private prisma: PrismaService,
     private storage: StorageService,
     private mail: MailService,
+    private config: ConfigService,
   ) {}
+
+  private get frontendUrl(): string {
+    return this.config.get<string>('FRONTEND_URL', 'https://app.icomply.pt');
+  }
 
   // ── Public API ────────────────────────────────────────────────
 
@@ -989,15 +995,20 @@ export class ReportsService {
         }
 
         if (ready && schedule.recipients?.length > 0) {
-          const r = await this.prisma.report.findUnique({ where: { id: report.id } });
-          const downloadLink = r?.s3Url || '';
+          // s3Url uses internal Docker network (minio:9000) — send frontend link instead
+          const reportsPageLink = `${this.frontendUrl}/reports`;
+          let stats: any;
+          try { stats = await this.getComplianceSummary(schedule.organizationId); } catch { /* non-critical */ }
+
           for (const email of schedule.recipients) {
             await this.mail.sendScheduledReport(
               email,
               schedule.name,
               schedule.organization?.name || 'iComply',
-              downloadLink,
+              reportsPageLink,
               schedule.frequency,
+              schedule.type,
+              stats,
             );
           }
         }

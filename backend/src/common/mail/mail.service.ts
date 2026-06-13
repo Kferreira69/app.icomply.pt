@@ -226,18 +226,109 @@ export class MailService {
     `);
   }
 
-  async sendScheduledReport(email: string, reportName: string, orgName: string, downloadUrl: string, frequency: string): Promise<void> {
-    const freqLabel: Record<string, string> = { DAILY: 'diário', WEEKLY: 'semanal', MONTHLY: 'mensal', QUARTERLY: 'trimestral' };
-    await this.send(email, `Relatório ${freqLabel[frequency] || frequency} — ${reportName}`, `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1a56db;">Relatório automático disponível</h2>
-        <p>O relatório <strong>${reportName}</strong> para <strong>${orgName}</strong> foi gerado automaticamente.</p>
-        ${downloadUrl ? `<p style="margin: 24px 0;"><a href="${downloadUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Descarregar Relatório</a></p>` : ''}
-        <p style="margin: 24px 0;"><a href="${this.frontendUrl}/reports" style="color: #1a56db;">Ver todos os relatórios →</a></p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-        <p style="color: #999; font-size: 12px;">iComply Governance Operating System · Relatório automático ${freqLabel[frequency] || frequency}</p>
+  async sendScheduledReport(
+    email: string,
+    reportName: string,
+    orgName: string,
+    reportsLink: string,
+    frequency: string,
+    reportType?: string,
+    stats?: {
+      complianceScore?: number;
+      risks?: any[];
+      openCapas?: number;
+      auditsCompleted?: number;
+      totalAudits?: number;
+    },
+  ): Promise<void> {
+    const freqLabel: Record<string, string> = {
+      DAILY: 'diário', WEEKLY: 'semanal', MONTHLY: 'mensal', QUARTERLY: 'trimestral',
+    };
+    const typeLabel: Record<string, string> = {
+      COMPLIANCE_SUMMARY: 'Sumário de Conformidade',
+      RISK_REGISTER:      'Registo de Riscos',
+      TASK_STATUS:        'Estado de Tarefas',
+      EVIDENCE_GAP:       'Gap de Evidências',
+      EXECUTIVE_SUMMARY:  'Sumário Executivo',
+    };
+
+    const score = stats?.complianceScore ?? null;
+    const scoreColor = score === null ? '#64748b' : score >= 80 ? '#16a34a' : score >= 60 ? '#d97706' : '#dc2626';
+    const highRisks = stats?.risks?.filter((r: any) => ['HIGH', 'CRITICAL'].includes(r.level)).length ?? 0;
+
+    const statsHtml = stats ? `
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
+        <tr>
+          ${score !== null ? `
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: ${scoreColor};">${score}%</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Score Conformidade</div>
+          </td>` : ''}
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: ${highRisks > 0 ? '#dc2626' : '#16a34a'};">${highRisks}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Riscos Críticos/Altos</div>
+          </td>
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: ${(stats.openCapas ?? 0) > 0 ? '#d97706' : '#16a34a'};">${stats.openCapas ?? 0}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">CAPA em Aberto</div>
+          </td>
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: #1a56db;">${stats.auditsCompleted ?? 0}/${stats.totalAudits ?? 0}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Auditorias Concluídas</div>
+          </td>
+        </tr>
+      </table>
+    ` : '';
+
+    await this.send(
+      email,
+      `[iComply] Relatório ${freqLabel[frequency] || frequency} — ${reportName}`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
+        <!-- Header -->
+        <div style="background: #1e40af; padding: 24px 28px; border-radius: 8px 8px 0 0;">
+          <div style="color: white; font-size: 20px; font-weight: bold;">iComply
+            <span style="color: #93c5fd; font-weight: normal;"> Compliance Platform</span>
+          </div>
+          <div style="color: #bfdbfe; font-size: 13px; margin-top: 6px;">
+            Relatório automático ${freqLabel[frequency] || frequency} · ${typeLabel[reportType || ''] || reportName}
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div style="background: white; padding: 28px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+          <h2 style="margin: 0 0 8px; color: #1e40af; font-size: 18px;">Relatório automático disponível</h2>
+          <p style="margin: 0 0 16px; color: #475569;">
+            O relatório <strong>${typeLabel[reportType || ''] || reportName}</strong> para
+            <strong>${orgName}</strong> foi gerado automaticamente e está pronto para consulta.
+          </p>
+
+          ${statsHtml}
+
+          <p style="margin: 24px 0 8px; font-size: 13px; color: #64748b;">
+            Clique no botão abaixo para aceder à plataforma e descarregar o relatório:
+          </p>
+          <p style="margin: 0 0 24px;">
+            <a href="${reportsLink}"
+               style="display: inline-block; background: #1e40af; color: white; padding: 12px 28px;
+                      border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
+              Ver Relatórios na Plataforma →
+            </a>
+          </p>
+
+          <div style="background: #f8fafc; border-left: 3px solid #3b82f6; padding: 10px 14px;
+                      border-radius: 4px; font-size: 12px; color: #64748b;">
+            Gerado em ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+
+        <p style="text-align: center; color: #94a3b8; font-size: 11px; margin-top: 16px;">
+          iComply Governance Operating System · Relatório automático ${freqLabel[frequency] || frequency}<br>
+          Para gerir as suas notificações aceda às definições da plataforma.
+        </p>
       </div>
-    `);
+      `,
+    );
   }
 
   async sendVendorQuestionnaire(email: string, vendorName: string, url: string, expiresAt?: Date): Promise<void> {
