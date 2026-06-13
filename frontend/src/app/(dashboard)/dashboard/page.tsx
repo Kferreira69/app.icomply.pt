@@ -18,7 +18,7 @@ import {
 import { cn, formatDate, getRiskColor, getStatusColor, getPriorityColor, formatRelative } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth-store';
-import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
+import { format, formatDistanceToNow, differenceInDays, isValid } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { HelpButton } from '@/components/help/HelpButton';
@@ -794,7 +794,7 @@ function EvidenciasExpirarWidget() {
                 <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-800 truncate">{ev.fileName ?? ev.title ?? ev.name ?? 'Evidência'}</p>
-                  {expiryDate && (
+                  {expiryDate && isValid(new Date(expiryDate)) && (
                     <p className="text-[10px] text-gray-400">{format(new Date(expiryDate), "dd/MM/yyyy")}</p>
                   )}
                 </div>
@@ -863,7 +863,7 @@ function ProximasAuditoriasWidget() {
                     {frameworkName && (
                       <span className="text-[10px] text-gray-400 truncate">{frameworkName}</span>
                     )}
-                    {auditDate && (
+                    {auditDate && isValid(new Date(auditDate)) && (
                       <span className="text-[10px] text-gray-400">{format(new Date(auditDate), 'dd/MM/yyyy')}</span>
                     )}
                   </div>
