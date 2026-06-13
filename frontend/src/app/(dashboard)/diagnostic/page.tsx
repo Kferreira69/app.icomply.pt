@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import {
   RadarChart,
   PolarGrid,
@@ -473,6 +474,7 @@ function WizardTab({
   onAnswersChange: (a: WizardAnswers) => void;
   onComplete: () => void;
 }) {
+  const tDiag = useTranslations('diagnostic');
   const [catIdx, setCatIdx] = useState(0);
   const category = CATEGORIES[catIdx];
 
@@ -565,10 +567,10 @@ function WizardTab({
                 <p className="text-sm font-medium text-gray-800 mb-3">{q.text}</p>
                 <div className="flex gap-2">
                   {([
-                    { v: 'sim' as Answer, label: 'Sim', active: 'bg-green-500 text-white border-green-500', inactive: 'border-gray-200 text-gray-600 hover:border-green-300 hover:text-green-700' },
-                    { v: 'parcial' as Answer, label: 'Parcial', active: 'bg-yellow-400 text-white border-yellow-400', inactive: 'border-gray-200 text-gray-600 hover:border-yellow-300 hover:text-yellow-700' },
-                    { v: 'nao' as Answer, label: 'Não', active: 'bg-red-500 text-white border-red-500', inactive: 'border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-600' },
-                  ] as const).map(({ v, label, active, inactive }) => (
+                    { v: 'sim' as Answer, label: tDiag('answers.yes'), active: 'bg-green-500 text-white border-green-500', inactive: 'border-gray-200 text-gray-600 hover:border-green-300 hover:text-green-700' },
+                    { v: 'parcial' as Answer, label: tDiag('answers.partial'), active: 'bg-yellow-400 text-white border-yellow-400', inactive: 'border-gray-200 text-gray-600 hover:border-yellow-300 hover:text-yellow-700' },
+                    { v: 'nao' as Answer, label: tDiag('answers.no'), active: 'bg-red-500 text-white border-red-500', inactive: 'border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-600' },
+                  ]).map(({ v, label, active, inactive }) => (
                     <button
                       key={v}
                       onClick={() => handleAnswer(q.id, v)}
@@ -663,7 +665,8 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
         <h3 className="font-semibold text-gray-900 mb-1">Radar de Maturidade</h3>
         <p className="text-sm text-gray-500 mb-4">Score atual por área vs. score alvo (80)</p>
-        <ResponsiveContainer width="100%" height={340}>
+        <div className="min-w-0">
+        <ResponsiveContainer width="100%" height={340} className="md:!h-[340px] !h-[256px]">
           <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
             <PolarGrid stroke="#e5e7eb" />
             <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#6b7280' }} />
@@ -689,6 +692,7 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
             <Tooltip formatter={(value: number) => [`${value}`, '']} />
           </RadarChart>
         </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Gap table */}
@@ -701,11 +705,11 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
             <thead>
               <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                 <th className="text-left px-6 py-3">Área</th>
-                <th className="text-center px-4 py-3">Score Atual</th>
-                <th className="text-center px-4 py-3">Score Alvo</th>
+                <th className="text-center px-4 py-3 hidden md:table-cell">Score Atual</th>
+                <th className="text-center px-4 py-3 hidden md:table-cell">Score Alvo</th>
                 <th className="text-center px-4 py-3">Gap</th>
                 <th className="text-center px-4 py-3">Prioridade</th>
-                <th className="text-right px-6 py-3">Progresso</th>
+                <th className="text-right px-6 py-3 hidden md:table-cell">Progresso</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -721,10 +725,10 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
                 return (
                   <tr key={cat.key} className="hover:bg-gray-50/50">
                     <td className="px-6 py-4 font-medium text-gray-900">{cat.label}</td>
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-4 py-4 text-center hidden md:table-cell">
                       <span className={cn('font-bold text-lg', sc.text)}>{score}</span>
                     </td>
-                    <td className="px-4 py-4 text-center text-gray-500">{TARGET_SCORE}</td>
+                    <td className="px-4 py-4 text-center text-gray-500 hidden md:table-cell">{TARGET_SCORE}</td>
                     <td className="px-4 py-4 text-center">
                       {gap > 0 ? (
                         <span className={cn('font-semibold', sc.text)}>-{gap}</span>
@@ -737,7 +741,7 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
                         {priorityLabel}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 hidden md:table-cell">
                       <div className="flex items-center gap-2 justify-end">
                         <div className="w-24 bg-gray-200 rounded-full h-1.5">
                           <div
@@ -791,6 +795,7 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
 // ─── Tab 3: Plano de Ação ─────────────────────────────────────────────────────
 
 function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
+  const tDiag = useTranslations('diagnostic');
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [creatingTaskFor, setCreatingTaskFor] = useState<string | null>(null);
   const [createdTasks, setCreatedTasks] = useState<Set<string>>(new Set());
@@ -862,7 +867,7 @@ function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
           onClick={() => exportCsv(recommendations)}
           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors font-medium text-gray-700"
         >
-          <Download className="w-4 h-4" /> Exportar Plano
+          <Download className="w-4 h-4" /> {tDiag('exportPlan')}
         </button>
       </div>
 
@@ -918,7 +923,7 @@ function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
                   ) : (
                     <Plus className="w-3.5 h-3.5" />
                   )}
-                  Criar tarefa
+                  {tDiag('createTask')}
                 </button>
               )}
               <button
@@ -949,6 +954,7 @@ function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
 type Tab = 'wizard' | 'gaps' | 'plan';
 
 export default function DiagnosticPage() {
+  const t = useTranslations('diagnostic');
   const [activeTab, setActiveTab] = useState<Tab>('wizard');
   const [answers, setAnswers] = useState<WizardAnswers>(() => loadFromStorage() ?? {});
   const [wizardDone, setWizardDone] = useState(false);
@@ -971,9 +977,9 @@ export default function DiagnosticPage() {
   }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'wizard', label: 'Diagnóstico Rápido', icon: <ClipboardList className="w-4 h-4" /> },
-    { key: 'gaps', label: 'Análise de Gaps', icon: <BarChart3 className="w-4 h-4" /> },
-    { key: 'plan', label: 'Plano de Ação', icon: <Zap className="w-4 h-4" /> },
+    { key: 'wizard', label: t('tabs.wizard'), icon: <ClipboardList className="w-4 h-4" /> },
+    { key: 'gaps', label: t('tabs.gaps'), icon: <BarChart3 className="w-4 h-4" /> },
+    { key: 'plan', label: t('tabs.plan'), icon: <Zap className="w-4 h-4" /> },
   ];
 
   return (
@@ -981,7 +987,7 @@ export default function DiagnosticPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Diagnóstico de Compliance</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
           <p className="text-gray-500 text-sm mt-1">
             Avalie o estado atual do seu programa de compliance e obtenha recomendações personalizadas.
           </p>
@@ -998,7 +1004,7 @@ export default function DiagnosticPage() {
               onClick={resetWizard}
               className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Recomeçar
+              {t('restart')}
             </button>
           )}
         </div>
@@ -1024,7 +1030,7 @@ export default function DiagnosticPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="flex gap-1">
+        <nav className="flex gap-1 overflow-x-auto whitespace-nowrap scrollbar-none">
           {tabs.map((tab) => (
             <button
               key={tab.key}

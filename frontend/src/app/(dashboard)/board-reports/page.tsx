@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import {
   boardReportsApi, risksApi, auditsApi,
   capaApi, policiesApi, orgApi,
@@ -74,7 +75,7 @@ function heatColor(level: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Circular gauge for overall compliance score */
-function ScoreGauge({ score }: { score: number }) {
+function ScoreGauge({ score, label }: { score: number; label: string }) {
   const r = 56;
   const circ = 2 * Math.PI * r;
   const offset = circ - (Math.min(score, 100) / 100) * circ;
@@ -93,7 +94,7 @@ function ScoreGauge({ score }: { score: number }) {
       />
       <text x="70" y="70" textAnchor="middle" dominantBaseline="middle">
         <tspan x="70" dy="-8" fontSize="28" fontWeight="bold" fill={stroke}>{score}%</tspan>
-        <tspan x="70" dy="22" fontSize="10" fill="#6b7280">Score Global</tspan>
+        <tspan x="70" dy="22" fontSize="10" fill="#6b7280">{label}</tspan>
       </text>
     </svg>
   );
@@ -101,21 +102,23 @@ function ScoreGauge({ score }: { score: number }) {
 
 /** Tab bar */
 type Tab = 'sumario' | 'score' | 'riscos' | 'frameworks' | 'acoes' | 'relatorios';
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'sumario',    label: 'Sumário Executivo'   },
-  { key: 'score',      label: 'Evolução do Score'   },
-  { key: 'riscos',     label: 'Top Riscos'          },
-  { key: 'frameworks', label: 'Por Framework'       },
-  { key: 'acoes',      label: 'Itens de Ação'       },
-  { key: 'relatorios', label: 'Board Packs'         },
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BoardReportsPage() {
+  const t = useTranslations('boardReports');
   const qc = useQueryClient();
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'sumario',    label: t('tabs.summary')    },
+    { key: 'score',      label: t('tabs.trend')      },
+    { key: 'riscos',     label: t('tabs.risks')      },
+    { key: 'frameworks', label: t('tabs.frameworks') },
+    { key: 'acoes',      label: t('tabs.actions')    },
+    { key: 'relatorios', label: t('tabs.packs')      },
+  ];
 
   // Tab state
   const [activeTab, setActiveTab] = useState<Tab>('sumario');
@@ -260,23 +263,23 @@ export default function BoardReportsPage() {
                 NIS2 Art. 20 · DORA Art. 5
               </span>
             </div>
-            <h1 className="text-2xl font-bold">Relatórios para o Órgão de Gestão</h1>
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
             <p className="text-indigo-200 text-sm mt-1">
-              Dashboard executivo · Board packs com aprovação digital
+              {t('header.subtitle')}
             </p>
           </div>
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="hidden md:flex items-center gap-2 print:hidden">
             <button
               onClick={() => window.print()}
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-xl text-sm font-medium border border-white/20"
             >
-              <Printer className="w-4 h-4" /> Imprimir
+              <Printer className="w-4 h-4" /> {t('header.print')}
             </button>
             <button
               onClick={() => setShowNew(true)}
               className="flex items-center gap-2 bg-white text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-50"
             >
-              <Plus className="w-4 h-4" /> Novo Relatório
+              <Plus className="w-4 h-4" /> {t('header.newReport')}
             </button>
           </div>
         </div>
@@ -284,7 +287,7 @@ export default function BoardReportsPage() {
 
       {/* ── Tab navigation ────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm print:hidden">
-        <div className="flex overflow-x-auto">
+        <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none">
           {TABS.map(tab => (
             <button
               key={tab.key}
@@ -309,7 +312,7 @@ export default function BoardReportsPage() {
         <div className="space-y-5 print:block">
           {/* Print title */}
           <div className="hidden print:block text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Sumário Executivo de Conformidade</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('printTitle')}</h2>
             <p className="text-sm text-gray-500 mt-1">
               Gerado em {format(now, "dd 'de' MMMM 'de' yyyy", { locale: pt })}
             </p>
@@ -318,7 +321,7 @@ export default function BoardReportsPage() {
           {/* Score hero */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col md:flex-row items-center gap-8">
             <div className="flex flex-col items-center gap-2">
-              <ScoreGauge score={overallScore} />
+              <ScoreGauge score={overallScore} label={t('kpi.overallScore')} />
               <div className={cn(
                 'flex items-center gap-1.5 text-sm font-semibold',
                 scoreDelta >= 0 ? 'text-green-600' : 'text-red-500',
@@ -331,31 +334,31 @@ export default function BoardReportsPage() {
             </div>
 
             {/* Top-line KPIs */}
-            <div className="flex-1 grid grid-cols-2 gap-4 w-full">
+            <div className="flex-1 grid grid-cols-2 md:grid-cols-2 gap-4 w-full">
               {[
                 {
-                  label: 'Frameworks ativos',
+                  label: t('kpi.activeFrameworks'),
                   value: `${compliantFw} / ${activeFrameworks}`,
                   sub: 'em conformidade',
                   icon: Shield,
                   color: 'bg-indigo-50 text-indigo-600',
                 },
                 {
-                  label: 'Riscos críticos abertos',
+                  label: t('kpi.criticalRisks'),
                   value: criticalRisks.length,
                   sub: `+ ${highRisks.length} elevados`,
                   icon: AlertTriangle,
                   color: 'bg-red-50 text-red-600',
                 },
                 {
-                  label: 'CAPAs em atraso',
+                  label: t('kpi.overdueCapas'),
                   value: overdueCapas.length,
                   sub: `de ${capaList.length} totais`,
                   icon: Clock,
                   color: 'bg-orange-50 text-orange-600',
                 },
                 {
-                  label: 'Auditorias este trimestre',
+                  label: t('kpi.quarterlyAudits'),
                   value: thisQtrAudits.length,
                   sub: `${thisQtrAudits.filter((a: any) => a.status === 'COMPLETED').length} concluídas`,
                   icon: Target,
@@ -451,7 +454,8 @@ export default function BoardReportsPage() {
                 </div>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
+            <div className="min-w-0">
+            <ResponsiveContainer width="100%" height={280} className="md:!h-[280px] !h-[192px]">
               <LineChart data={SCORE_TREND_6M} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -466,6 +470,7 @@ export default function BoardReportsPage() {
                 <Line type="monotone" dataKey="nis2"     stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Domain scores horizontal bars */}
@@ -515,7 +520,7 @@ export default function BoardReportsPage() {
             <div className="px-6 py-4 border-b bg-gray-50 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-500" /> Top 5 Riscos para o Conselho
+                  <AlertTriangle className="w-5 h-5 text-red-500" /> {t('topRisksTitle')}
                 </h3>
                 {(criticalRisks.length + highRisks.length) > 0 && (
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -531,18 +536,18 @@ export default function BoardReportsPage() {
             {topRisks.length === 0 ? (
               <div className="p-12 text-center">
                 <CheckCircle className="w-10 h-10 text-green-300 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Sem riscos críticos ou elevados registados</p>
+                <p className="text-gray-400 text-sm">{t('noRisks')}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
                 {/* Table header */}
                 <div className="grid grid-cols-12 gap-3 px-6 py-2.5 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  <div className="col-span-1">Nível</div>
-                  <div className="col-span-4">Risco</div>
-                  <div className="col-span-1 text-center">Prob.</div>
-                  <div className="col-span-1 text-center">Impacto</div>
-                  <div className="col-span-3">Responsável</div>
-                  <div className="col-span-2">Estado</div>
+                  <div className="col-span-1">{t('riskLevel.nível')}</div>
+                  <div className="col-span-4 md:col-span-4">{t('riskLevel.risco')}</div>
+                  <div className="col-span-1 text-center hidden md:block">{t('riskLevel.prob')}</div>
+                  <div className="col-span-1 text-center hidden md:block">{t('riskLevel.impacto')}</div>
+                  <div className="col-span-4 md:col-span-3">{t('riskLevel.responsável')}</div>
+                  <div className="col-span-2">{t('riskLevel.estado')}</div>
                 </div>
                 {topRisks.map((risk: any, i: number) => {
                   const level = risk.level ?? risk.riskLevel ?? 'HIGH';
@@ -557,13 +562,13 @@ export default function BoardReportsPage() {
                         <p className="text-sm font-semibold text-gray-900 line-clamp-1">{risk.title ?? risk.name}</p>
                         {risk.category && <p className="text-xs text-gray-400 mt-0.5">{risk.category}</p>}
                       </div>
-                      <div className="col-span-1 text-center">
+                      <div className="col-span-1 text-center hidden md:block">
                         <span className="text-sm font-bold text-gray-700">{risk.likelihood ?? '—'}</span>
                       </div>
-                      <div className="col-span-1 text-center">
+                      <div className="col-span-1 text-center hidden md:block">
                         <span className="text-sm font-bold text-gray-700">{risk.impact ?? '—'}</span>
                       </div>
-                      <div className="col-span-3">
+                      <div className="col-span-4 md:col-span-3">
                         <span className="text-xs text-gray-600">
                           {risk.owner ?? risk.assignee?.firstName
                             ? `${risk.assignee?.firstName ?? risk.owner} ${risk.assignee?.lastName ?? ''}`.trim()
@@ -598,9 +603,10 @@ export default function BoardReportsPage() {
         <div className="space-y-5">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h3 className="text-base font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-500" /> Conformidade por Framework
+              <BarChart3 className="w-5 h-5 text-indigo-500" /> {t('conformFramework')}
             </h3>
-            <ResponsiveContainer width="100%" height={240}>
+            <div className="min-w-0">
+            <ResponsiveContainer width="100%" height={240} className="md:!h-[240px] !h-[192px]">
               <BarChart
                 data={frameworkScores}
                 layout="vertical"
@@ -624,6 +630,7 @@ export default function BoardReportsPage() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            </div>
 
             {/* Framework detail cards */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -715,7 +722,7 @@ export default function BoardReportsPage() {
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-6 flex items-center justify-between gap-4 flex-wrap">
             <div>
               <h4 className="font-bold text-indigo-900 flex items-center gap-2">
-                <Download className="w-5 h-5" /> Gerar Relatório para o Conselho
+                <Download className="w-5 h-5" /> {t('generateReport')}
               </h4>
               <p className="text-sm text-indigo-700/80 mt-0.5">
                 Crie um board pack PDF com todos os dados acima, aprovação digital e rastreio de assinaturas.
@@ -725,7 +732,7 @@ export default function BoardReportsPage() {
               onClick={() => { setActiveTab('relatorios'); setShowNew(true); }}
               className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 shrink-0"
             >
-              <Plus className="w-4 h-4" /> Novo Board Pack
+              <Plus className="w-4 h-4" /> {t('newBoardPack')}
             </button>
           </div>
         </div>
@@ -738,11 +745,11 @@ export default function BoardReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* List */}
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">Board Packs</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">{t('tabs.packs')}</p>
             {(reports as any[]).length === 0 ? (
               <div className="bg-white rounded-2xl border p-8 text-center">
                 <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Sem relatórios</p>
+                <p className="text-gray-400 text-sm">{t('noReports')}</p>
               </div>
             ) : (reports as any[]).map((r: any) => (
               <button
@@ -882,7 +889,7 @@ export default function BoardReportsPage() {
             <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center py-20">
               <div className="text-center">
                 <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Selecione um relatório</p>
+                <p className="text-gray-400 text-sm">{t('selectReport')}</p>
               </div>
             </div>
           )}

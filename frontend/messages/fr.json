@@ -1735,5 +1735,99 @@
     "status_IMPLEMENTED": "Implémenté",
     "status_VERIFIED": "Vérifié",
     "status_NOT_APPLICABLE": "N/A"
+  },
+  "boardReports": {
+    "title": "Rapports pour le Conseil",
+    "tabs": {
+      "summary": "Résumé Exécutif",
+      "trend": "Tendance du Score",
+      "risks": "Top Risques",
+      "frameworks": "Par Framework",
+      "actions": "Éléments d'Action",
+      "packs": "Board Packs"
+    },
+    "kpi": {
+      "overallScore": "Score Global",
+      "activeFrameworks": "Frameworks Actifs",
+      "criticalRisks": "Risques Critiques",
+      "overdueCapas": "CAPAs en Retard",
+      "quarterlyAudits": "Audits ce Trimestre"
+    },
+    "header": {
+      "subtitle": "Tableau de bord exécutif · Board packs avec approbation numérique",
+      "print": "Imprimer",
+      "newReport": "Nouveau Rapport"
+    },
+    "generateReport": "Générer le Rapport du Conseil",
+    "newBoardPack": "Nouveau Board Pack",
+    "noData": "Aucune donnée disponible",
+    "printTitle": "Résumé Exécutif de Conformité",
+    "noReports": "Aucun rapport",
+    "selectReport": "Sélectionnez un rapport",
+    "riskLevel": {
+      "nível": "Niveau",
+      "risco": "Risque",
+      "prob": "Prob.",
+      "impacto": "Impact",
+      "responsável": "Responsable",
+      "estado": "Statut"
+    },
+    "topRisksTitle": "Top 5 Risques pour le Conseil",
+    "noRisks": "Aucun risque critique ou élevé enregistré",
+    "conformFramework": "Conformité par Framework"
+  },
+  "managementBody": {
+    "title": "Organe de Gestion",
+    "tabs": {
+      "members": "Membres",
+      "meetings": "Réunions",
+      "decisions": "Décisions",
+      "calendar": "Calendrier"
+    },
+    "meeting": {
+      "new": "Nouvelle Réunion",
+      "edit": "Modifier la Réunion",
+      "types": {
+        "ORDINARIA": "Réunion Ordinaire",
+        "EXTRAORDINARIA": "Réunion Extraordinaire",
+        "COMISSAO": "Comité"
+      },
+      "statuses": {
+        "AGENDADA": "Planifiée",
+        "EM_CURSO": "En Cours",
+        "CONCLUIDA": "Terminée",
+        "CANCELADA": "Annulée"
+      },
+      "agenda": "Ordre du jour",
+      "minutes": "Procès-verbal",
+      "decisions": "Décisions",
+      "attendance": "Présence",
+      "quorum": "Quorum",
+      "saveMinutes": "Enregistrer le PV",
+      "addDecision": "Ajouter une décision"
+    }
+  },
+  "diagnostic": {
+    "title": "Diagnostic de Conformité",
+    "tabs": {
+      "wizard": "Diagnostic Rapide",
+      "gaps": "Analyse des Écarts",
+      "plan": "Plan d'Action"
+    },
+    "maturity": {
+      "INITIAL": "Initial",
+      "DEVELOPING": "En Développement",
+      "DEFINED": "Défini",
+      "MANAGED": "Géré",
+      "OPTIMIZED": "Optimisé"
+    },
+    "answers": {
+      "yes": "Oui",
+      "partial": "Partiel",
+      "no": "Non"
+    },
+    "exportPlan": "Exporter le Plan",
+    "createTask": "Créer une tâche",
+    "restart": "Recommencer"
   }
 }

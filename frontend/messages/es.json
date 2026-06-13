@@ -1727,5 +1727,99 @@
     "status_IMPLEMENTED": "Implementado",
     "status_VERIFIED": "Verificado",
     "status_NOT_APPLICABLE": "N/A"
+  },
+  "boardReports": {
+    "title": "Informes para el Consejo",
+    "tabs": {
+      "summary": "Resumen Ejecutivo",
+      "trend": "Tendencia de Score",
+      "risks": "Top Riesgos",
+      "frameworks": "Por Framework",
+      "actions": "Elementos de Acción",
+      "packs": "Board Packs"
+    },
+    "kpi": {
+      "overallScore": "Score Global",
+      "activeFrameworks": "Frameworks Activos",
+      "criticalRisks": "Riesgos Críticos",
+      "overdueCapas": "CAPAs en Retraso",
+      "quarterlyAudits": "Auditorías este Trimestre"
+    },
+    "header": {
+      "subtitle": "Dashboard ejecutivo · Board packs con aprobación digital",
+      "print": "Imprimir",
+      "newReport": "Nuevo Informe"
+    },
+    "generateReport": "Generar Informe para el Consejo",
+    "newBoardPack": "Nuevo Board Pack",
+    "noData": "Sin datos disponibles",
+    "printTitle": "Resumen Ejecutivo de Cumplimiento",
+    "noReports": "Sin informes",
+    "selectReport": "Seleccione un informe",
+    "riskLevel": {
+      "nível": "Nivel",
+      "risco": "Riesgo",
+      "prob": "Prob.",
+      "impacto": "Impacto",
+      "responsável": "Responsable",
+      "estado": "Estado"
+    },
+    "topRisksTitle": "Top 5 Riesgos para el Consejo",
+    "noRisks": "Sin riesgos críticos o elevados registrados",
+    "conformFramework": "Cumplimiento por Framework"
+  },
+  "managementBody": {
+    "title": "Órgano de Gestión",
+    "tabs": {
+      "members": "Miembros",
+      "meetings": "Reuniones",
+      "decisions": "Decisiones",
+      "calendar": "Calendario"
+    },
+    "meeting": {
+      "new": "Nueva Reunión",
+      "edit": "Editar Reunión",
+      "types": {
+        "ORDINARIA": "Reunión Ordinaria",
+        "EXTRAORDINARIA": "Reunión Extraordinaria",
+        "COMISSAO": "Comité"
+      },
+      "statuses": {
+        "AGENDADA": "Programada",
+        "EM_CURSO": "En Curso",
+        "CONCLUIDA": "Completada",
+        "CANCELADA": "Cancelada"
+      },
+      "agenda": "Agenda",
+      "minutes": "Acta",
+      "decisions": "Decisiones",
+      "attendance": "Asistencia",
+      "quorum": "Quórum",
+      "saveMinutes": "Guardar acta",
+      "addDecision": "Añadir decisión"
+    }
+  },
+  "diagnostic": {
+    "title": "Diagnóstico de Cumplimiento",
+    "tabs": {
+      "wizard": "Diagnóstico Rápido",
+      "gaps": "Análisis de Gaps",
+      "plan": "Plan de Acción"
+    },
+    "maturity": {
+      "INITIAL": "Inicial",
+      "DEVELOPING": "En Desarrollo",
+      "DEFINED": "Definido",
+      "MANAGED": "Gestionado",
+      "OPTIMIZED": "Optimizado"
+    },
+    "answers": {
+      "yes": "Sí",
+      "partial": "Parcial",
+      "no": "No"
+    },
+    "exportPlan": "Exportar Plan",
+    "createTask": "Crear tarea",
+    "restart": "Reiniciar"
   }
 }

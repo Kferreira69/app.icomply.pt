@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { managementBodyApi } from '@/lib/api';
 import {
   Users, Plus, CheckCircle, Clock, AlertTriangle, Shield, Loader2, X,
@@ -178,6 +179,7 @@ interface MeetingFormProps {
 }
 
 function MeetingFormModal({ initial, members, onSave, onClose }: MeetingFormProps) {
+  const tMgmt = useTranslations('managementBody');
   const [form, setForm] = useState({
     title: initial?.title ?? '',
     date: initial?.date ? initial.date.slice(0, 16) : '',
@@ -233,7 +235,7 @@ function MeetingFormModal({ initial, members, onSave, onClose }: MeetingFormProp
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="border-b px-6 py-4 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-bold">{initial?.id ? 'Editar Reunião' : 'Nova Reunião'}</h2>
+          <h2 className="text-lg font-bold">{initial?.id ? tMgmt('meeting.edit') : tMgmt('meeting.new')}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-4">
@@ -312,6 +314,7 @@ interface MeetingDetailProps {
 }
 
 function MeetingDetailDrawer({ meeting, onUpdate, onClose }: MeetingDetailProps) {
+  const tMgmt = useTranslations('managementBody');
   const [tab, setTab] = useState<'agenda' | 'ata' | 'decisoes' | 'presenca'>('agenda');
   const [minutesDraft, setMinutesDraft] = useState(meeting.minutes ?? '');
   const [newDecision, setNewDecision] = useState({ text: '', responsible: '', deadline: '', status: 'PENDENTE' as DecisionStatus });
@@ -356,15 +359,15 @@ function MeetingDetailDrawer({ meeting, onUpdate, onClose }: MeetingDetailProps)
   };
 
   const tabs: { key: typeof tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'agenda', label: 'Agenda', icon: <ListChecks className="w-4 h-4" /> },
-    { key: 'ata', label: 'Ata', icon: <FileText className="w-4 h-4" /> },
-    { key: 'decisoes', label: 'Decisões', icon: <CheckSquare className="w-4 h-4" /> },
-    { key: 'presenca', label: 'Presença', icon: <UserCheck className="w-4 h-4" /> },
+    { key: 'agenda', label: tMgmt('meeting.agenda'), icon: <ListChecks className="w-4 h-4" /> },
+    { key: 'ata', label: tMgmt('meeting.minutes'), icon: <FileText className="w-4 h-4" /> },
+    { key: 'decisoes', label: tMgmt('meeting.decisions'), icon: <CheckSquare className="w-4 h-4" /> },
+    { key: 'presenca', label: tMgmt('meeting.attendance'), icon: <UserCheck className="w-4 h-4" /> },
   ];
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex justify-end" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white w-full max-w-xl h-full overflow-y-auto flex flex-col shadow-2xl">
+      <div className="bg-white w-full md:max-w-xl h-full overflow-y-auto flex flex-col shadow-2xl">
         {/* Header */}
         <div className="border-b px-6 py-4 flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -445,7 +448,7 @@ function MeetingDetailDrawer({ meeting, onUpdate, onClose }: MeetingDetailProps)
                 />
               </div>
               <button onClick={saveMinutes} className="w-full bg-purple-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700">
-                Guardar ata
+                {tMgmt('meeting.saveMinutes')}
               </button>
             </div>
           )}
@@ -501,7 +504,7 @@ function MeetingDetailDrawer({ meeting, onUpdate, onClose }: MeetingDetailProps)
               {!showDecisionForm && (
                 <button onClick={() => setShowDecisionForm(true)}
                   className="w-full flex items-center justify-center gap-2 border border-dashed border-purple-300 text-purple-600 py-2.5 rounded-xl text-sm font-medium hover:bg-purple-50">
-                  <Plus className="w-4 h-4" />Adicionar decisão
+                  <Plus className="w-4 h-4" />{tMgmt('meeting.addDecision')}
                 </button>
               )}
             </div>
@@ -513,7 +516,7 @@ function MeetingDetailDrawer({ meeting, onUpdate, onClose }: MeetingDetailProps)
               {/* Quorum indicator */}
               <div className={cn('rounded-xl p-4 border', quorumMet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200')}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-700">Quórum</span>
+                  <span className="text-sm font-semibold text-gray-700">{tMgmt('meeting.quorum')}</span>
                   {quorumMet
                     ? <Badge className="bg-green-100 text-green-700">Atingido</Badge>
                     : <Badge className="bg-amber-100 text-amber-700">Não atingido</Badge>}
@@ -615,7 +618,7 @@ function ComplianceCalendar({ meetings }: { meetings: Meeting[] }) {
           const dayMeetings = byDay[day] ?? [];
           return (
             <div key={idx}
-              className={cn('flex flex-col items-center rounded-xl py-1.5 min-h-[44px]', isToday ? 'bg-purple-100' : 'hover:bg-gray-50')}>
+              className={cn('flex flex-col items-center rounded-xl py-1 md:py-1.5 min-h-[32px] md:min-h-[44px]', isToday ? 'bg-purple-100' : 'hover:bg-gray-50')}>
               <span className={cn('text-xs font-medium', isToday ? 'text-purple-700 font-bold' : 'text-gray-600')}>{day}</span>
               {dayMeetings.length > 0 && (
                 <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
@@ -692,7 +695,8 @@ function DecisionsTracker({ meetings, onMeetingUpdate }: { meetings: Meeting[]; 
           <p className="text-gray-400 font-medium">Sem decisões {filterStatus !== 'ALL' ? `com estado "${DEC_STATUS_LABELS[filterStatus as DecisionStatus]}"` : 'registadas'}</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Desktop table */}
+        <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60">
@@ -743,6 +747,40 @@ function DecisionsTracker({ meetings, onMeetingUpdate }: { meetings: Meeting[]; 
               })}
             </tbody>
           </table>
+        </div>
+        {/* Mobile card list */}
+        <div className="flex flex-col gap-3 md:hidden">
+          {filtered.map(dec => {
+            const isOverdue = dec.status !== 'CONCLUIDA' && dec.deadline && new Date(dec.deadline) < new Date();
+            return (
+              <div key={dec.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  {isOverdue && <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
+                  <span className="text-gray-800 text-sm font-medium">{dec.text}</span>
+                </div>
+                <p className="text-xs text-gray-500">{dec.meetingTitle}</p>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500">
+                    {dec.responsible && <span>{dec.responsible}</span>}
+                    {dec.deadline && (
+                      <span className={cn('ml-2', isOverdue ? 'text-red-600 font-semibold' : 'text-gray-400')}>
+                        {new Date(dec.deadline).toLocaleDateString('pt-PT')}
+                        {isOverdue && ' ⚠'}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={dec.status}
+                    onChange={e => updateStatus(dec.meetingId, dec.id, e.target.value as DecisionStatus)}
+                    className={cn('px-2 py-0.5 rounded-lg text-xs font-semibold border-0 outline-none cursor-pointer', DEC_STATUS_COLORS[dec.status])}>
+                    {(Object.keys(DEC_STATUS_LABELS) as DecisionStatus[]).map(s => (
+                      <option key={s} value={s}>{DEC_STATUS_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -836,6 +874,7 @@ function MeetingCard({ meeting, onOpen, onEdit, onCancel, onDelete }: MeetingCar
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ManagementBodyPage() {
+  const t = useTranslations('managementBody');
   const qc = useQueryClient();
 
   // Existing backend state
@@ -893,10 +932,10 @@ export default function ManagementBodyPage() {
     : 0;
 
   const pageTabs = [
-    { key: 'membros' as const, label: 'Membros', icon: <Users className="w-4 h-4" /> },
-    { key: 'reunioes' as const, label: 'Reuniões', icon: <Calendar className="w-4 h-4" />, badge: upcomingCount || undefined },
-    { key: 'decisoes' as const, label: 'Decisões', icon: <CheckSquare className="w-4 h-4" />, badge: openDecisionsCount || undefined },
-    { key: 'calendario' as const, label: 'Calendário', icon: <Calendar className="w-4 h-4" /> },
+    { key: 'membros' as const, label: t('tabs.members'), icon: <Users className="w-4 h-4" /> },
+    { key: 'reunioes' as const, label: t('tabs.meetings'), icon: <Calendar className="w-4 h-4" />, badge: upcomingCount || undefined },
+    { key: 'decisoes' as const, label: t('tabs.decisions'), icon: <CheckSquare className="w-4 h-4" />, badge: openDecisionsCount || undefined },
+    { key: 'calendario' as const, label: t('tabs.calendar'), icon: <Calendar className="w-4 h-4" /> },
   ];
 
   return (
@@ -909,7 +948,7 @@ export default function ManagementBodyPage() {
               <Shield className="w-5 h-5 text-purple-300" />
               <span className="text-purple-200 text-xs font-medium uppercase tracking-widest">NIS2 Art. 20 — Responsabilidade Pessoal</span>
             </div>
-            <h1 className="text-2xl font-bold">Órgão de Gestão</h1>
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
             <p className="text-purple-200 text-sm mt-1">Membros, reuniões, atas e registo de decisões</p>
           </div>
           <div className="flex items-center gap-6">
@@ -930,14 +969,14 @@ export default function ManagementBodyPage() {
       </div>
 
       {/* Page-level tabs */}
-      <div className="flex gap-1 bg-gray-100/70 p-1 rounded-2xl">
-        {pageTabs.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={cn('flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all relative',
-              activeTab === t.key ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
-            {t.icon}{t.label}
-            {t.badge !== undefined && t.badge > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{t.badge}</span>
+      <div className="flex gap-1 bg-gray-100/70 p-1 rounded-2xl overflow-x-auto whitespace-nowrap scrollbar-none">
+        {pageTabs.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={cn('flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all relative min-w-[80px]',
+              activeTab === tab.key ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+            {tab.icon}{tab.label}
+            {tab.badge !== undefined && tab.badge > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{tab.badge}</span>
             )}
           </button>
         ))}
@@ -1048,7 +1087,7 @@ export default function ManagementBodyPage() {
               </select>
               <button onClick={() => { setEditingMeeting(null); setShowMeetingForm(true); }}
                 className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-purple-700">
-                <Plus className="w-4 h-4" />Nova Reunião
+                <Plus className="w-4 h-4" />{t('meeting.new')}
               </button>
             </div>
           </div>

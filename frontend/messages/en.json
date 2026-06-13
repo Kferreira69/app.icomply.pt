@@ -1867,5 +1867,99 @@
     "eventStatus_IN_PROGRESS": "In Progress",
     "eventStatus_COMPLETED": "Completed",
     "eventStatus_CANCELLED": "Cancelled"
+  },
+  "boardReports": {
+    "title": "Board Reports",
+    "tabs": {
+      "summary": "Executive Summary",
+      "trend": "Score Trend",
+      "risks": "Top Risks",
+      "frameworks": "By Framework",
+      "actions": "Action Items",
+      "packs": "Board Packs"
+    },
+    "kpi": {
+      "overallScore": "Overall Score",
+      "activeFrameworks": "Active Frameworks",
+      "criticalRisks": "Critical Risks",
+      "overdueCapas": "Overdue CAPAs",
+      "quarterlyAudits": "Audits this Quarter"
+    },
+    "header": {
+      "subtitle": "Executive dashboard · Board packs with digital approval",
+      "print": "Print",
+      "newReport": "New Report"
+    },
+    "generateReport": "Generate Board Report",
+    "newBoardPack": "New Board Pack",
+    "noData": "No data available",
+    "printTitle": "Executive Compliance Summary",
+    "noReports": "No reports",
+    "selectReport": "Select a report",
+    "riskLevel": {
+      "nível": "Level",
+      "risco": "Risk",
+      "prob": "Prob.",
+      "impacto": "Impact",
+      "responsável": "Owner",
+      "estado": "Status"
+    },
+    "topRisksTitle": "Top 5 Risks for the Board",
+    "noRisks": "No critical or high risks registered",
+    "conformFramework": "Compliance by Framework"
+  },
+  "managementBody": {
+    "title": "Management Body",
+    "tabs": {
+      "members": "Members",
+      "meetings": "Meetings",
+      "decisions": "Decisions",
+      "calendar": "Calendar"
+    },
+    "meeting": {
+      "new": "New Meeting",
+      "edit": "Edit Meeting",
+      "types": {
+        "ORDINARIA": "Ordinary Meeting",
+        "EXTRAORDINARIA": "Extraordinary Meeting",
+        "COMISSAO": "Committee"
+      },
+      "statuses": {
+        "AGENDADA": "Scheduled",
+        "EM_CURSO": "In Progress",
+        "CONCLUIDA": "Completed",
+        "CANCELADA": "Cancelled"
+      },
+      "agenda": "Agenda",
+      "minutes": "Minutes",
+      "decisions": "Decisions",
+      "attendance": "Attendance",
+      "quorum": "Quorum",
+      "saveMinutes": "Save minutes",
+      "addDecision": "Add decision"
+    }
+  },
+  "diagnostic": {
+    "title": "Compliance Diagnostic",
+    "tabs": {
+      "wizard": "Quick Diagnostic",
+      "gaps": "Gap Analysis",
+      "plan": "Action Plan"
+    },
+    "maturity": {
+      "INITIAL": "Initial",
+      "DEVELOPING": "Developing",
+      "DEFINED": "Defined",
+      "MANAGED": "Managed",
+      "OPTIMIZED": "Optimized"
+    },
+    "answers": {
+      "yes": "Yes",
+      "partial": "Partial",
+      "no": "No"
+    },
+    "exportPlan": "Export Plan",
+    "createTask": "Create task",
+    "restart": "Restart"
   }
 }

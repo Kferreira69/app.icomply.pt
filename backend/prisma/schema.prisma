@@ -311,6 +311,7 @@ model Organization {
   boardReports              BoardReport[]
   hubMembershipsAsHub       ClientHubMembership[] @relation("HubConsultancy")
   hubMembershipsAsClient    ClientHubMembership[] @relation("HubClient")
+  meetings                  Meeting[]
 
   users             User[]
   projects          Project[]
@@ -469,6 +470,8 @@ model User {
   problemsOwned          ItsmProblem[]        @relation("ProblemOwner")
   amlCasesAssigned       AmlCase[]            @relation("AmlAssignee")
   soc2Responsibilities   Soc2Criterion[]      @relation("Soc2Responsible")
+  meetingsCreated        Meeting[]            @relation("MeetingCreator")
+  meetingAttendances     MeetingAttendance[]
 
   // Wave 3
   cisControlsOwned         CisControl[]           @relation("CisResponsible")
@@ -3940,5 +3943,91 @@ model IntegrationSyncLog {
 
   @@index([integrationId])
   @@map("integration_sync_logs")
+}
+
+// ─── Management Body Meetings ─────────────────────────────────
+
+enum MeetingType {
+  ORDINARY
+  EXTRAORDINARY
+  COMMITTEE
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  REMOTE
+  ABSENT
+}
+
+enum DecisionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Meeting {
+  id             String        @id @default(cuid())
+  organizationId String
+  title          String
+  type           MeetingType   @default(ORDINARY)
+  status         MeetingStatus @default(SCHEDULED)
+  scheduledAt    DateTime
+  location       String?
+  videoUrl       String?
+  agenda         String?       // newline-separated agenda items
+  minutes        String?       // full meeting minutes text
+  minutesSavedAt DateTime?
+  notes          String?
+  quorumRequired Int           @default(0)
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User                @relation("MeetingCreator", fields: [createdById], references: [id])
+  attendances    MeetingAttendance[]
+  decisions      MeetingDecision[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, scheduledAt])
+  @@map("meetings")
+}
+
+model MeetingAttendance {
+  id        String           @id @default(cuid())
+  meetingId String
+  userId    String
+  name      String           // denormalized in case user is external
+  status    AttendanceStatus @default(ABSENT)
+
+  meeting   Meeting          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([meetingId, userId])
+  @@map("meeting_attendances")
+}
+
+model MeetingDecision {
+  id          String         @id @default(cuid())
+  meetingId   String
+  text        String
+  responsible String?
+  deadline    DateTime?
+  status      DecisionStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  meeting     Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("meeting_decisions")
 }
 
