@@ -910,6 +910,17 @@ export const automationApi = {
   trigger:    (id: string)               => api.post(`/automation/${id}/trigger`),
 };
 
+// ── iGuard — Endpoint Compliance Agent ───────────────────────
+
+export const iGuardApi = {
+  getStats:       ()                  => api.get('/iguard/stats'),
+  listDevices:    ()                  => api.get('/iguard/devices'),
+  getDevice:      (id: string)        => api.get(`/iguard/devices/${id}`),
+  revokeDevice:   (id: string)        => api.delete(`/iguard/devices/${id}`),
+  getMyDevice:    ()                  => api.get('/iguard/devices/mine'),
+  registerDevice: (data: any)         => api.post('/iguard/devices/register', data),
+};
+
 // ── Evidence Integrations ─────────────────────────────────────
 
 export const evidenceIntegrationsApi = {

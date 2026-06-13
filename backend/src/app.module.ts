@@ -72,6 +72,7 @@ import { ProgramTemplatesModule } from './program-templates/program-templates.mo
 import { AutomationModule } from './automation/automation.module';
 import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 import { EvidenceIntegrationsModule } from './evidence-integrations/evidence-integrations.module';
+import { IGuardModule } from './iguard/iguard.module';
 
 @Module({
   imports: [
@@ -164,6 +165,7 @@ import { EvidenceIntegrationsModule } from './evidence-integrations/evidence-int
     AutomationModule,
     TimeTrackingModule,
     EvidenceIntegrationsModule,
+    IGuardModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

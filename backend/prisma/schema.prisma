@@ -363,6 +363,7 @@ model Organization {
   soc2Criteria           Soc2Criterion[]
 
   evidenceIntegrations EvidenceIntegration[]
+  deviceAgents         DeviceAgent[]
 
   // Wave 3
   cisControls         CisControl[]           @relation("CisControls")
@@ -493,6 +494,7 @@ model User {
   programActivations       ProgramActivation[] @relation("ProgramActivator")
   automationRules          AutomationRule[]  @relation("AutomationRuleCreator")
   timeEntries              TimeEntry[]
+  deviceAgents             DeviceAgent[]
 
   @@map("users")
 }
@@ -4029,5 +4031,77 @@ model MeetingDecision {
 
   @@index([meetingId])
   @@map("meeting_decisions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// iGuard — Endpoint Compliance Agent
+// Monitors employee devices and reports compliance posture
+// ─────────────────────────────────────────────────────────────
+
+enum AgentStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  REVOKED
+}
+
+model DeviceAgent {
+  id                  String      @id @default(cuid())
+  organizationId      String
+  userId              String
+  deviceToken         String      @unique @default(cuid())
+  deviceName          String
+  hostname            String?
+  os                  String      // "macos" | "windows" | "linux"
+  osVersion           String?
+  arch                String?     // "arm64" | "amd64"
+  agentVersion        String?
+  status              AgentStatus @default(PENDING)
+
+  // Compliance checks (last reported values)
+  diskEncryption      Boolean?
+  screenLock          Boolean?
+  antivirusEnabled    Boolean?
+  osUpToDate          Boolean?
+  passwordManager     Boolean?
+  screenLockTimeout   Int?        // minutes
+
+  // Computed
+  complianceScore     Int?        // 0-100
+
+  lastSeenAt          DateTime?
+  registeredAt        DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports             DeviceReport[]
+
+  @@index([organizationId, status])
+  @@index([userId])
+  @@map("device_agents")
+}
+
+model DeviceReport {
+  id                  String   @id @default(cuid())
+  deviceId            String
+  agentVersion        String?
+  osVersion           String?
+
+  diskEncryption      Boolean
+  screenLock          Boolean
+  antivirusEnabled    Boolean
+  osUpToDate          Boolean
+  passwordManager     Boolean?
+  screenLockTimeout   Int?
+  complianceScore     Int
+
+  rawData             Json?
+  reportedAt          DateTime @default(now())
+
+  device              DeviceAgent @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, reportedAt])
+  @@map("device_reports")
 }
 
