@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -135,5 +135,110 @@ export class TasksService {
       },
       data: { status },
     });
+  }
+
+  // ─── Dependencies ────────────────────────────────────────────
+
+  async addDependency(
+    dependentTaskId: string,
+    blockingTaskId: string,
+    organizationId: string,
+  ) {
+    if (dependentTaskId === blockingTaskId) {
+      throw new BadRequestException('A task cannot depend on itself');
+    }
+
+    // Verify both tasks belong to the organization
+    const [dependentTask, blockingTask] = await Promise.all([
+      this.prisma.task.findFirst({ where: { id: dependentTaskId, project: { organizationId } } }),
+      this.prisma.task.findFirst({ where: { id: blockingTaskId, project: { organizationId } } }),
+    ]);
+    if (!dependentTask) throw new NotFoundException(`Task ${dependentTaskId} not found`);
+    if (!blockingTask) throw new NotFoundException(`Task ${blockingTaskId} not found`);
+
+    // Circular dependency check: would adding dependentTask→blockingTask create a cycle?
+    // i.e. check if blockingTask already (directly or transitively) depends on dependentTask
+    const wouldCycle = await this.hasPath(blockingTaskId, dependentTaskId);
+    if (wouldCycle) {
+      throw new BadRequestException('Adding this dependency would create a circular dependency');
+    }
+
+    return this.prisma.taskDependency.create({
+      data: { dependentTaskId, blockingTaskId },
+      include: {
+        dependentTask: { select: { id: true, title: true } },
+        blockingTask: { select: { id: true, title: true } },
+      },
+    });
+  }
+
+  /** BFS/DFS: does a path exist from `fromId` to `toId` in the dependency graph? */
+  private async hasPath(fromId: string, toId: string): Promise<boolean> {
+    const visited = new Set<string>();
+    const queue = [fromId];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current === toId) return true;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      const deps = await this.prisma.taskDependency.findMany({
+        where: { dependentTaskId: current },
+        select: { blockingTaskId: true },
+      });
+      for (const d of deps) queue.push(d.blockingTaskId);
+    }
+    return false;
+  }
+
+  async removeDependency(
+    dependentTaskId: string,
+    blockingTaskId: string,
+    organizationId: string,
+  ) {
+    // Verify the dependent task belongs to the org (implicitly validates access)
+    const task = await this.prisma.task.findFirst({
+      where: { id: dependentTaskId, project: { organizationId } },
+    });
+    if (!task) throw new NotFoundException(`Task ${dependentTaskId} not found`);
+
+    const dep = await this.prisma.taskDependency.findUnique({
+      where: { dependentTaskId_blockingTaskId: { dependentTaskId, blockingTaskId } },
+    });
+    if (!dep) throw new NotFoundException('Dependency not found');
+
+    await this.prisma.taskDependency.delete({
+      where: { dependentTaskId_blockingTaskId: { dependentTaskId, blockingTaskId } },
+    });
+    return { deleted: true };
+  }
+
+  async getWithDependencies(id: string, organizationId: string) {
+    const task = await this.prisma.task.findFirst({
+      where: { id, project: { organizationId } },
+      include: {
+        assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+        project: { select: { id: true, name: true, frameworkId: true } },
+        control: true,
+        subtasks: { orderBy: { sortOrder: 'asc' } },
+        evidences: { select: { id: true, title: true, status: true, fileName: true } },
+        comments: {
+          orderBy: { createdAt: 'asc' },
+          include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+        },
+        dependsOn: {
+          include: {
+            blockingTask: { select: { id: true, title: true, status: true, priority: true } },
+          },
+        },
+        blockedFor: {
+          include: {
+            dependentTask: { select: { id: true, title: true, status: true, priority: true } },
+          },
+        },
+      },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    return task;
   }
 }

@@ -371,6 +371,7 @@ model Organization {
   capaRecords         CapaRecord[]           @relation("CapaRecords")
   regulatoryChanges   RegulatoryChange[]     @relation("RegulatoryChanges")
   calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
+  timeEntries         TimeEntry[]
 
   @@map("organizations")
 }
@@ -486,6 +487,7 @@ model User {
   actionTasksAssigned      ActionTask[]      @relation("ActionTaskAssignee")
   programActivations       ProgramActivation[] @relation("ProgramActivator")
   automationRules          AutomationRule[]  @relation("AutomationRuleCreator")
+  timeEntries              TimeEntry[]
 
   @@map("users")
 }
@@ -723,8 +725,24 @@ model Task {
   subtasks   Task[]   @relation("TaskHierarchy")
   evidences  Evidence[]
   comments   TaskComment[]
+  dependsOn  TaskDependency[] @relation("DependentTask")
+  blockedFor TaskDependency[] @relation("BlockingTask")
+  timeEntries TimeEntry[]
 
   @@map("tasks")
+}
+
+model TaskDependency {
+  id              String   @id @default(cuid())
+  dependentTaskId String  // this task is blocked by...
+  blockingTaskId  String  // ...this task
+  createdAt       DateTime @default(now())
+
+  dependentTask   Task @relation("DependentTask", fields: [dependentTaskId], references: [id], onDelete: Cascade)
+  blockingTask    Task @relation("BlockingTask", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([dependentTaskId, blockingTaskId])
+  @@map("task_dependencies")
 }
 
 model TaskComment {
@@ -739,6 +757,27 @@ model TaskComment {
   user User @relation(fields: [userId], references: [id])
 
   @@map("task_comments")
+}
+
+model TimeEntry {
+  id              String    @id @default(cuid())
+  taskId          String
+  userId          String
+  organizationId  String
+  description     String?
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationMinutes Int?      // null = timer still running; set on stop
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([taskId])
+  @@index([userId, organizationId])
+  @@map("time_entries")
 }
 
 // ─── Risks ────────────────────────────────────────────────────

@@ -70,6 +70,7 @@ import { IntakeModule } from './intake/intake.module';
 import { ActionPlansModule } from './action-plans/action-plans.module';
 import { ProgramTemplatesModule } from './program-templates/program-templates.module';
 import { AutomationModule } from './automation/automation.module';
+import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 
 @Module({
   imports: [
@@ -160,6 +161,7 @@ import { AutomationModule } from './automation/automation.module';
     ActionPlansModule,
     ProgramTemplatesModule,
     AutomationModule,
+    TimeTrackingModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

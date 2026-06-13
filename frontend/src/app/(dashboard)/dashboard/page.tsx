@@ -8,8 +8,12 @@ import {
   FolderOpen, CheckSquare, AlertTriangle, FileText,
   Clock, AlertCircle, Target, BookOpen, ShieldCheck,
   TrendingUp, TrendingDown, Activity, ChevronRight,
-  Circle, CheckCircle2, XCircle, BarChart3, Bell, Zap,
+  Circle, CheckCircle2, XCircle, BarChart3, Bell, Zap, Grid3x3,
 } from 'lucide-react';
+import {
+  LineChart, Line, BarChart, Bar, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { cn, formatDate, getRiskColor, getStatusColor, getPriorityColor, formatRelative } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth-store';
@@ -463,6 +467,202 @@ function DomainScores({ scores }: { scores: any[] }) {
   );
 }
 
+// ── Score Trend Chart ─────────────────────────────────────────
+const SCORE_TREND = [
+  { month: 'Jan', score: 62 },
+  { month: 'Fev', score: 68 },
+  { month: 'Mar', score: 71 },
+  { month: 'Abr', score: 75 },
+  { month: 'Mai', score: 80 },
+  { month: 'Jun', score: 87 },
+];
+
+function ScoreTrendChart() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-6">
+      <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <TrendingUp className="w-4 h-4 text-blue-600" /> Evolução do Score
+      </h3>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={SCORE_TREND} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+          <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+          <Tooltip
+            contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+            formatter={(value: number) => [`${value}%`, 'Score']}
+          />
+          <Line
+            type="monotone"
+            dataKey="score"
+            stroke="#2563eb"
+            strokeWidth={2}
+            dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ── Risk Heatmap 5×5 ─────────────────────────────────────────
+interface RiskCell {
+  likelihood: number;
+  impact: number;
+  count: number;
+}
+
+function cellColor(likelihood: number, impact: number): string {
+  const score = likelihood * impact;
+  if (score >= 15) return '#fee2e2';
+  if (score >= 10) return '#ffedd5';
+  if (score >= 5)  return '#fef9c3';
+  return '#dcfce7';
+}
+
+function cellTextColor(likelihood: number, impact: number): string {
+  const score = likelihood * impact;
+  if (score >= 15) return '#991b1b';
+  if (score >= 10) return '#9a3412';
+  if (score >= 5)  return '#854d0e';
+  return '#166534';
+}
+
+function RiskHeatmap({ riskList }: { riskList: Array<{ likelihood?: number; impact?: number; inherentScore?: number }> }) {
+  // Build a 5×5 count matrix from real data when likelihood/impact exist
+  const matrix: number[][] = Array.from({ length: 5 }, () => Array(5).fill(0));
+
+  if (riskList.length > 0 && riskList.some(r => r.likelihood != null && r.impact != null)) {
+    riskList.forEach(r => {
+      const l = Math.min(Math.max(Math.round(r.likelihood ?? 0), 1), 5);
+      const i = Math.min(Math.max(Math.round(r.impact ?? 0), 1), 5);
+      matrix[l - 1][i - 1] += 1;
+    });
+  } else {
+    // Seed with representative example data
+    const seed: RiskCell[] = [
+      { likelihood: 5, impact: 5, count: 2 },
+      { likelihood: 4, impact: 5, count: 1 },
+      { likelihood: 5, impact: 4, count: 1 },
+      { likelihood: 3, impact: 4, count: 3 },
+      { likelihood: 4, impact: 3, count: 2 },
+      { likelihood: 2, impact: 3, count: 4 },
+      { likelihood: 3, impact: 2, count: 2 },
+      { likelihood: 1, impact: 2, count: 3 },
+      { likelihood: 2, impact: 1, count: 2 },
+      { likelihood: 1, impact: 1, count: 5 },
+    ];
+    seed.forEach(({ likelihood: l, impact: i, count }) => {
+      matrix[l - 1][i - 1] = count;
+    });
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-6">
+      <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Grid3x3 className="w-4 h-4 text-orange-500" /> Mapa de Riscos
+      </h3>
+      <div className="flex gap-2">
+        {/* Y-axis label */}
+        <div className="flex flex-col items-center justify-between py-1" style={{ width: 14 }}>
+          <span className="text-[9px] text-gray-400 leading-none">Alta</span>
+          <span className="text-[9px] text-gray-500 font-medium whitespace-nowrap" style={{ writingMode: 'vertical-rl' as const, transform: 'rotate(180deg)', fontSize: 9 }}>Probabilidade</span>
+          <span className="text-[9px] text-gray-400 leading-none">Baixa</span>
+        </div>
+        {/* Grid */}
+        <div className="flex-1">
+          <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gridTemplateRows: 'repeat(5, 1fr)' }}>
+            {/* Rows from top (likelihood=5) down to (likelihood=1) */}
+            {Array.from({ length: 25 }, (_, idx) => {
+              const rowIdx = Math.floor(idx / 5);
+              const colIdx = idx % 5;
+              const likelihood = 5 - rowIdx;
+              const impact = colIdx + 1;
+              const count = matrix[likelihood - 1][impact - 1];
+              const bg = cellColor(likelihood, impact);
+              const textCol = cellTextColor(likelihood, impact);
+              return (
+                <div
+                  key={`${likelihood}-${impact}`}
+                  className="rounded flex items-center justify-center aspect-square text-[10px] font-bold transition-transform hover:scale-105"
+                  style={{ backgroundColor: bg, color: textCol, minHeight: 28 }}
+                  title={`P${likelihood} × I${impact} = ${likelihood * impact}`}
+                >
+                  {count > 0 ? count : ''}
+                </div>
+              );
+            })}
+          </div>
+          {/* X-axis */}
+          <div className="flex justify-between mt-1 px-0">
+            <span className="text-[9px] text-gray-400">Baixo</span>
+            <span className="text-[9px] text-gray-500 font-medium">Impacto</span>
+            <span className="text-[9px] text-gray-400">Alto</span>
+          </div>
+        </div>
+      </div>
+      {/* Legend */}
+      <div className="flex items-center gap-3 mt-3 flex-wrap">
+        {[
+          { label: 'Baixo', color: '#dcfce7' },
+          { label: 'Médio', color: '#fef9c3' },
+          { label: 'Alto',  color: '#ffedd5' },
+          { label: 'Crítico', color: '#fee2e2' },
+        ].map(({ label, color }) => (
+          <div key={label} className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
+            <span className="text-[10px] text-gray-500">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Tasks by Status Bar Chart ─────────────────────────────────
+interface TaskStatusBar {
+  status: string;
+  label: string;
+  count: number;
+  fill: string;
+}
+
+function TasksByStatusChart({ dashData }: { dashData: any }) {
+  const taskStats: Record<string, number> = dashData?.tasks?.byStatus ?? {};
+
+  const bars: TaskStatusBar[] = [
+    { status: 'TODO',        label: 'Por fazer',  count: taskStats['TODO']        ?? 0, fill: '#9ca3af' },
+    { status: 'IN_PROGRESS', label: 'Em curso',   count: taskStats['IN_PROGRESS'] ?? 0, fill: '#3b82f6' },
+    { status: 'DONE',        label: 'Concluído',  count: taskStats['DONE']        ?? 0, fill: '#22c55e' },
+    { status: 'OVERDUE',     label: 'Atrasado',   count: taskStats['OVERDUE']     ?? dashData?.tasks?.overdue ?? 0, fill: '#ef4444' },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-6">
+      <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <BarChart3 className="w-4 h-4 text-indigo-600" /> Tarefas por Estado
+      </h3>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={bars} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+          <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} allowDecimals={false} />
+          <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={68} />
+          <Tooltip
+            contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+            formatter={(value: number) => [value, 'Tarefas']}
+          />
+          <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+            {bars.map((entry) => (
+              <Cell key={entry.status} fill={entry.fill} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ── Quick Actions ─────────────────────────────────────────────
 function QuickActions() {
   const t = useTranslations('dashboard');
@@ -515,6 +715,11 @@ export default function DashboardPage() {
   const { data: gdprStats } = useQuery({
     queryKey: ['gdpr', 'dashboard'],
     queryFn: () => gdprApi.dashboard().then(r => r.data),
+  });
+
+  const { data: riskListData } = useQuery({
+    queryKey: ['risks', 'list', {}],
+    queryFn: () => risksApi.list({ limit: 200 }).then(r => r.data),
   });
 
   const complianceScore = summary?.complianceScore ?? 0;
@@ -662,6 +867,23 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ModuleStatus policyStats={policyStats} gdprStats={gdprStats} dashData={dashData} summary={summary} />
         <ActivityFeed />
+      </div>
+
+      {/* Analytics row: Score Trend + Risk Heatmap */}
+      <div className="grid grid-cols-3 gap-6 mt-6">
+        <div className="col-span-2">
+          <ScoreTrendChart />
+        </div>
+        <div className="col-span-1">
+          <RiskHeatmap riskList={riskListData?.data ?? []} />
+        </div>
+      </div>
+
+      {/* Tasks by Status full-width */}
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-3">
+          <TasksByStatusChart dashData={dashData} />
+        </div>
       </div>
 
       {/* Task detail panel */}

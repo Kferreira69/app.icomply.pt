@@ -1,11 +1,12 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query,
-  ParseIntPipe, DefaultValuePipe, ParseBoolPipe,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query,
+  ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { AddDependencyDto } from './dto/add-dependency.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TaskStatus, TaskPriority } from '@prisma/client';
 
@@ -48,7 +49,7 @@ export class TasksController {
 
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.findOne(id, orgId);
+    return this.service.getWithDependencies(id, orgId);
   }
 
   @Patch(':id')
@@ -78,5 +79,27 @@ export class TasksController {
     @CurrentUser('organizationId') orgId: string,
   ) {
     return this.service.bulkUpdateStatus(ids, status, orgId);
+  }
+
+  // ─── Dependencies ────────────────────────────────────────────
+
+  @Post(':id/dependencies')
+  @ApiOperation({ summary: 'Add a blocking dependency to a task' })
+  addDependency(
+    @Param('id') dependentTaskId: string,
+    @Body() dto: AddDependencyDto,
+    @CurrentUser('organizationId') orgId: string,
+  ) {
+    return this.service.addDependency(dependentTaskId, dto.blockingTaskId, orgId);
+  }
+
+  @Delete(':id/dependencies/:blockingTaskId')
+  @ApiOperation({ summary: 'Remove a blocking dependency from a task' })
+  removeDependency(
+    @Param('id') dependentTaskId: string,
+    @Param('blockingTaskId') blockingTaskId: string,
+    @CurrentUser('organizationId') orgId: string,
+  ) {
+    return this.service.removeDependency(dependentTaskId, blockingTaskId, orgId);
   }
 }
