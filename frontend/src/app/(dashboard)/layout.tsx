@@ -6,6 +6,8 @@ import { useAuthStore } from '@/store/auth-store';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { CommandPalette } from '@/components/ui/command-palette';
+import { HelpProvider } from '@/components/help/HelpContext';
+import { HelpSidebar } from '@/components/help/HelpSidebar';
 
 const PIN_KEY = 'icomply-nav-pinned';
 
@@ -53,23 +55,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const expanded = !collapsed;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <CommandPalette />
+    <HelpProvider>
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <CommandPalette />
 
-      {/* Sidebar — ALWAYS visible, never hides */}
-      <Sidebar collapsed={collapsed} pinned={pinned} onTogglePin={togglePin} />
+        {/* Sidebar — ALWAYS visible, never hides */}
+        <Sidebar collapsed={collapsed} pinned={pinned} onTogglePin={togglePin} />
 
-      {/* Main area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar
-          onMenuClick={toggleCollapsed}
-          menuOpen={expanded}
-          pinned={pinned}
-        />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
+        {/* Main area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Topbar
+            onMenuClick={toggleCollapsed}
+            menuOpen={expanded}
+            pinned={pinned}
+          />
+          <main className="flex-1 overflow-y-auto p-6">
+            {children}
+          </main>
+        </div>
+
+        <HelpSidebar />
       </div>
-    </div>
+    </HelpProvider>
   );
 }

@@ -410,6 +410,13 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         <div className="border-t border-gray-700/60 p-2 flex-shrink-0">
           <LocaleSwitcher collapsed={collapsed} />
         </div>
+
+        {/* ── Version ──────────────────────────────────────────── */}
+        {!collapsed && (
+          <div className="px-4 py-2 text-xs text-gray-500 text-center flex-shrink-0">
+            v1.0.0
+          </div>
+        )}
       </aside>
     </>
   );

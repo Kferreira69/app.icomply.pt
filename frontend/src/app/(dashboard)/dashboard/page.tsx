@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { format, formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
+import { HelpButton } from '@/components/help/HelpButton';
 
 // ── Compliance Score Ring ─────────────────────────────────────
 function ComplianceScoreRing({ score, label }: { score: number; label: string }) {
@@ -670,6 +671,7 @@ export default function DashboardPage() {
           onClose={() => setDetailTaskId(null)}
         />
       )}
+      <HelpButton page="dashboard" />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield, CheckCircle2, Tr
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { cn, getRiskColor, getRiskLabel, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
+import { HelpButton } from '@/components/help/HelpButton';
 
 function RiskHeatmap({ data }: { data: any }) {
   const t = useTranslations('risks');
@@ -492,6 +493,7 @@ export default function RisksPage() {
 
       {showNew && <NewRiskModal onClose={() => setShowNew(false)} />}
       {editingRisk && <EditRiskModal risk={editingRisk} onClose={() => setEditingRisk(null)} />}
+      <HelpButton page="risks" />
     </div>
   );
 }

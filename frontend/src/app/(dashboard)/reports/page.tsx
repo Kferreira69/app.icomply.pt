@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { reportsApi } from '@/lib/api';
 import { BarChart2, Download, Loader2, CheckCircle, XCircle, Clock, CalendarClock, Plus, Trash2, Mail, Edit2, X } from 'lucide-react';
+import { HelpButton } from '@/components/help/HelpButton';
 import { formatDateTime } from '@/lib/utils';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 
@@ -380,6 +381,7 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+      <HelpButton page="reports" />
     </div>
   );
 }

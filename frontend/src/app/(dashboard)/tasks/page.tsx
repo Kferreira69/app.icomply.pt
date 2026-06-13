@@ -9,6 +9,7 @@ import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
+import { HelpButton } from '@/components/help/HelpButton';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
 
@@ -396,6 +397,7 @@ export default function TasksPage() {
           </div>
         </div>
       )}
+      <HelpButton page="tasks" />
     </div>
   );
 }

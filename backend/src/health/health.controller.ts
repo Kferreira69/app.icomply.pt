@@ -51,6 +51,18 @@ export class HealthController {
     };
   }
 
+  @Public()
+  @Get('version')
+  @ApiOperation({ summary: 'Application version info' })
+  getVersion() {
+    return {
+      version: process.env.APP_VERSION || '1.0.0',
+      name: 'iComply OS',
+      buildDate: process.env.BUILD_DATE || new Date().toISOString().split('T')[0],
+      environment: process.env.NODE_ENV || 'development',
+    };
+  }
+
   @Post('test-email')
   @ApiBearerAuth('JWT')
   @Roles(UserRole.ADMIN)

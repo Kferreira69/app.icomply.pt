@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { evidenceApi } from '@/lib/api';
 import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2, CheckCheck, Square, CheckSquare } from 'lucide-react';
+import { HelpButton } from '@/components/help/HelpButton';
 import { cn, formatDate, formatBytes, formatRelative, getStatusColor } from '@/lib/utils';
 
 function StatusIcon({ status }: { status: string }) {
@@ -241,6 +242,7 @@ export default function EvidencePage() {
       )}
 
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
+      <HelpButton page="evidence" />
     </div>
   );
 }
