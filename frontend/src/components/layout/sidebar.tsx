@@ -251,6 +251,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           items: [
             { href: '/policies', label: t('policies'), icon: BookOpen },
             { href: '/reports',  label: t('reports'),  icon: BarChart2 },
+            { href: '/reports/time-report', label: 'Relatório de Tempo', icon: BarChart2 },
           ],
         },
         {

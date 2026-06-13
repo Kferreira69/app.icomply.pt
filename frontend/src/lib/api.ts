@@ -132,6 +132,10 @@ export const tasksApi = {
     api.post(`/tasks/${id}/comments`, { content }),
   bulkUpdateStatus: (ids: string[], status: string) =>
     api.patch('/tasks/bulk/status', { ids, status }),
+  addDependency: (id: string, blockingTaskId: string) =>
+    api.post(`/tasks/${id}/dependencies`, { blockingTaskId }),
+  removeDependency: (id: string, blockingTaskId: string) =>
+    api.delete(`/tasks/${id}/dependencies/${blockingTaskId}`),
 };
 
 export const risksApi = {

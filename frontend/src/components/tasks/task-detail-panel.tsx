@@ -9,6 +9,8 @@ import {
   User, Flag, Calendar, Send, Loader2, ChevronRight,
   Circle, CheckCircle2,
 } from 'lucide-react';
+import { TaskDependenciesPanel } from '@/components/tasks/task-dependencies-panel';
+import { TimeTracker } from '@/components/time-tracking/TimeTracker';
 import { format, formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { useAuthStore } from '@/store/auth-store';
@@ -166,6 +168,9 @@ export function TaskDetailPanel({ taskId, onClose, onStatusChange }: TaskDetailP
               </div>
             )}
 
+            {/* Time Tracker */}
+            <TimeTracker taskId={taskId} />
+
             {/* Subtasks */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -239,6 +244,11 @@ export function TaskDetailPanel({ taskId, onClose, onStatusChange }: TaskDetailP
               {totalSubtasks === 0 && !addingSubtask && (
                 <p className="text-xs text-gray-400 italic">Sem subtarefas. Clique em + Adicionar para criar.</p>
               )}
+            </div>
+
+            {/* Dependencies */}
+            <div>
+              <TaskDependenciesPanel task={task} />
             </div>
 
             {/* Comments */}

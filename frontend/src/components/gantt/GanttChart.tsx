@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useLayoutEffect } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -16,8 +16,15 @@ export interface GanttItem {
   indent?: boolean;
 }
 
+/** A dependency arrow: blockingId's bar end → dependentId's bar start */
+export interface GanttDependency {
+  blockingId: string;
+  dependentId: string;
+}
+
 interface Props {
   items: GanttItem[];
+  dependencies?: GanttDependency[];
   className?: string;
   emptyMessage?: string;
 }
@@ -28,7 +35,24 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
-export function GanttChart({ items, className, emptyMessage = 'Sem itens para mostrar' }: Props) {
+// ── Row geometry constants ────────────────────────────────────────
+// Must stay in sync with the layout below.
+const HEADER_H = 36;   // h-9
+const ROW_H    = 44;   // minHeight: 44 on each data row
+const NAME_COL = 224;  // w-56
+
+export function GanttChart({ items, dependencies = [], className, emptyMessage = 'Sem itens para mostrar' }: Props) {
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [timelineWidth, setTimelineWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!timelineRef.current) return;
+    const ro = new ResizeObserver(entries => {
+      setTimelineWidth(entries[0].contentRect.width);
+    });
+    ro.observe(timelineRef.current);
+    return () => ro.disconnect();
+  }, []);
   // Calculate overall date range
   const { minDate, maxDate, totalMs } = useMemo(() => {
     if (!items.length) {
@@ -86,6 +110,41 @@ export function GanttChart({ items, className, emptyMessage = 'Sem itens para mo
     };
   }
 
+  /** Returns bar left+right x positions in pixels and vertical centre y,
+   *  relative to the top-left of the timeline column (excluding name col).
+   *  rowIndex is 0-based among the data rows. */
+  function barPixels(item: GanttItem, rowIndex: number, tlWidth: number) {
+    const leftPct  = Math.max(0, Math.min(99,
+      ((item.start.getTime() - minDate.getTime()) / totalMs) * 100));
+    const widthPct = Math.max(0.5, Math.min(100 - leftPct,
+      ((item.end.getTime() - item.start.getTime()) / totalMs) * 100));
+    const x1 = (leftPct / 100) * tlWidth;
+    const x2 = ((leftPct + widthPct) / 100) * tlWidth;
+    const y  = HEADER_H + rowIndex * ROW_H + ROW_H / 2;
+    return { x1, x2, y };
+  }
+
+  /** Build SVG arrow paths for all dependencies */
+  const depArrows = useMemo(() => {
+    if (!dependencies.length || !timelineWidth) return [];
+    const indexById = new Map(items.map((item, i) => [item.id, i]));
+    return dependencies.flatMap(({ blockingId, dependentId }) => {
+      const bi = indexById.get(blockingId);
+      const di = indexById.get(dependentId);
+      if (bi === undefined || di === undefined) return [];
+      const from = barPixels(items[bi], bi, timelineWidth);
+      const to   = barPixels(items[di], di, timelineWidth);
+      // Bezier: start from right-end of blocking bar, end at left-start of dependent bar
+      const cx1 = from.x2 + Math.abs(to.x1 - from.x2) * 0.5;
+      const cx2 = to.x1   - Math.abs(to.x1 - from.x2) * 0.5;
+      return [{
+        d: `M ${from.x2},${from.y} C ${cx1},${from.y} ${cx2},${to.y} ${to.x1},${to.y}`,
+        key: `${blockingId}-${dependentId}`,
+      }];
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dependencies, items, timelineWidth, minDate, totalMs]);
+
   if (items.length === 0) {
     return (
       <div className={cn('flex items-center justify-center py-16 text-gray-400 text-sm', className)}>
@@ -94,9 +153,12 @@ export function GanttChart({ items, className, emptyMessage = 'Sem itens para mo
     );
   }
 
+  // Total chart height for the SVG overlay (header + all rows)
+  const svgHeight = HEADER_H + items.length * ROW_H;
+
   return (
     <div className={cn('overflow-x-auto rounded-xl border border-gray-100 shadow-sm bg-white', className)}>
-      <div style={{ minWidth: 700 }}>
+      <div style={{ minWidth: 700, position: 'relative' }}>
         {/* Header row */}
         <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
           {/* Name column */}
@@ -104,7 +166,7 @@ export function GanttChart({ items, className, emptyMessage = 'Sem itens para mo
             Nome
           </div>
           {/* Timeline header */}
-          <div className="flex-1 relative h-9">
+          <div ref={timelineRef} className="flex-1 relative h-9">
             {months.map((m, i) => (
               <div
                 key={i}
@@ -177,6 +239,39 @@ export function GanttChart({ items, className, emptyMessage = 'Sem itens para mo
             </div>
           );
         })}
+
+        {/* Dependency arrows SVG overlay */}
+        {depArrows.length > 0 && (
+          <svg
+            className="absolute top-0 pointer-events-none z-20"
+            style={{ left: NAME_COL, width: timelineWidth, height: svgHeight }}
+            overflow="visible"
+          >
+            <defs>
+              <marker
+                id="gantt-arrow"
+                markerWidth="8"
+                markerHeight="8"
+                refX="6"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8" />
+              </marker>
+            </defs>
+            {depArrows.map(({ d, key }) => (
+              <path
+                key={key}
+                d={d}
+                fill="none"
+                stroke="#94a3b8"
+                strokeWidth="1.5"
+                strokeDasharray="5,3"
+                markerEnd="url(#gantt-arrow)"
+              />
+            ))}
+          </svg>
+        )}
 
         {/* Today legend */}
         {todayLeft !== null && (
