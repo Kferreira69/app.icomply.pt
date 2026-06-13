@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuid } from 'uuid';
 
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleInit {
   private readonly useS3: boolean;
   private readonly localUploadDir: string;
   private s3?: any;
@@ -48,6 +48,10 @@ export class StorageService {
       fs.mkdirSync(this.localUploadDir, { recursive: true });
       console.log(`[StorageService] Using local file storage at: ${this.localUploadDir}`);
     }
+  }
+
+  async onModuleInit() {
+    if (this.useS3) await this.ensureBucket();
   }
 
   async uploadFile(
