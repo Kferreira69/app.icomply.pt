@@ -704,22 +704,24 @@ function TasksByStatusChart({ dashData }: { dashData: any }) {
       <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <BarChart3 className="w-4 h-4 text-indigo-600" /> Tarefas por Estado
       </h3>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={bars} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-          <XAxis type="number" domain={[0, maxCount]} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} allowDecimals={false} />
-          <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={68} />
-          <Tooltip
-            contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-            formatter={(value: number) => [value, 'Tarefas']}
-          />
-          <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-            {bars.map((entry) => (
-              <Cell key={entry.status} fill={entry.fill} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="space-y-3">
+        {bars.map((bar) => (
+          <div key={bar.status} className="flex items-center gap-3">
+            <span className="text-xs text-gray-500 w-16 shrink-0 text-right">{bar.label}</span>
+            <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: maxCount > 0 ? `${(bar.count / maxCount) * 100}%` : '0%',
+                  backgroundColor: bar.fill,
+                  minWidth: bar.count > 0 ? '4px' : '0px',
+                }}
+              />
+            </div>
+            <span className="text-xs font-semibold text-gray-700 w-6 text-right shrink-0">{bar.count}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -899,6 +901,8 @@ function RiscosPorFrameworkWidget({ riskList }: { riskList: any[] }) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
+  const maxRisks = Math.max(...chartData.map(d => d.count), 1);
+
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'];
 
   return (
@@ -923,6 +927,7 @@ function RiscosPorFrameworkWidget({ riskList }: { riskList: any[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
             <XAxis
               type="number"
+              domain={[0, maxRisks]}
               tick={{ fontSize: 11, fill: '#6b7280' }}
               tickLine={false}
               axisLine={false}

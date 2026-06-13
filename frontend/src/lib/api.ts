@@ -94,7 +94,9 @@ export const usersApi = {
   uploadAvatar: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return api.post('/users/me/avatar', form);
+    return api.post('/users/me/avatar', form, {
+      headers: { 'Content-Type': undefined },
+    });
   },
 };
 
