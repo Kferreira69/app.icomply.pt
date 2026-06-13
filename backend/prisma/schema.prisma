@@ -361,6 +361,8 @@ model Organization {
   iso27701Controls       Iso27701Control[]
   soc2Criteria           Soc2Criterion[]
 
+  evidenceIntegrations EvidenceIntegration[]
+
   // Wave 3
   cisControls         CisControl[]           @relation("CisControls")
   tisaxAssessments    TisaxAssessment[]      @relation("TisaxAssessments")
@@ -3885,5 +3887,58 @@ model AutomationLog {
 
   @@index([automationRuleId])
   @@map("automation_logs")
+}
+
+// ─── Evidence Integrations (Automatic Evidence Collection) ────
+
+enum EvidenceProvider {
+  AWS_CLOUDTRAIL
+  GITHUB
+  AZURE_AD
+  GCP_AUDIT
+  MANUAL_API
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+model EvidenceIntegration {
+  id             String           @id @default(cuid())
+  organizationId String
+  provider       EvidenceProvider
+  name           String
+  description    String?
+  config         Json             // provider-specific config (API keys, regions, etc.)
+  isActive       Boolean          @default(true)
+  lastSyncAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  syncLogs       IntegrationSyncLog[]
+
+  @@index([organizationId])
+  @@map("evidence_integrations")
+}
+
+model IntegrationSyncLog {
+  id              String              @id @default(cuid())
+  integrationId   String
+  status          SyncStatus
+  evidencesFound  Int                 @default(0)
+  evidencesAdded  Int                 @default(0)
+  error           String?
+  details         Json?
+  startedAt       DateTime            @default(now())
+  completedAt     DateTime?
+
+  integration     EvidenceIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+  @@map("integration_sync_logs")
 }
 

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { orgApi, tasksApi, risksApi, reportsApi, policiesApi, gdprApi, auditLogsApi } from '@/lib/api';
+import { orgApi, tasksApi, risksApi, reportsApi, policiesApi, gdprApi, auditLogsApi, evidenceApi, auditsApi } from '@/lib/api';
 import {
   FolderOpen, CheckSquare, AlertTriangle, FileText,
   Clock, AlertCircle, Target, BookOpen, ShieldCheck,
   TrendingUp, TrendingDown, Activity, ChevronRight,
   Circle, CheckCircle2, XCircle, BarChart3, Bell, Zap, Grid3x3,
+  Settings, Calendar, Shield, X,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, Cell,
@@ -17,10 +18,68 @@ import {
 import { cn, formatDate, getRiskColor, getStatusColor, getPriorityColor, formatRelative } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth-store';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { HelpButton } from '@/components/help/HelpButton';
+
+// ── Widget Config ─────────────────────────────────────────────
+
+const WIDGET_KEYS = [
+  'scoreGeral',
+  'riscos',
+  'tarefas',
+  'projetos',
+  'evolucaoScore',
+  'mapaRiscos',
+  'tarefasStatus',
+  'evidenciasExpirar',
+  'proximasAuditorias',
+  'riscosPorFramework',
+] as const;
+
+type WidgetKey = (typeof WIDGET_KEYS)[number];
+
+const WIDGET_LABELS: Record<WidgetKey, string> = {
+  scoreGeral:          'Score Geral',
+  riscos:              'Riscos',
+  tarefas:             'Tarefas',
+  projetos:            'Projetos',
+  evolucaoScore:       'Evolução do Score',
+  mapaRiscos:          'Mapa de Riscos',
+  tarefasStatus:       'Tarefas por Status',
+  evidenciasExpirar:   'Evidências a Expirar',
+  proximasAuditorias:  'Próximas Auditorias',
+  riscosPorFramework:  'Riscos por Framework',
+};
+
+const DEFAULT_CONFIG: Record<WidgetKey, boolean> = {
+  scoreGeral:          true,
+  riscos:              true,
+  tarefas:             true,
+  projetos:            true,
+  evolucaoScore:       true,
+  mapaRiscos:          true,
+  tarefasStatus:       true,
+  evidenciasExpirar:   false,
+  proximasAuditorias:  false,
+  riscosPorFramework:  false,
+};
+
+const LS_KEY = 'icomply-dashboard-widgets';
+
+function loadConfig(): Record<WidgetKey, boolean> {
+  if (typeof window === 'undefined') return DEFAULT_CONFIG;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return DEFAULT_CONFIG;
+    const parsed = JSON.parse(raw);
+    // Merge with defaults so new keys always have a value
+    return { ...DEFAULT_CONFIG, ...parsed };
+  } catch {
+    return DEFAULT_CONFIG;
+  }
+}
 
 // ── Compliance Score Ring ─────────────────────────────────────
 function ComplianceScoreRing({ score, label }: { score: number; label: string }) {
@@ -690,12 +749,311 @@ function QuickActions() {
   );
 }
 
+// ── Widget A: Evidências a Expirar ────────────────────────────
+function EvidenciasExpirarWidget() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['evidence', 'expiring'],
+    queryFn: () => evidenceApi.list({ expiringInDays: 30, limit: 5 }).then(r => r.data),
+  });
+
+  const items: any[] = data?.data ?? data ?? [];
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-4">
+        <AlertTriangle className="w-4 h-4 text-amber-500" />
+        <h3 className="text-sm font-semibold text-gray-900">Evidências a Expirar</h3>
+      </div>
+
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center py-6">
+          <div className="animate-spin w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
+          <CheckCircle2 className="w-7 h-7 text-green-400 mb-2" />
+          <p className="text-sm text-gray-500">Sem evidências a expirar nos próximos 30 dias</p>
+        </div>
+      ) : (
+        <div className="space-y-2 flex-1">
+          {items.map((ev: any) => {
+            const expiryDate = ev.expiryDate ?? ev.validUntil ?? ev.expiredAt;
+            const daysLeft = expiryDate ? differenceInDays(new Date(expiryDate), new Date()) : null;
+            const urgentColor =
+              daysLeft === null ? 'text-gray-400'
+              : daysLeft <= 7   ? 'text-red-600 font-semibold'
+              :                   'text-amber-600';
+            return (
+              <Link
+                key={ev.id}
+                href="/evidence"
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-amber-50 transition-colors"
+              >
+                <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-800 truncate">{ev.fileName ?? ev.title ?? ev.name ?? 'Evidência'}</p>
+                  {expiryDate && (
+                    <p className="text-[10px] text-gray-400">{format(new Date(expiryDate), "dd/MM/yyyy")}</p>
+                  )}
+                </div>
+                {daysLeft !== null && (
+                  <span className={cn('text-xs shrink-0', urgentColor)}>
+                    {daysLeft <= 0 ? 'Expirado' : `${daysLeft}d`}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Widget B: Próximas Auditorias ─────────────────────────────
+const AUDIT_STATUS_BADGE: Record<string, string> = {
+  PLANNED:     'bg-blue-100 text-blue-700',
+  IN_PROGRESS: 'bg-yellow-100 text-yellow-700',
+  COMPLETED:   'bg-green-100 text-green-700',
+  CANCELLED:   'bg-gray-100 text-gray-500',
+};
+
+function ProximasAuditoriasWidget() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['audits', 'upcoming'],
+    queryFn: () => auditsApi.list({ upcoming: true, limit: 5 }).then(r => r.data),
+  });
+
+  const items: any[] = data?.data ?? data ?? [];
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-4">
+        <Calendar className="w-4 h-4 text-purple-500" />
+        <h3 className="text-sm font-semibold text-gray-900">Próximas Auditorias</h3>
+      </div>
+
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center py-6">
+          <div className="animate-spin w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
+          <Calendar className="w-7 h-7 text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500">Sem auditorias agendadas</p>
+        </div>
+      ) : (
+        <div className="space-y-2 flex-1">
+          {items.map((audit: any) => {
+            const auditDate = audit.scheduledDate ?? audit.startDate ?? audit.plannedDate;
+            const statusKey = audit.status ?? 'PLANNED';
+            const badgeClass = AUDIT_STATUS_BADGE[statusKey] ?? 'bg-gray-100 text-gray-500';
+            const frameworkName = audit.framework?.name ?? audit.frameworkName ?? audit.project?.framework?.name ?? '';
+            return (
+              <Link
+                key={audit.id}
+                href="/audits"
+                className="flex items-start gap-2 p-2 rounded-lg hover:bg-purple-50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-800 truncate font-medium">{audit.name ?? audit.title ?? 'Auditoria'}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {frameworkName && (
+                      <span className="text-[10px] text-gray-400 truncate">{frameworkName}</span>
+                    )}
+                    {auditDate && (
+                      <span className="text-[10px] text-gray-400">{format(new Date(auditDate), 'dd/MM/yyyy')}</span>
+                    )}
+                  </div>
+                </div>
+                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0', badgeClass)}>
+                  {statusKey}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Widget C: Riscos por Framework ────────────────────────────
+function RiscosPorFrameworkWidget({ riskList }: { riskList: any[] }) {
+  // Group risks by framework name
+  const countMap: Record<string, number> = {};
+  riskList.forEach((r: any) => {
+    const fw =
+      r.project?.framework?.name ??
+      r.framework?.name ??
+      r.frameworkName ??
+      r.project?.frameworkName ??
+      'Sem Framework';
+    countMap[fw] = (countMap[fw] ?? 0) + 1;
+  });
+
+  const chartData = Object.entries(countMap)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'];
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="w-4 h-4 text-blue-600" />
+        <h3 className="text-sm font-semibold text-gray-900">Riscos por Framework</h3>
+      </div>
+
+      {chartData.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-6 text-center">
+          <Shield className="w-7 h-7 text-gray-300 mb-2" />
+          <p className="text-sm text-gray-500">Sem dados de risco disponíveis</p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 0, right: 16, left: 4, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <XAxis
+              type="number"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              tickLine={false}
+              axisLine={false}
+              allowDecimals={false}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              tick={{ fontSize: 10, fill: '#6b7280' }}
+              tickLine={false}
+              axisLine={false}
+              width={90}
+            />
+            <Tooltip
+              contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+              formatter={(value: number) => [value, 'Riscos']}
+            />
+            <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+// ── Widget Config Panel ───────────────────────────────────────
+function WidgetConfigPanel({
+  config,
+  onChange,
+  onClose,
+}: {
+  config: Record<WidgetKey, boolean>;
+  onChange: (key: WidgetKey, value: boolean) => void;
+  onClose: () => void;
+}) {
+  const existingWidgets: WidgetKey[] = [
+    'scoreGeral', 'riscos', 'tarefas', 'projetos',
+    'evolucaoScore', 'mapaRiscos', 'tarefasStatus',
+  ];
+  const newWidgets: WidgetKey[] = ['evidenciasExpirar', 'proximasAuditorias', 'riscosPorFramework'];
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-5 mb-5 animate-in fade-in slide-in-from-top-2 duration-200">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <Settings className="w-4 h-4 text-gray-500" /> Personalizar Dashboard
+        </h3>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+          aria-label="Fechar painel"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Existing widgets */}
+        <div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Widgets existentes</p>
+          <div className="space-y-2">
+            {existingWidgets.map(key => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={config[key]}
+                  onChange={e => onChange(key, e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                  {WIDGET_LABELS[key]}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* New widgets */}
+        <div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Novos widgets</p>
+          <div className="space-y-2">
+            {newWidgets.map(key => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={config[key]}
+                  onChange={e => onChange(key, e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                  {WIDGET_LABELS[key]}
+                </span>
+                <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">novo</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-400 mt-4">
+        As preferências são guardadas automaticamente no seu navegador.
+      </p>
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [widgetConfig, setWidgetConfig] = useState<Record<WidgetKey, boolean>>(DEFAULT_CONFIG);
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
+
+  // Load widget config from localStorage on mount
+  useEffect(() => {
+    setWidgetConfig(loadConfig());
+  }, []);
+
+  const handleWidgetToggle = (key: WidgetKey, value: boolean) => {
+    setWidgetConfig(prev => {
+      const next = { ...prev, [key]: value };
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(next));
+      } catch { /* noop */ }
+      return next;
+    });
+  };
 
   const { data: dashData, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -757,95 +1115,132 @@ export default function DashboardPage() {
             {t('complianceSummary')} — {format(new Date(), "EEEE, d 'de' MMMM", { locale: pt })}
           </p>
         </div>
-        {openBreaches > 0 && (
-          <Link href="/gdpr" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-xl hover:bg-red-100 transition-colors">
-            <AlertTriangle className="w-4 h-4" />
-            {openBreaches === 1 ? t('openBreaches', { count: openBreaches }) : t('openBreachesPlural', { count: openBreaches })}
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {openBreaches > 0 && (
+            <Link href="/gdpr" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-xl hover:bg-red-100 transition-colors">
+              <AlertTriangle className="w-4 h-4" />
+              {openBreaches === 1 ? t('openBreaches', { count: openBreaches }) : t('openBreachesPlural', { count: openBreaches })}
+            </Link>
+          )}
+          <button
+            onClick={() => setConfigOpen(v => !v)}
+            className={cn(
+              'flex items-center gap-2 text-sm px-4 py-2 rounded-xl border transition-colors',
+              configOpen
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50',
+            )}
+            aria-label="Personalizar dashboard"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden sm:inline">Personalizar</span>
+          </button>
+        </div>
       </div>
+
+      {/* Widget config panel */}
+      {configOpen && (
+        <WidgetConfigPanel
+          config={widgetConfig}
+          onChange={handleWidgetToggle}
+          onClose={() => setConfigOpen(false)}
+        />
+      )}
 
       {/* Top row: Score + KPIs */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Compliance ring */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-2">
-          <ComplianceScoreRing score={complianceScore} label={t('complianceScore')} />
-          <p className="text-xs text-gray-400 text-center">{t('avgActiveProjects')}</p>
-        </div>
+      {(widgetConfig.scoreGeral || widgetConfig.projetos || widgetConfig.tarefas || widgetConfig.riscos) && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Compliance ring */}
+          {widgetConfig.scoreGeral && (
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-2">
+              <ComplianceScoreRing score={complianceScore} label={t('complianceScore')} />
+              <p className="text-xs text-gray-400 text-center">{t('avgActiveProjects')}</p>
+            </div>
+          )}
 
-        {/* KPIs 2×2 */}
-        <div className="lg:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard
-            title={t('kpi.activeProjects')}
-            value={activeProjects}
-            icon={FolderOpen}
-            color="bg-blue-100 text-blue-600"
-            sub={`${dashData?.projects?.total ?? 0} ${tCommon('total')}`}
-            href="/projects"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.overdueTasks')}
-            value={overdueTasks}
-            icon={Clock}
-            color={overdueTasks > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}
-            sub={overdueTasks > 0 ? t('kpiSub.needAttention') : t('kpiSub.allUpToDate')}
-            href="/tasks"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.openRisks')}
-            value={openRisks}
-            icon={AlertTriangle}
-            color={highRisks > 0 ? 'bg-orange-100 text-orange-600' : 'bg-yellow-100 text-yellow-600'}
-            sub={`${highRisks} alto/crítico${highRisks !== 1 ? 's' : ''}`}
-            href="/risks"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.approvedPolicies')}
-            value={policyStats?.byStatus?.APPROVED ?? 0}
-            icon={BookOpen}
-            color="bg-green-100 text-green-600"
-            sub={`${policyStats?.total ?? 0} ${tCommon('total')}`}
-            href="/policies"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.ropaActivities')}
-            value={gdprStats?.activities?.active ?? 0}
-            icon={ShieldCheck}
-            color="bg-purple-100 text-purple-600"
-            sub={t('kpiSub.activeArt30')}
-            href="/gdpr"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.pendingEvidence')}
-            value={pendingEvidence}
-            icon={FileText}
-            color="bg-pink-100 text-pink-600"
-            href="/evidence"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.openCapa')}
-            value={summary?.openCapas ?? 0}
-            icon={AlertCircle}
-            color="bg-red-100 text-red-600"
-            href="/capa"
-            vsLastMonth={t('vsLastMonth')}
-          />
-          <KpiCard
-            title={t('kpi.completedAudits')}
-            value={summary?.auditsCompleted ?? 0}
-            icon={Target}
-            color="bg-indigo-100 text-indigo-600"
-            href="/audits"
-            vsLastMonth={t('vsLastMonth')}
-          />
+          {/* KPIs 2×2 */}
+          <div className={cn(
+            'grid grid-cols-2 md:grid-cols-4 gap-4',
+            widgetConfig.scoreGeral ? 'lg:col-span-4' : 'lg:col-span-5',
+          )}>
+            {widgetConfig.projetos && (
+              <KpiCard
+                title={t('kpi.activeProjects')}
+                value={activeProjects}
+                icon={FolderOpen}
+                color="bg-blue-100 text-blue-600"
+                sub={`${dashData?.projects?.total ?? 0} ${tCommon('total')}`}
+                href="/projects"
+                vsLastMonth={t('vsLastMonth')}
+              />
+            )}
+            {widgetConfig.tarefas && (
+              <KpiCard
+                title={t('kpi.overdueTasks')}
+                value={overdueTasks}
+                icon={Clock}
+                color={overdueTasks > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}
+                sub={overdueTasks > 0 ? t('kpiSub.needAttention') : t('kpiSub.allUpToDate')}
+                href="/tasks"
+                vsLastMonth={t('vsLastMonth')}
+              />
+            )}
+            {widgetConfig.riscos && (
+              <KpiCard
+                title={t('kpi.openRisks')}
+                value={openRisks}
+                icon={AlertTriangle}
+                color={highRisks > 0 ? 'bg-orange-100 text-orange-600' : 'bg-yellow-100 text-yellow-600'}
+                sub={`${highRisks} alto/crítico${highRisks !== 1 ? 's' : ''}`}
+                href="/risks"
+                vsLastMonth={t('vsLastMonth')}
+              />
+            )}
+            <KpiCard
+              title={t('kpi.approvedPolicies')}
+              value={policyStats?.byStatus?.APPROVED ?? 0}
+              icon={BookOpen}
+              color="bg-green-100 text-green-600"
+              sub={`${policyStats?.total ?? 0} ${tCommon('total')}`}
+              href="/policies"
+              vsLastMonth={t('vsLastMonth')}
+            />
+            <KpiCard
+              title={t('kpi.ropaActivities')}
+              value={gdprStats?.activities?.active ?? 0}
+              icon={ShieldCheck}
+              color="bg-purple-100 text-purple-600"
+              sub={t('kpiSub.activeArt30')}
+              href="/gdpr"
+              vsLastMonth={t('vsLastMonth')}
+            />
+            <KpiCard
+              title={t('kpi.pendingEvidence')}
+              value={pendingEvidence}
+              icon={FileText}
+              color="bg-pink-100 text-pink-600"
+              href="/evidence"
+              vsLastMonth={t('vsLastMonth')}
+            />
+            <KpiCard
+              title={t('kpi.openCapa')}
+              value={summary?.openCapas ?? 0}
+              icon={AlertCircle}
+              color="bg-red-100 text-red-600"
+              href="/capa"
+              vsLastMonth={t('vsLastMonth')}
+            />
+            <KpiCard
+              title={t('kpi.completedAudits')}
+              value={summary?.auditsCompleted ?? 0}
+              icon={Target}
+              color="bg-indigo-100 text-indigo-600"
+              href="/audits"
+              vsLastMonth={t('vsLastMonth')}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Alerts + Domain Scores + Maturity row */}
       {((dashData?.alerts?.length ?? 0) > 0 || (dashData?.domainScores?.length ?? 0) > 0) && (
@@ -858,8 +1253,8 @@ export default function DashboardPage() {
 
       {/* Middle row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <MyTasksWidget onOpenDetail={setDetailTaskId} />
-        <RiskSummary />
+        {widgetConfig.tarefas && <MyTasksWidget onOpenDetail={setDetailTaskId} />}
+        {widgetConfig.riscos && <RiskSummary />}
         <QuickActions />
       </div>
 
@@ -870,21 +1265,40 @@ export default function DashboardPage() {
       </div>
 
       {/* Analytics row: Score Trend + Risk Heatmap */}
-      <div className="grid grid-cols-3 gap-6 mt-6">
-        <div className="col-span-2">
-          <ScoreTrendChart />
+      {(widgetConfig.evolucaoScore || widgetConfig.mapaRiscos) && (
+        <div className="grid grid-cols-3 gap-6 mt-6">
+          {widgetConfig.evolucaoScore && (
+            <div className={widgetConfig.mapaRiscos ? 'col-span-2' : 'col-span-3'}>
+              <ScoreTrendChart />
+            </div>
+          )}
+          {widgetConfig.mapaRiscos && (
+            <div className={widgetConfig.evolucaoScore ? 'col-span-1' : 'col-span-3'}>
+              <RiskHeatmap riskList={riskListData?.data ?? []} />
+            </div>
+          )}
         </div>
-        <div className="col-span-1">
-          <RiskHeatmap riskList={riskListData?.data ?? []} />
-        </div>
-      </div>
+      )}
 
       {/* Tasks by Status full-width */}
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-3">
-          <TasksByStatusChart dashData={dashData} />
+      {widgetConfig.tarefasStatus && (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="col-span-3">
+            <TasksByStatusChart dashData={dashData} />
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* New widgets row */}
+      {(widgetConfig.evidenciasExpirar || widgetConfig.proximasAuditorias || widgetConfig.riscosPorFramework) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {widgetConfig.evidenciasExpirar && <EvidenciasExpirarWidget />}
+          {widgetConfig.proximasAuditorias && <ProximasAuditoriasWidget />}
+          {widgetConfig.riscosPorFramework && (
+            <RiscosPorFrameworkWidget riskList={riskListData?.data ?? []} />
+          )}
+        </div>
+      )}
 
       {/* Task detail panel */}
       {detailTaskId && (

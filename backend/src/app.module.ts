@@ -71,6 +71,7 @@ import { ActionPlansModule } from './action-plans/action-plans.module';
 import { ProgramTemplatesModule } from './program-templates/program-templates.module';
 import { AutomationModule } from './automation/automation.module';
 import { TimeTrackingModule } from './time-tracking/time-tracking.module';
+import { EvidenceIntegrationsModule } from './evidence-integrations/evidence-integrations.module';
 
 @Module({
   imports: [
@@ -162,6 +163,7 @@ import { TimeTrackingModule } from './time-tracking/time-tracking.module';
     ProgramTemplatesModule,
     AutomationModule,
     TimeTrackingModule,
+    EvidenceIntegrationsModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──
