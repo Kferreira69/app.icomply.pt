@@ -38,7 +38,7 @@ interface ProjectReport {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-export function formatMinutes(mins: number): string {
+function formatMinutes(mins: number): string {
   if (!mins || mins <= 0) return '0m';
   if (mins < 60) return `${mins}m`;
   const h = Math.floor(mins / 60);
