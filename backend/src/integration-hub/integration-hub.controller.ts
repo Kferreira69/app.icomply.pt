@@ -3,7 +3,7 @@ import {
   UseGuards, Req,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { IntegrationHubService } from './integration-hub.service';
 import { UpsertIntegrationDto } from './dto/upsert-integration.dto';
 

@@ -20,8 +20,22 @@ export class IntegrationHubService {
   async upsert(orgId: string, dto: UpsertIntegrationDto) {
     return this.prisma.platformIntegration.upsert({
       where: { orgId_key: { orgId, key: dto.key } },
-      create: { orgId, ...dto },
-      update: dto,
+      create: {
+        orgId,
+        key:         dto.key,
+        displayName: dto.displayName,
+        category:    dto.category,
+        isConnected: dto.isConnected,
+        credentials: dto.credentials as any,
+        settings:    dto.settings    as any,
+      },
+      update: {
+        displayName: dto.displayName,
+        category:    dto.category,
+        isConnected: dto.isConnected,
+        credentials: dto.credentials as any,
+        settings:    dto.settings    as any,
+      },
     });
   }
 
@@ -63,12 +77,12 @@ export class IntegrationHubService {
       where: { orgId_key: { orgId, key: '__truto_config__' } },
       create: {
         orgId,
-        key: '__truto_config__',
+        key:         '__truto_config__',
         displayName: 'Truto API Configuration',
-        category: 'config',
-        credentials: { apiKey },
+        category:    'config',
+        credentials: { apiKey } as any,
       },
-      update: { credentials: { apiKey } },
+      update: { credentials: { apiKey } as any },
     });
   }
 }
