@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Users, Lock, CreditCard } from 'lucide-react';
+import { Building2, Users, Lock, CreditCard, Plug } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SETTINGS_TABS = [
-  { href: '/settings/organization', label: 'Organização',  icon: Building2  },
-  { href: '/settings/users',        label: 'Utilizadores', icon: Users       },
-  { href: '/settings/security',     label: 'Segurança',    icon: Lock        },
-  { href: '/settings/billing',      label: 'Faturação',    icon: CreditCard  },
+  { href: '/settings/organization',  label: 'Organização',    icon: Building2  },
+  { href: '/settings/users',         label: 'Utilizadores',   icon: Users       },
+  { href: '/settings/security',      label: 'Segurança',      icon: Lock        },
+  { href: '/settings/billing',       label: 'Faturação',      icon: CreditCard  },
+  { href: '/settings/integrations',  label: 'Integrações',    icon: Plug        },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

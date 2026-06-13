@@ -6,9 +6,12 @@ import { UpdateIntegrationDto } from './dto/update-integration.dto';
 import { fetchGitHubAuditLog, EvidenceItem } from './providers/github.provider';
 import { fetchAwsCloudTrailEvents } from './providers/aws-cloudtrail.provider';
 import { fetchAzureAdAuditLogs } from './providers/azure-ad.provider';
+import { GcpAuditProvider } from './providers/gcp-audit.provider';
 
 @Injectable()
 export class EvidenceIntegrationsService {
+  private readonly gcpProvider = new GcpAuditProvider();
+
   constructor(private readonly prisma: PrismaService) {}
 
   // ── CRUD ────────────────────────────────────────────────────────
@@ -221,8 +224,7 @@ export class EvidenceIntegrationsService {
         return fetchAzureAdAuditLogs(config as any);
 
       case EvidenceProvider.GCP_AUDIT:
-        // GCP Audit provider — placeholder, returns empty until implemented
-        return [];
+        return this.gcpProvider.collect(config as any);
 
       case EvidenceProvider.MANUAL_API:
         // Manual API — returns empty, evidence added manually

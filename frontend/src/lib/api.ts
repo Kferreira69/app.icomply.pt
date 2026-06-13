@@ -910,3 +910,16 @@ export const automationApi = {
   trigger:    (id: string)               => api.post(`/automation/${id}/trigger`),
 };
 
+// ── Evidence Integrations ─────────────────────────────────────
+
+export const evidenceIntegrationsApi = {
+  list:    ()                           => api.get('/evidence-integrations'),
+  create:  (dto: any)                   => api.post('/evidence-integrations', dto),
+  update:  (id: string, dto: any)       => api.patch(`/evidence-integrations/${id}`, dto),
+  remove:  (id: string)                 => api.delete(`/evidence-integrations/${id}`),
+  toggle:  (id: string)                 => api.patch(`/evidence-integrations/${id}/toggle`),
+  sync:    (id: string)                 => api.post(`/evidence-integrations/${id}/sync`),
+  syncAll: ()                           => api.post('/evidence-integrations/sync-all'),
+  logs:    (id: string)                 => api.get(`/evidence-integrations/${id}/logs`),
+};
+
