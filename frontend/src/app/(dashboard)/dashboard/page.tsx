@@ -691,11 +691,13 @@ function TasksByStatusChart({ dashData }: { dashData: any }) {
   const taskStats: Record<string, number> = dashData?.tasks?.byStatus ?? {};
 
   const bars: TaskStatusBar[] = [
-    { status: 'TODO',        label: 'Por fazer',  count: taskStats['TODO']        ?? 0, fill: '#9ca3af' },
-    { status: 'IN_PROGRESS', label: 'Em curso',   count: taskStats['IN_PROGRESS'] ?? 0, fill: '#3b82f6' },
-    { status: 'DONE',        label: 'Concluído',  count: taskStats['DONE']        ?? 0, fill: '#22c55e' },
-    { status: 'OVERDUE',     label: 'Atrasado',   count: taskStats['OVERDUE']     ?? dashData?.tasks?.overdue ?? 0, fill: '#ef4444' },
+    { status: 'TODO',        label: 'Por fazer',  count: Number(taskStats['TODO']        ?? 0) || 0, fill: '#9ca3af' },
+    { status: 'IN_PROGRESS', label: 'Em curso',   count: Number(taskStats['IN_PROGRESS'] ?? 0) || 0, fill: '#3b82f6' },
+    { status: 'DONE',        label: 'Concluído',  count: Number(taskStats['DONE']        ?? 0) || 0, fill: '#22c55e' },
+    { status: 'OVERDUE',     label: 'Atrasado',   count: Number(taskStats['OVERDUE']     ?? dashData?.tasks?.overdue ?? 0) || 0, fill: '#ef4444' },
   ];
+
+  const maxCount = Math.max(...bars.map(b => b.count), 1);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -705,7 +707,7 @@ function TasksByStatusChart({ dashData }: { dashData: any }) {
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={bars} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-          <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} allowDecimals={false} />
+          <XAxis type="number" domain={[0, maxCount]} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} allowDecimals={false} />
           <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={68} />
           <Tooltip
             contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
