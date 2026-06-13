@@ -695,6 +695,7 @@ function DecisionsTracker({ meetings, onMeetingUpdate }: { meetings: Meeting[]; 
           <p className="text-gray-400 font-medium">Sem decisões {filterStatus !== 'ALL' ? `com estado "${DEC_STATUS_LABELS[filterStatus as DecisionStatus]}"` : 'registadas'}</p>
         </div>
       ) : (
+        <>
         {/* Desktop table */}
         <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
@@ -782,6 +783,7 @@ function DecisionsTracker({ meetings, onMeetingUpdate }: { meetings: Meeting[]; 
             );
           })}
         </div>
+        </>
       )}
     </div>
   );
