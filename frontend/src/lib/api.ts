@@ -936,3 +936,15 @@ export const evidenceIntegrationsApi = {
   logs:    (id: string)                 => api.get(`/evidence-integrations/${id}/logs`),
 };
 
+// ── Integration Hub ───────────────────────────────────────────
+
+export const integrationHubApi = {
+  list:         ()                          => api.get('/integration-hub'),
+  upsert:       (dto: any)                  => api.post('/integration-hub', dto),
+  connect:      (key: string)               => api.post(`/integration-hub/${key}/connect`),
+  disconnect:   (key: string)               => api.post(`/integration-hub/${key}/disconnect`),
+  remove:       (key: string)               => api.delete(`/integration-hub/${key}`),
+  getTrutoKey:  ()                          => api.get('/integration-hub/truto/key'),
+  saveTrutoKey: (apiKey: string)            => api.post('/integration-hub/truto/key', { apiKey }),
+};
+

@@ -376,6 +376,7 @@ model Organization {
   regulatoryChanges   RegulatoryChange[]     @relation("RegulatoryChanges")
   calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
   timeEntries         TimeEntry[]
+  platformIntegrations PlatformIntegration[]
 
   @@map("organizations")
 }
@@ -4103,5 +4104,26 @@ model DeviceReport {
 
   @@index([deviceId, reportedAt])
   @@map("device_reports")
+}
+
+// ─── Integration Hub ─────────────────────────────────────────
+
+model PlatformIntegration {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  key          String
+  displayName  String
+  category     String       @default("other")
+  isConnected  Boolean      @default(false)
+  credentials  Json?
+  settings     Json?
+  lastTestedAt DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("platform_integrations")
 }
 
