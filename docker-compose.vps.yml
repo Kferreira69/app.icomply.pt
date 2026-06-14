@@ -184,3 +184,24 @@ services:
       - "traefik.http.routers.icomply-frontend-http.rule=Host(`app.${DOMAIN}`) || Host(`admin.icomply.pt`)"
       - "traefik.http.routers.icomply-frontend-http.entrypoints=web"
       - "traefik.http.routers.icomply-frontend-http.middlewares=redirect-to-https"
+
+  # ── iGuard Downloads (static binaries) ─────────────────────
+  # Serves /opt/icomply/downloads/ at https://app.icomply.pt/downloads/
+  # Binaries are deployed by the iguard-release CI workflow.
+  downloads:
+    image: nginx:alpine
+    container_name: icomply_downloads
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    volumes:
+      - /opt/icomply/downloads:/usr/share/nginx/html/downloads:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.icomply-downloads.rule=Host(`app.${DOMAIN}`) && PathPrefix(`/downloads/`)"
+      - "traefik.http.routers.icomply-downloads.entrypoints=websecure"
+      - "traefik.http.routers.icomply-downloads.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.icomply-downloads.service=icomply-downloads"
+      - "traefik.http.services.icomply-downloads.loadbalancer.server.port=80"
+      - "traefik.http.routers.icomply-downloads.priority=10"
