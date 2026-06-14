@@ -70,6 +70,20 @@ function heatColor(level: string) {
   return                          'bg-amber-100 text-amber-700 border-amber-300';
 }
 
+function resolveOwner(risk: any): string | null {
+  // risk.owner can be a plain string or a User object {id, firstName, lastName}
+  if (risk.assignee?.firstName) {
+    return `${risk.assignee.firstName} ${risk.assignee.lastName ?? ''}`.trim();
+  }
+  if (!risk.owner) return null;
+  if (typeof risk.owner === 'string') return risk.owner || null;
+  if (typeof risk.owner === 'object') {
+    const { firstName, lastName, name } = risk.owner as any;
+    return `${firstName ?? name ?? ''} ${lastName ?? ''}`.trim() || null;
+  }
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
@@ -212,7 +226,7 @@ export default function BoardReportsPage() {
       deadline: c.dueDate,
       href: '/capa',
     })),
-    ...criticalRisks.filter((r: any) => !r.owner && !r.assignee).slice(0, 2).map((r: any) => ({
+    ...criticalRisks.filter((r: any) => !resolveOwner(r)).slice(0, 2).map((r: any) => ({
       priority: 'ALTO' as const,
       description: `Risco crítico sem responsável: ${r.title ?? r.name}`,
       deadline: undefined,
@@ -570,9 +584,7 @@ export default function BoardReportsPage() {
                       </div>
                       <div className="col-span-4 md:col-span-3">
                         <span className="text-xs text-gray-600">
-                          {risk.owner ?? risk.assignee?.firstName
-                            ? `${risk.assignee?.firstName ?? risk.owner} ${risk.assignee?.lastName ?? ''}`.trim()
-                            : <span className="text-red-500 font-medium">Sem responsável</span>}
+                          {resolveOwner(risk) ?? <span className="text-red-500 font-medium">Sem responsável</span>}
                         </span>
                       </div>
                       <div className="col-span-2">
@@ -922,7 +934,7 @@ export default function BoardReportsPage() {
                     <td className="py-2 px-3 font-medium">{risk.title ?? risk.name}</td>
                     <td className="py-2 px-3 text-center">{risk.likelihood ?? '—'}</td>
                     <td className="py-2 px-3 text-center">{risk.impact ?? '—'}</td>
-                    <td className="py-2 px-3 text-gray-500">{risk.assignee?.firstName ?? risk.owner ?? 'Sem responsável'}</td>
+                    <td className="py-2 px-3 text-gray-500">{resolveOwner(risk) ?? 'Sem responsável'}</td>
                   </tr>
                 ))}
               </tbody>
