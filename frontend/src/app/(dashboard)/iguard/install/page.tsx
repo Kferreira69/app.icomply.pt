@@ -199,7 +199,7 @@ export default function IGuardInstallPage() {
                     iGuard já instalado neste dispositivo
                   </p>
                   <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
-                    {myDevice?.name} — {myDevice?.os}
+                    {myDevice?.deviceName} — {myDevice?.os}
                   </p>
                 </div>
                 <span className="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200">
