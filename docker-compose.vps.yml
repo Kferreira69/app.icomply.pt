@@ -204,4 +204,4 @@ services:
       - "traefik.http.routers.icomply-downloads.tls.certresolver=letsencrypt"
       - "traefik.http.routers.icomply-downloads.service=icomply-downloads"
       - "traefik.http.services.icomply-downloads.loadbalancer.server.port=80"
-      - "traefik.http.routers.icomply-downloads.priority=10"
+      - "traefik.http.routers.icomply-downloads.priority=100"
