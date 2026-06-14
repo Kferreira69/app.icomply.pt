@@ -14,7 +14,7 @@ import {
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
-  GanttChart, BookTemplate, Plug2,
+  GanttChart, BookTemplate, Plug2, GraduationCap,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState } from 'react';
@@ -286,6 +286,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         { href: '/audit-templates',    label: 'Audit Templates',         icon: ClipboardList },
         { href: '/integrations',       label: 'Integration Hub',         icon: Plug2 },
         { href: '/iguard',             label: 'iGuard',                  icon: ShieldAlert },
+        { href: '/academy',            label: 'Centro de Formação',       icon: GraduationCap },
       ],
     },
     {

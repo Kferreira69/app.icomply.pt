@@ -11,10 +11,6 @@ import {
   Circle, CheckCircle2, XCircle, BarChart3, Bell, Zap, Grid3x3,
   Settings, Calendar, Shield, X,
 } from 'lucide-react';
-import {
-  BarChart, Bar, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
 import { cn, formatDate, getRiskColor, getStatusColor, getPriorityColor, formatRelative } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth-store';
@@ -949,40 +945,23 @@ function RiscosPorFrameworkWidget({ riskList }: { riskList: any[] }) {
           <p className="text-sm text-gray-500">Sem dados de risco disponíveis</p>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart
-            data={chartData}
-            layout="vertical"
-            margin={{ top: 0, right: 16, left: 4, bottom: 0 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-            <XAxis
-              type="number"
-              domain={[0, maxRisks]}
-              tick={{ fontSize: 11, fill: '#6b7280' }}
-              tickLine={false}
-              axisLine={false}
-              allowDecimals={false}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              tick={{ fontSize: 10, fill: '#6b7280' }}
-              tickLine={false}
-              axisLine={false}
-              width={90}
-            />
-            <Tooltip
-              contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-              formatter={(value: number) => [value, 'Riscos']}
-            />
-            <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-              {chartData.map((entry, index) => (
-                <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="space-y-2 flex-1">
+          {chartData.map((item, index) => {
+            const pct = Math.round((item.count / maxRisks) * 100);
+            return (
+              <div key={item.name} className="flex items-center gap-2 min-h-[24px]">
+                <span className="text-[10px] text-gray-500 truncate" style={{ width: 90, flexShrink: 0 }} title={item.name}>{item.name}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                  <div
+                    className="h-4 rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold text-gray-700 w-4 text-right shrink-0">{item.count}</span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

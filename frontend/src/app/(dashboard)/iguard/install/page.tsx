@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   ShieldCheck,
@@ -11,27 +11,24 @@ import {
   RefreshCw,
   Monitor,
   Lock,
-  Shield,
-  RotateCcw,
   X,
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Download,
 } from 'lucide-react';
 import { IGuardLogo } from '@/components/iguard/IGuardLogo';
 import { iGuardApi } from '@/lib/api';
-import { useAuthStore } from '@/store/auth-store';
 
 // ── Types ─────────────────────────────────────────────────────
 
 interface DeviceInfo {
   id: string;
-  name: string;
+  deviceName: string;
   os: string;
   status: 'ACTIVE' | 'PENDING' | 'REVOKED';
   lastSeen?: string;
   complianceScore?: number;
-  token?: string;
 }
 
 type OsTab = 'macos' | 'windows';
@@ -40,39 +37,20 @@ type OsTab = 'macos' | 'windows';
 
 function detectOs(): OsTab {
   if (typeof navigator === 'undefined') return 'windows';
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes('mac')) return 'macos';
-  return 'windows';
-}
-
-function getOsInfo() {
-  if (typeof navigator === 'undefined') return { os: 'Unknown', arch: 'amd64' };
-  const ua = navigator.userAgent;
-  if (/Mac/.test(ua)) {
-    // M-series chips show arm or Apple Silicon in some UAs; fallback to arm64
-    const arch = /arm|Apple M/i.test(ua) ? 'arm64' : 'amd64';
-    return { os: 'macOS', arch };
-  }
-  if (/Win/.test(ua)) return { os: 'Windows', arch: 'amd64' };
-  if (/Linux/.test(ua)) return { os: 'Linux', arch: 'amd64' };
-  return { os: 'Unknown', arch: 'amd64' };
+  return /Mac/i.test(navigator.userAgent) ? 'macos' : 'windows';
 }
 
 // ── Sub-components ────────────────────────────────────────────
 
 function CopyButton({ text, label = 'Copiar' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard not available
-    }
+    } catch { /* ignore */ }
   };
-
   return (
     <button
       onClick={handleCopy}
@@ -101,13 +79,11 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 // ── Main Page ─────────────────────────────────────────────────
 
 export default function IGuardInstallPage() {
-  const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<OsTab>('windows');
   const [token, setToken] = useState<string | null>(null);
   const [tokenVisible, setTokenVisible] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
 
-  // Auto-detect OS on mount
   useEffect(() => {
     setActiveTab(detectOs());
   }, []);
@@ -117,12 +93,15 @@ export default function IGuardInstallPage() {
     data: myDevice,
     isLoading: deviceLoading,
     refetch: refetchDevice,
-    isError: deviceError,
-  } = useQuery<DeviceInfo>({
+  } = useQuery<DeviceInfo | null>({
     queryKey: ['iguard-my-device'],
     queryFn: async () => {
-      const res = await iGuardApi.getMyDevice();
-      return res.data;
+      try {
+        const res = await iGuardApi.getMyDevice();
+        return res.data ?? null;
+      } catch {
+        return null;
+      }
     },
     retry: false,
   });
@@ -130,23 +109,19 @@ export default function IGuardInstallPage() {
   // Register device mutation
   const registerMutation = useMutation({
     mutationFn: async () => {
-      const { os } = getOsInfo();
+      const os = detectOs(); // already 'macos' | 'windows' — lowercase
       const res = await iGuardApi.registerDevice({
-        deviceName: navigator.platform || os,
+        deviceName: (typeof navigator !== 'undefined' ? navigator.platform : null) || os,
         os,
-        userAgent: navigator.userAgent,
       });
       return res.data;
     },
     onSuccess: (data: any) => {
-      if (data?.token) setToken(data.token);
+      const tok = data?.deviceToken ?? data?.token ?? null;
+      if (tok) setToken(tok);
       setTokenVisible(false);
     },
   });
-
-  const handleGenerateToken = () => {
-    registerMutation.mutate();
-  };
 
   const handleCopyToken = async () => {
     if (!token) return;
@@ -154,46 +129,27 @@ export default function IGuardInstallPage() {
       await navigator.clipboard.writeText(token);
       setTokenCopied(true);
       setTimeout(() => setTokenCopied(false), 2000);
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   };
 
   const displayToken = token
-    ? tokenVisible
-      ? token
-      : token.slice(0, 8) + '••••••••••••'
+    ? tokenVisible ? token : token.slice(0, 8) + '••••••••••••'
     : null;
 
-  // Replace SEU_TOKEN in code blocks with actual token if available
   const tok = token || 'SEU_TOKEN';
 
-  const macosScript = `# Instalar via Terminal (recomendado)
-curl -fsSL https://iguard.icomply.pt/install.sh | bash -s -- --token ${tok}`;
+  const macosScript = `curl -fsSL https://iguard.icomply.pt/install.sh | bash -s -- --token ${tok}`;
 
-  const macosManual = `# Ou instalar manualmente:
-# 1. Descarregar o binário
-curl -Lo iguard https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-darwin-arm64
-chmod +x iguard && sudo mv iguard /usr/local/bin/
+  const windowsRunCmd = `iguard.exe /?token=${tok}`;
 
-# 2. Configurar
-iguard setup --token ${tok} --api https://api.icomply.pt/api/v1
+  const WINDOWS_EXE_URL =
+    'https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-windows-amd64.exe';
+  const MACOS_ARM_URL =
+    'https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-darwin-arm64';
+  const MACOS_X64_URL =
+    'https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-darwin-amd64';
 
-# 3. Instalar como serviço (executa automaticamente)
-iguard service install`;
-
-  const windowsScript = `# PowerShell (como Administrador)
-
-# 1. Descarregar
-Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-windows-amd64.exe" -OutFile "iguard.exe"
-
-# 2. Configurar
-.\\iguard.exe setup --token ${tok} --api https://api.icomply.pt/api/v1
-
-# 3. Instalar como serviço
-.\\iguard.exe service install`;
-
-  // ── Render ───────────────────────────────────────────────────
+  const alreadyActive = !deviceLoading && myDevice?.status === 'ACTIVE' && !token;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20">
@@ -203,12 +159,10 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
           <div className="inline-flex items-center justify-center mb-6 drop-shadow-xl">
             <IGuardLogo size={80} />
           </div>
-
           <h1 className="text-4xl font-bold tracking-tight mb-3">Instalar o iGuard</h1>
           <p className="text-lg text-blue-100 max-w-xl mx-auto mb-6">
             O iGuard monitoriza o estado de conformidade do seu dispositivo de forma segura e privada.
           </p>
-
           <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/10 border border-white/20 text-sm text-blue-50">
             <Lock className="w-4 h-4 shrink-0" />
             <span>
@@ -222,7 +176,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
       {/* ── Steps ────────────────────────────────────────── */}
       <div className="max-w-3xl mx-auto px-6 -mt-6 space-y-6">
 
-        {/* ── Step 1: Gerar token ──────────────────────── */}
+        {/* ── Step 1: Token ────────────────────────────── */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-3">
@@ -236,16 +190,16 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
           </div>
 
           <div className="p-6">
-            {/* Already registered */}
-            {!deviceLoading && myDevice && myDevice.status === 'ACTIVE' && !token && (
+            {/* Already installed */}
+            {alreadyActive && (
               <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 mb-4">
                 <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                    iGuard instalado
+                    iGuard já instalado neste dispositivo
                   </p>
                   <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
-                    Dispositivo: {myDevice.name} — {myDevice.os}
+                    {myDevice?.name} — {myDevice?.os}
                   </p>
                 </div>
                 <span className="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200">
@@ -254,7 +208,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
               </div>
             )}
 
-            {/* Token box (after generation) */}
+            {/* Token box */}
             {token && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 p-3.5 rounded-xl bg-gray-950 border border-gray-700">
@@ -283,29 +237,26 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
               </div>
             )}
 
-            {/* Generate button */}
             <button
-              onClick={handleGenerateToken}
+              onClick={() => registerMutation.mutate()}
               disabled={registerMutation.isPending}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium transition-colors"
             >
-              {registerMutation.isPending ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="w-4 h-4" />
-              )}
+              {registerMutation.isPending
+                ? <RefreshCw className="w-4 h-4 animate-spin" />
+                : <ShieldCheck className="w-4 h-4" />}
               {token ? 'Gerar novo token' : 'Gerar token'}
             </button>
 
             {registerMutation.isError && (
               <p className="mt-2 text-xs text-red-500">
-                Erro ao gerar token. Tente novamente.
+                Erro ao gerar token. Por favor tente novamente.
               </p>
             )}
           </div>
         </div>
 
-        {/* ── Step 2: Choose OS ────────────────────────── */}
+        {/* ── Step 2: Download & Install ───────────────── */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-3">
@@ -313,7 +264,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
                 2
               </span>
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                Escolher sistema operativo
+                Descarregar e instalar
               </h2>
             </div>
           </div>
@@ -322,35 +273,80 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
             {/* OS Tabs */}
             <div className="flex gap-2 mb-6">
               <button
-                onClick={() => setActiveTab('macos')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  activeTab === 'macos'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <span className="text-base">🍎</span> macOS
-              </button>
-              <button
                 onClick={() => setActiveTab('windows')}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                   activeTab === 'windows'
                     ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
                 }`}
               >
                 <span className="text-base">🪟</span> Windows
               </button>
+              <button
+                onClick={() => setActiveTab('macos')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                  activeTab === 'macos'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-base">🍎</span> macOS
+              </button>
             </div>
 
-            {/* macOS instructions */}
-            {activeTab === 'macos' && (
-              <div className="space-y-4">
+            {/* Windows */}
+            {activeTab === 'windows' && (
+              <div className="space-y-5">
+                {/* Download button */}
+                <div>
+                  <a
+                    href={WINDOWS_EXE_URL}
+                    download="iguard.exe"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Descarregar iGuard.exe
+                  </a>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Windows 10/11 · 64-bit · ~12 MB
+                  </p>
+                </div>
+
+                {/* Run command */}
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Instalar via Terminal (recomendado)
+                    Execute como Administrador na pasta onde descarregou:
+                  </p>
+                  <CodeBlock code={windowsRunCmd} language="cmd" />
+                  {!token && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Gere o token no passo 1 primeiro — o comando acima será actualizado automaticamente.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                  <Monitor className="w-4 h-4 shrink-0" />
+                  Clique com o botão direito no iguard.exe → «Executar como administrador»
+                </div>
+              </div>
+            )}
+
+            {/* macOS */}
+            {activeTab === 'macos' && (
+              <div className="space-y-5">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Instalar via Terminal (uma linha)
                   </p>
                   <CodeBlock code={macosScript} language="bash" />
+                  {!token && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Gere o token no passo 1 — o comando acima será actualizado automaticamente.
+                    </p>
+                  )}
                 </div>
 
                 <div className="relative">
@@ -359,31 +355,33 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
                   </div>
                   <div className="relative flex justify-center">
                     <span className="px-3 bg-white dark:bg-gray-900 text-xs text-gray-400">
-                      ou instalar manualmente
+                      ou descarregar manualmente
                     </span>
                   </div>
                 </div>
 
-                <CodeBlock code={macosManual} language="bash" />
-
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                  <Monitor className="w-4 h-4 shrink-0" />
-                  Para Macs Intel, use{' '}
-                  <code className="font-mono bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5 rounded">
-                    iguard-darwin-amd64
-                  </code>
+                <div className="flex gap-3">
+                  <a
+                    href={MACOS_ARM_URL}
+                    download="iguard"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xs font-medium transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Apple Silicon (M1/M2/M3)
+                  </a>
+                  <a
+                    href={MACOS_X64_URL}
+                    download="iguard"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xs font-medium transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Intel (x64)
+                  </a>
                 </div>
-              </div>
-            )}
-
-            {/* Windows instructions */}
-            {activeTab === 'windows' && (
-              <div className="space-y-4">
-                <CodeBlock code={windowsScript} language="powershell" />
 
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                   <Monitor className="w-4 h-4 shrink-0" />
-                  Execute o PowerShell como Administrador para instalar o serviço.
+                  O Terminal pode pedir a palavra-passe de administrador para instalar o serviço.
                 </div>
               </div>
             )}
@@ -413,7 +411,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
             </button>
 
             {/* ACTIVE */}
-            {!deviceLoading && myDevice && myDevice.status === 'ACTIVE' && (
+            {!deviceLoading && myDevice?.status === 'ACTIVE' && (
               <div className="p-5 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
@@ -424,7 +422,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                       <div>
                         <dt className="text-green-600 dark:text-green-500 font-medium">Dispositivo</dt>
-                        <dd className="text-green-800 dark:text-green-300 mt-0.5">{myDevice.name}</dd>
+                        <dd className="text-green-800 dark:text-green-300 mt-0.5">{myDevice.deviceName}</dd>
                       </div>
                       <div>
                         <dt className="text-green-600 dark:text-green-500 font-medium">Sistema</dt>
@@ -440,7 +438,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
                       )}
                       {myDevice.complianceScore !== undefined && (
                         <div>
-                          <dt className="text-green-600 dark:text-green-500 font-medium">Score de conformidade</dt>
+                          <dt className="text-green-600 dark:text-green-500 font-medium">Score</dt>
                           <dd className="text-green-800 dark:text-green-300 mt-0.5 font-semibold">
                             {myDevice.complianceScore}%
                           </dd>
@@ -453,7 +451,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
             )}
 
             {/* PENDING */}
-            {!deviceLoading && myDevice && myDevice.status === 'PENDING' && (
+            {!deviceLoading && myDevice?.status === 'PENDING' && (
               <div className="p-5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-3">
                   <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -470,7 +468,7 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
             )}
 
             {/* NOT FOUND */}
-            {!deviceLoading && (!myDevice || deviceError) && (
+            {!deviceLoading && !myDevice && (
               <div className="p-5 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3">
                   <X className="w-5 h-5 text-gray-400 shrink-0" />
@@ -490,7 +488,6 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
 
         {/* ── Privacy transparency ─────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* What iGuard checks */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-blue-600" />
@@ -511,7 +508,6 @@ Invoke-WebRequest -Uri "https://github.com/Kferreira69/app.icomply.pt/releases/l
             </ul>
           </div>
 
-          {/* What iGuard does NOT check */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <X className="w-4 h-4 text-red-500" />
