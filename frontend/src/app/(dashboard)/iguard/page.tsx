@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { iGuardApi } from '@/lib/api';
-import { Loader2, Shield, Monitor, AlertTriangle, CheckCircle2, XCircle, Clock, Download } from 'lucide-react';
+import { Loader2, Shield, Monitor, AlertTriangle, CheckCircle2, XCircle, Clock, Download, Server, Network, Plus, Trash2, Wifi } from 'lucide-react';
 import { IGuardLogo } from '@/components/iguard/IGuardLogo';
 import Link from 'next/link';
 
@@ -17,12 +17,19 @@ interface DeviceAgent {
   osVersion?: string;
   arch?: string;
   agentVersion?: string;
+  deviceType?: 'ENDPOINT' | 'SERVER' | 'NETWORK_DEVICE';
   status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'REVOKED';
+  // Endpoint checks
   diskEncryption?: boolean;
   screenLock?: boolean;
   antivirusEnabled?: boolean;
   osUpToDate?: boolean;
   passwordManager?: boolean;
+  // Server checks
+  sshRootLoginDisabled?: boolean;
+  firewallActive?: boolean;
+  pendingPatches?: number;
+  openPorts?: string[];
   complianceScore?: number;
   lastSeenAt?: string;
   registeredAt: string;
@@ -41,6 +48,33 @@ interface OrgStats {
     antivirusEnabled: number;
     osUpToDate: number;
   };
+}
+
+interface NetworkProbe {
+  id: string;
+  name: string;
+  subnetCIDR: string;
+  probeToken: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'ERROR';
+  lastScannedAt?: string;
+  createdAt: string;
+  _count?: { discoveredDevices: number };
+}
+
+interface DiscoveredDevice {
+  id: string;
+  ipAddress: string;
+  hostname?: string;
+  macAddress?: string;
+  vendor?: string;
+  deviceCategory?: string;
+  os?: string;
+  firmwareVersion?: string;
+  openPorts?: number[];
+  isManaged: boolean;
+  riskScore?: number;
+  issues?: string[];
+  lastSeenAt: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -87,7 +121,9 @@ function relativeTime(dateStr?: string): { text: string; warn: boolean } {
   return { text: `há ${days} dia${days !== 1 ? 's' : ''}`, warn: days > 7 };
 }
 
-function OsIcon({ os }: { os: string }) {
+function OsIcon({ os, deviceType }: { os: string; deviceType?: string }) {
+  if (deviceType === 'SERVER' && os === 'linux') return <span title="Linux Server" className="text-xl">🐧</span>;
+  if (deviceType === 'SERVER' && os === 'windows') return <span title="Windows Server" className="text-xl">🖥️</span>;
   if (os === 'macos') return <span title="macOS" className="text-xl">🍎</span>;
   if (os === 'windows') return <span title="Windows" className="text-xl">🪟</span>;
   return <span title="Linux" className="text-xl">🐧</span>;
@@ -152,7 +188,7 @@ function DeviceCard({ device, onRevoke }: { device: DeviceAgent; onRevoke: (id: 
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex items-start gap-3">
-        <OsIcon os={device.os} />
+        <OsIcon os={device.os} deviceType={device.deviceType} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 text-sm truncate">{device.deviceName}</p>
           {device.hostname && (
@@ -172,10 +208,21 @@ function DeviceCard({ device, onRevoke }: { device: DeviceAgent; onRevoke: (id: 
 
       {/* Check badges */}
       <div className="flex flex-wrap gap-1">
-        <CheckBadge label="Encriptação" value={device.diskEncryption} />
-        <CheckBadge label="Screen Lock"  value={device.screenLock} />
-        <CheckBadge label="Antivírus"    value={device.antivirusEnabled} />
-        <CheckBadge label="OS Atual"     value={device.osUpToDate} />
+        {device.deviceType === 'SERVER' ? (
+          <>
+            <CheckBadge label="SSH Root"    value={device.sshRootLoginDisabled} />
+            <CheckBadge label="Firewall"    value={device.firewallActive} />
+            <CheckBadge label="OS Atual"    value={device.osUpToDate} />
+            <CheckBadge label={`Patches: ${device.pendingPatches ?? '?'}`} value={(device.pendingPatches ?? 0) === 0} />
+          </>
+        ) : (
+          <>
+            <CheckBadge label="Encriptação" value={device.diskEncryption} />
+            <CheckBadge label="Screen Lock"  value={device.screenLock} />
+            <CheckBadge label="Antivírus"    value={device.antivirusEnabled} />
+            <CheckBadge label="OS Atual"     value={device.osUpToDate} />
+          </>
+        )}
       </div>
 
       {/* Footer */}
@@ -445,6 +492,233 @@ function StatsTab({ stats, devices }: { stats: OrgStats; devices: DeviceAgent[] 
   );
 }
 
+// ── Tab: Rede (Network Probes) ────────────────────────────────
+
+function ProbesTab() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newCIDR, setNewCIDR] = useState('');
+  const [expandedProbe, setExpandedProbe] = useState<string | null>(null);
+
+  const { data: probesData, isLoading } = useQuery({
+    queryKey: ['iguard', 'probes'],
+    queryFn: () => iGuardApi.listProbes().then(r => r.data),
+  });
+
+  const { data: probeDevicesData } = useQuery({
+    queryKey: ['iguard', 'probes', expandedProbe, 'devices'],
+    queryFn: () => iGuardApi.getProbeDevices(expandedProbe!).then(r => r.data),
+    enabled: !!expandedProbe,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => iGuardApi.createProbe({ name: newName, subnetCIDR: newCIDR }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['iguard', 'probes'] });
+      setShowForm(false); setNewName(''); setNewCIDR('');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => iGuardApi.deleteProbe(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['iguard', 'probes'] }),
+  });
+
+  const probes: NetworkProbe[] = probesData?.data ?? probesData ?? [];
+  const probeDevices: DiscoveredDevice[] = probeDevicesData?.data ?? probeDevicesData ?? [];
+
+  const categoryIcon: Record<string, string> = {
+    firewall: '🔥', switch: '🔀', router: '🌐', server: '🖥️', printer: '🖨️', unknown: '❓',
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-48">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          As Network Probes fazem scan agentless da rede via Nmap/SNMP e reportam dispositivos descobertos.
+        </p>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Nova Probe
+        </button>
+      </div>
+
+      {/* Create form */}
+      {showForm && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-900">Nova Network Probe</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+              <input
+                value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder="ex: Escritório Lisboa"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Subnet CIDR</label>
+              <input
+                value={newCIDR} onChange={e => setNewCIDR(e.target.value)}
+                placeholder="ex: 192.168.1.0/24"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-mono"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => createMutation.mutate()}
+              disabled={!newName || !newCIDR || createMutation.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {createMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Criar Probe
+            </button>
+            <button
+              onClick={() => { setShowForm(false); setNewName(''); setNewCIDR(''); }}
+              className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Probes list */}
+      {probes.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-48 text-gray-400 bg-white rounded-xl border border-dashed border-gray-200">
+          <Network className="w-10 h-10 mb-3" />
+          <p className="text-sm font-medium">Nenhuma Network Probe configurada</p>
+          <p className="text-xs mt-1">Crie uma probe para descobrir dispositivos de rede automaticamente</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {probes.map(probe => {
+            const isExpanded = expandedProbe === probe.id;
+            return (
+              <div key={probe.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-4 flex items-center gap-4">
+                  <div className={cn(
+                    'w-2.5 h-2.5 rounded-full flex-shrink-0',
+                    probe.status === 'ACTIVE' ? 'bg-green-500' :
+                    probe.status === 'ERROR'  ? 'bg-red-500' : 'bg-gray-300',
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900 text-sm">{probe.name}</p>
+                      <span className="font-mono text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{probe.subnetCIDR}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {probe._count?.discoveredDevices ?? 0} dispositivos descobertos
+                      {probe.lastScannedAt && ` · último scan ${new Date(probe.lastScannedAt).toLocaleDateString('pt-PT')}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setExpandedProbe(isExpanded ? null : probe.id)}
+                      className="text-xs text-primary underline hover:no-underline"
+                    >
+                      {isExpanded ? 'Fechar' : 'Ver dispositivos'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Eliminar probe "${probe.name}"?`)) deleteMutation.mutate(probe.id);
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Probe install token */}
+                <div className="px-4 pb-3">
+                  <p className="text-xs text-gray-500 mb-1">Token da probe (use no script de instalação):</p>
+                  <code className="text-xs font-mono bg-gray-50 border border-gray-100 rounded px-2 py-1 text-gray-700 break-all">
+                    {probe.probeToken}
+                  </code>
+                </div>
+
+                {/* Expanded devices */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+                    <h4 className="text-xs font-semibold text-gray-600 mb-3 flex items-center gap-2">
+                      <Wifi className="w-3.5 h-3.5" />
+                      Dispositivos Descobertos
+                    </h4>
+                    {probeDevices.length === 0 ? (
+                      <p className="text-xs text-gray-400 py-2">Nenhum dispositivo descoberto ainda. Aguarde o próximo scan.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {probeDevices.map(d => (
+                          <div key={d.id} className="flex items-center gap-3 bg-white rounded-lg border border-gray-100 p-3">
+                            <span className="text-lg">{categoryIcon[d.deviceCategory ?? 'unknown'] ?? '❓'}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-medium text-gray-900">{d.ipAddress}</span>
+                                {d.hostname && <span className="text-xs text-gray-400">{d.hostname}</span>}
+                                {d.isManaged && (
+                                  <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full">Gerido</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {[d.vendor, d.os, d.firmwareVersion].filter(Boolean).join(' · ')}
+                              </p>
+                            </div>
+                            {d.riskScore !== undefined && (
+                              <div className={cn(
+                                'text-xs font-bold px-2 py-1 rounded-full',
+                                d.riskScore >= 70 ? 'bg-red-50 text-red-700' :
+                                d.riskScore >= 40 ? 'bg-amber-50 text-amber-700' :
+                                'bg-green-50 text-green-700',
+                              )}>
+                                {d.riskScore}%
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Install instructions */}
+      <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">
+        <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+          <Network className="w-4 h-4" />
+          Como instalar uma Network Probe
+        </h3>
+        <ol className="space-y-2 text-xs text-blue-800">
+          <li><span className="font-bold">1.</span> Crie uma probe acima e copie o seu token.</li>
+          <li><span className="font-bold">2.</span> Instale o iguard-probe num servidor Linux dentro da subnet que pretende monitorizar:</li>
+        </ol>
+        <div className="mt-3 bg-gray-900 rounded-lg p-3 font-mono text-xs text-gray-100">
+          curl -fsSL https://iguard.icomply.pt/probe.sh | sudo bash -s -- --token TOKEN
+        </div>
+        <p className="mt-2 text-xs text-blue-600">
+          A probe usa Nmap para descobrir dispositivos e SNMP para obter informação de firmware em switches/routers Cisco/HP.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────
 
 const FALLBACK_STATS: OrgStats = {
@@ -453,7 +727,7 @@ const FALLBACK_STATS: OrgStats = {
 };
 
 export default function IGuardPage() {
-  const [tab, setTab] = useState<'devices' | 'stats'>('devices');
+  const [tab, setTab] = useState<'endpoints' | 'servers' | 'stats' | 'network'>('endpoints');
   const qc = useQueryClient();
 
   const { data: devicesData, isLoading: devicesLoading } = useQuery({
@@ -473,7 +747,9 @@ export default function IGuardPage() {
     },
   });
 
-  const devices: DeviceAgent[] = devicesData?.data ?? devicesData ?? [];
+  const allDevices: DeviceAgent[] = devicesData?.data ?? devicesData ?? [];
+  const endpoints = allDevices.filter(d => !d.deviceType || d.deviceType === 'ENDPOINT');
+  const servers   = allDevices.filter(d => d.deviceType === 'SERVER');
   const stats: OrgStats = statsData ?? FALLBACK_STATS;
 
   function handleRevoke(id: string) {
@@ -484,8 +760,10 @@ export default function IGuardPage() {
   }
 
   const tabs = [
-    { key: 'devices', label: 'Dispositivos' },
-    { key: 'stats',   label: 'Estatísticas' },
+    { key: 'endpoints', label: 'Endpoints',    icon: <Monitor className="w-3.5 h-3.5" />,  count: endpoints.length },
+    { key: 'servers',   label: 'Servidores',   icon: <Server  className="w-3.5 h-3.5" />,  count: servers.length },
+    { key: 'stats',     label: 'Estatísticas', icon: <Shield  className="w-3.5 h-3.5" />,  count: null },
+    { key: 'network',   label: 'Rede',         icon: <Network className="w-3.5 h-3.5" />,  count: null },
   ] as const;
 
   return (
@@ -495,8 +773,8 @@ export default function IGuardPage() {
         <div className="flex items-center gap-3">
           <IGuardLogo size={44} />
           <div>
-            <h1 className="text-xl font-bold text-gray-900">iGuard — Dispositivos</h1>
-            <p className="text-sm text-gray-500">Monitorização de conformidade dos endpoints</p>
+            <h1 className="text-xl font-bold text-gray-900">iGuard — Monitorização</h1>
+            <p className="text-sm text-gray-500">Conformidade de endpoints, servidores e rede</p>
           </div>
         </div>
         <Link
@@ -515,16 +793,17 @@ export default function IGuardPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              'px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+              'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
               tab === t.key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700',
             )}
           >
+            {t.icon}
             {t.label}
-            {t.key === 'devices' && devices.length > 0 && (
-              <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
-                {devices.length}
+            {t.count !== null && t.count > 0 && (
+              <span className="ml-1 text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                {t.count}
               </span>
             )}
           </button>
@@ -532,9 +811,17 @@ export default function IGuardPage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'devices' && (
+      {tab === 'endpoints' && (
         <DevicesTab
-          devices={devices}
+          devices={endpoints}
+          isLoading={devicesLoading}
+          onRevoke={handleRevoke}
+        />
+      )}
+
+      {tab === 'servers' && (
+        <DevicesTab
+          devices={servers}
           isLoading={devicesLoading}
           onRevoke={handleRevoke}
         />
@@ -546,9 +833,11 @@ export default function IGuardPage() {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
-          <StatsTab stats={stats} devices={devices} />
+          <StatsTab stats={stats} devices={allDevices} />
         )
       )}
+
+      {tab === 'network' && <ProbesTab />}
     </div>
   );
 }

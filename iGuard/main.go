@@ -52,7 +52,7 @@ func main() {
 // ---------- setup ----------
 
 func cmdSetup(args []string) {
-	var token, apiURL, deviceName string
+	var token, apiURL, deviceName, mode string
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -71,12 +71,23 @@ func cmdSetup(args []string) {
 			if i < len(args) {
 				deviceName = args[i]
 			}
+		case "--mode":
+			i++
+			if i < len(args) {
+				mode = args[i]
+			}
+		case "--server":
+			mode = "server"
 		}
 	}
 
 	if token == "" || apiURL == "" {
-		fmt.Fprintln(os.Stderr, "Usage: iguard setup --token <TOKEN> --api <URL> [--name <device-name>]")
+		fmt.Fprintln(os.Stderr, "Usage: iguard setup --token <TOKEN> --api <URL> [--name <device-name>] [--mode server]")
 		os.Exit(1)
+	}
+
+	if mode == "" {
+		mode = "endpoint"
 	}
 
 	hostname, _ := os.Hostname()
@@ -89,6 +100,7 @@ func cmdSetup(args []string) {
 		APIURL:      strings.TrimRight(apiURL, "/"),
 		DeviceName:  deviceName,
 		Hostname:    hostname,
+		Mode:        mode,
 		ReportEvery: 24,
 	}
 
@@ -105,20 +117,34 @@ func cmdSetup(args []string) {
 
 func cmdRun(args []string) {
 	dryRun := false
+	serverMode := false
 	for _, a := range args {
-		if a == "--dry-run" {
+		switch a {
+		case "--dry-run":
 			dryRun = true
+		case "--mode=server", "--server":
+			serverMode = true
 		}
 	}
 
 	cfg, err := loadConfigOrDie()
 	if err != nil && !dryRun {
-		// In dry-run mode we allow missing config (useful for first-time testing).
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 
-	fmt.Println("Running compliance checks…")
-	report := checks.RunAll()
+	// Read mode from config if not forced on CLI
+	if !serverMode && cfg != nil && cfg.Mode == "server" {
+		serverMode = true
+	}
+
+	var report checks.ComplianceReport
+	if serverMode {
+		fmt.Println("Running server compliance checks…")
+		report = checks.RunServerChecks()
+	} else {
+		fmt.Println("Running endpoint compliance checks…")
+		report = checks.RunAll()
+	}
 	fmt.Println()
 	report.PrintTable()
 
@@ -219,15 +245,17 @@ func cmdService(sub string) {
 // ---------- helpers ----------
 
 func printUsage() {
-	fmt.Printf(`iGuard %s — iComply Endpoint Compliance Agent
+	fmt.Printf(`iGuard %s — iComply Endpoint & Server Compliance Agent
 
 Usage:
-  iguard setup --token <TOKEN> --api <URL> [--name <device-name>]
+  iguard setup --token <TOKEN> --api <URL> [--name <device-name>] [--mode server]
       Save device token and API URL to config.
+      --mode server: configure as server agent (checks SSH, firewall, patches).
 
-  iguard run [--dry-run]
+  iguard run [--dry-run] [--server]
       Run all compliance checks and report results.
       --dry-run: print results without submitting to API.
+      --server:  run server checks instead of endpoint checks.
 
   iguard status
       Show current config and last compliance report.

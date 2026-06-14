@@ -16,6 +16,8 @@ type Config struct {
 	APIURL      string `json:"api_url"`
 	DeviceName  string `json:"device_name"`
 	Hostname    string `json:"hostname"`
+	// Mode is "endpoint" (default) or "server".
+	Mode string `json:"mode,omitempty"`
 	// ReportEvery is the interval in hours between automatic reports (default 24).
 	ReportEvery int `json:"report_every_hours"`
 }

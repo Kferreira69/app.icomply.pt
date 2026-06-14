@@ -31,13 +31,17 @@ interface DeviceInfo {
   complianceScore?: number;
 }
 
-type OsTab = 'macos' | 'windows';
+type OsTab = 'macos' | 'windows' | 'linux-server' | 'windows-server';
 
 // ── Helpers ───────────────────────────────────────────────────
 
 function detectOs(): OsTab {
   if (typeof navigator === 'undefined') return 'windows';
   return /Mac/i.test(navigator.userAgent) ? 'macos' : 'windows';
+}
+
+function isServerTab(tab: OsTab): boolean {
+  return tab === 'linux-server' || tab === 'windows-server';
 }
 
 // ── Sub-components ────────────────────────────────────────────
@@ -109,11 +113,21 @@ export default function IGuardInstallPage() {
   // Register device mutation
   const registerMutation = useMutation({
     mutationFn: async () => {
-      const os = detectOs(); // already 'macos' | 'windows' — lowercase
+      const osRaw = detectOs();
+      // map tab to OS string
+      const osMap: Record<OsTab, string> = {
+        macos: 'macos',
+        windows: 'windows',
+        'linux-server': 'linux',
+        'windows-server': 'windows',
+      };
+      const os = osMap[activeTab] ?? osRaw;
+      const deviceType = isServerTab(activeTab) ? 'SERVER' : 'ENDPOINT';
       const res = await iGuardApi.registerDevice({
         deviceName: (typeof navigator !== 'undefined' ? navigator.platform : null) || os,
         os,
-      });
+        deviceType,
+      } as any);
       return res.data;
     },
     onSuccess: (data: any) => {
@@ -142,12 +156,20 @@ export default function IGuardInstallPage() {
 
   const windowsRunCmd = `iguard.exe /?token=${tok}`;
 
-  const WINDOWS_EXE_URL =
-    'https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-windows-amd64.exe';
-  const MACOS_ARM_URL =
-    'https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-darwin-arm64';
-  const MACOS_X64_URL =
-    'https://github.com/Kferreira69/app.icomply.pt/releases/latest/download/iguard-darwin-amd64';
+  const linuxServerScript = `curl -fsSL https://iguard.icomply.pt/install-server.sh | sudo bash -s -- --token ${tok}`;
+
+  const windowsServerScript = `# Execute no PowerShell como Administrador
+Invoke-WebRequest -Uri "https://iguard.icomply.pt/install-server.ps1" -OutFile install-server.ps1
+Set-ExecutionPolicy Bypass -Scope Process -Force
+.\\install-server.ps1 -Token "${tok}"`;
+
+  const DL = 'https://app.icomply.pt/downloads';
+  const WINDOWS_EXE_URL          = `${DL}/iguard-windows-amd64.exe`;
+  const WINDOWS_SERVER_EXE_URL   = `${DL}/iguard-server-windows-amd64.exe`;
+  const LINUX_SERVER_AMD64_URL   = `${DL}/iguard-server-linux-amd64`;
+  const LINUX_SERVER_ARM64_URL   = `${DL}/iguard-server-linux-arm64`;
+  const MACOS_ARM_URL            = `${DL}/iguard-darwin-arm64`;
+  const MACOS_X64_URL            = `${DL}/iguard-darwin-amd64`;
 
   const alreadyActive = !deviceLoading && myDevice?.status === 'ACTIVE' && !token;
 
@@ -270,34 +292,51 @@ export default function IGuardInstallPage() {
           </div>
 
           <div className="p-6">
-            {/* OS Tabs */}
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => setActiveTab('windows')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  activeTab === 'windows'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span className="text-base">🪟</span> Windows
-              </button>
-              <button
-                onClick={() => setActiveTab('macos')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  activeTab === 'macos'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span className="text-base">🍎</span> macOS
-              </button>
+            {/* Section labels */}
+            <div className="space-y-3 mb-6">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Endpoints</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'windows', icon: '🪟', label: 'Windows' },
+                  { key: 'macos', icon: '🍎', label: 'macOS' },
+                ] as const).map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+                      activeTab === t.key
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-base">{t.icon}</span> {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-1">Servidores</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'linux-server', icon: '🐧', label: 'Linux Server' },
+                  { key: 'windows-server', icon: '🪟', label: 'Windows Server' },
+                ] as const).map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+                      activeTab === t.key
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-base">{t.icon}</span> {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Windows */}
             {activeTab === 'windows' && (
               <div className="space-y-5">
-                {/* Download button */}
                 <div>
                   <a
                     href={WINDOWS_EXE_URL}
@@ -311,8 +350,6 @@ export default function IGuardInstallPage() {
                     Windows 10/11 · 64-bit · ~12 MB
                   </p>
                 </div>
-
-                {/* Run command */}
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Execute como Administrador na pasta onde descarregou:
@@ -321,11 +358,10 @@ export default function IGuardInstallPage() {
                   {!token && (
                     <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      Gere o token no passo 1 primeiro — o comando acima será actualizado automaticamente.
+                      Gere o token no passo 1 — o comando acima será actualizado automaticamente.
                     </p>
                   )}
                 </div>
-
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                   <Monitor className="w-4 h-4 shrink-0" />
                   Clique com o botão direito no iguard.exe → «Executar como administrador»
@@ -348,40 +384,102 @@ export default function IGuardInstallPage() {
                     </p>
                   )}
                 </div>
-
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-200 dark:border-gray-700" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="px-3 bg-white dark:bg-gray-900 text-xs text-gray-400">
-                      ou descarregar manualmente
-                    </span>
+                    <span className="px-3 bg-white dark:bg-gray-900 text-xs text-gray-400">ou descarregar manualmente</span>
                   </div>
                 </div>
-
                 <div className="flex gap-3">
-                  <a
-                    href={MACOS_ARM_URL}
-                    download="iguard"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xs font-medium transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Apple Silicon (M1/M2/M3)
+                  <a href={MACOS_ARM_URL} download="iguard" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xs font-medium transition-colors">
+                    <Download className="w-3.5 h-3.5" /> Apple Silicon (M1/M2/M3)
                   </a>
-                  <a
-                    href={MACOS_X64_URL}
-                    download="iguard"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xs font-medium transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Intel (x64)
+                  <a href={MACOS_X64_URL} download="iguard" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xs font-medium transition-colors">
+                    <Download className="w-3.5 h-3.5" /> Intel (x64)
                   </a>
                 </div>
-
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                   <Monitor className="w-4 h-4 shrink-0" />
                   O Terminal pode pedir a palavra-passe de administrador para instalar o serviço.
+                </div>
+              </div>
+            )}
+
+            {/* Linux Server */}
+            {activeTab === 'linux-server' && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-xs text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                  <Monitor className="w-4 h-4 shrink-0" />
+                  Modo Servidor — verifica SSH, firewall, patches e portas abertas. Instala como serviço systemd.
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Instalar via terminal com sudo:
+                  </p>
+                  <CodeBlock code={linuxServerScript} language="bash" />
+                  {!token && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Gere o token no passo 1 — o comando acima será actualizado automaticamente.
+                    </p>
+                  )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="px-3 bg-white dark:bg-gray-900 text-xs text-gray-400">ou descarregar manualmente</span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <a href={LINUX_SERVER_AMD64_URL} download="iguard-server" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium transition-colors">
+                    <Download className="w-3.5 h-3.5" /> Linux x86_64
+                  </a>
+                  <a href={LINUX_SERVER_ARM64_URL} download="iguard-server" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium transition-colors">
+                    <Download className="w-3.5 h-3.5" /> Linux ARM64
+                  </a>
+                </div>
+                <div className="bg-gray-900 rounded-xl p-4 text-xs text-gray-300 font-mono space-y-1">
+                  <p className="text-gray-500"># Compatível com:</p>
+                  <p>Ubuntu 20.04+, Debian 11+, CentOS 8+, RHEL 8+, Amazon Linux 2</p>
+                </div>
+              </div>
+            )}
+
+            {/* Windows Server */}
+            {activeTab === 'windows-server' && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-xs text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                  <Monitor className="w-4 h-4 shrink-0" />
+                  Modo Servidor — verifica Windows Defender, Windows Update, firewall e serviços expostos. Instala como Windows Service.
+                </div>
+                <div>
+                  <a
+                    href={WINDOWS_SERVER_EXE_URL}
+                    download="iguard-server.exe"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Descarregar iGuard Server.exe
+                  </a>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Windows Server 2016/2019/2022 · 64-bit
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Ou instalar via PowerShell (como Administrador):
+                  </p>
+                  <CodeBlock code={windowsServerScript} language="powershell" />
+                  {!token && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Gere o token no passo 1 — o script acima será actualizado automaticamente.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -494,12 +592,17 @@ export default function IGuardInstallPage() {
               O que o iGuard verifica
             </h3>
             <ul className="space-y-3">
-              {[
+              {(isServerTab(activeTab) ? [
+                { icon: '🔐', label: 'Login SSH de root desactivado' },
+                { icon: '🔥', label: 'Firewall activa (UFW / iptables / Windows Firewall)' },
+                { icon: '🔄', label: 'Actualizações e patches do sistema' },
+                { icon: '🔌', label: 'Portas de rede expostas' },
+              ] : [
                 { icon: '🔒', label: 'Encriptação de disco (BitLocker / FileVault)' },
                 { icon: '🔐', label: 'Screen lock e timeout automático' },
                 { icon: '🛡️', label: 'Software antivírus instalado e activo' },
                 { icon: '🔄', label: 'Actualizações do sistema operativo' },
-              ].map((item) => (
+              ]).map((item) => (
                 <li key={item.label} className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
                   <span className="text-base leading-none mt-0.5">{item.icon}</span>
                   {item.label}

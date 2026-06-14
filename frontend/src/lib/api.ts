@@ -915,12 +915,16 @@ export const automationApi = {
 // ── iGuard — Endpoint Compliance Agent ───────────────────────
 
 export const iGuardApi = {
-  getStats:       ()                  => api.get('/iguard/stats'),
-  listDevices:    ()                  => api.get('/iguard/devices'),
-  getDevice:      (id: string)        => api.get(`/iguard/devices/${id}`),
-  revokeDevice:   (id: string)        => api.delete(`/iguard/devices/${id}`),
-  getMyDevice:    ()                  => api.get('/iguard/devices/mine'),
-  registerDevice: (data: any)         => api.post('/iguard/devices/register', data),
+  getStats:        ()                                             => api.get('/iguard/stats'),
+  listDevices:     ()                                             => api.get('/iguard/devices'),
+  getDevice:       (id: string)                                   => api.get(`/iguard/devices/${id}`),
+  revokeDevice:    (id: string)                                   => api.delete(`/iguard/devices/${id}`),
+  getMyDevice:     ()                                             => api.get('/iguard/devices/mine'),
+  registerDevice:  (data: any)                                    => api.post('/iguard/devices/register', data),
+  listProbes:      ()                                             => api.get('/iguard/probes'),
+  createProbe:     (data: { name: string; subnetCIDR: string })   => api.post('/iguard/probes', data),
+  deleteProbe:     (id: string)                                   => api.delete(`/iguard/probes/${id}`),
+  getProbeDevices: (id: string)                                   => api.get(`/iguard/probes/${id}/devices`),
 };
 
 // ── Evidence Integrations ─────────────────────────────────────

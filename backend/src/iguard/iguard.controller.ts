@@ -120,4 +120,58 @@ export class IGuardController {
     const deviceToken: string = req.device.deviceToken;
     return this.service.submitReport(deviceToken, dto);
   }
+
+  // ─── Network Probes (admin) ──────────────────────────────────
+
+  @Get('probes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'List network probes for the organisation' })
+  listProbes(@CurrentUser('organizationId') orgId: string) {
+    return this.service.listProbes(orgId);
+  }
+
+  @Post('probes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Create a new network probe' })
+  createProbe(
+    @CurrentUser('organizationId') orgId: string,
+    @Body() body: { name: string; subnetCIDR: string },
+  ) {
+    return this.service.createProbe(orgId, body.name, body.subnetCIDR);
+  }
+
+  @Delete('probes/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a network probe' })
+  deleteProbe(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+  ) {
+    return this.service.deleteProbe(id, orgId);
+  }
+
+  @Get('probes/:id/devices')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'List discovered devices for a probe' })
+  getProbeDevices(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+  ) {
+    return this.service.getProbeDevices(id, orgId);
+  }
+
+  @Post('probe-report')
+  @ApiOperation({
+    summary: 'Submit discovered devices from a network probe (probe token auth)',
+    description: 'Authenticate with `Authorization: Bearer <probeToken>`.',
+  })
+  submitProbeReport(@Body() body: { devices: any[] }, @Req() req: any) {
+    const probeToken: string = req.headers.authorization?.replace('Bearer ', '') ?? '';
+    return this.service.submitProbeReport(probeToken, body.devices);
+  }
 }

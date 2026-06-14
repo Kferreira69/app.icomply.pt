@@ -435,27 +435,33 @@ function MaturityWidget({ maturityScores, overallMaturity }: { maturityScores: a
   if (!maturityScores?.length) return null;
   const LEVEL_LABELS = ['Não iniciado', 'Inicial', 'Desenvolvimento', 'Definido', 'Gerido', 'Optimizado'];
   const LEVEL_COLORS = ['#9CA3AF', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#10B981'];
+  const safeOverall = isNaN(overallMaturity) ? 0 : overallMaturity;
+  const overallIdx = Math.min(Math.max(Math.round(safeOverall), 0), 5);
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-900">Maturidade de Conformidade</h3>
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold" style={{ color: LEVEL_COLORS[Math.round(overallMaturity)] }}>
-            {overallMaturity.toFixed(1)}
+          <span className="text-2xl font-bold" style={{ color: LEVEL_COLORS[overallIdx] }}>
+            {safeOverall.toFixed(1)}
           </span>
-          <span className="text-xs text-gray-500">/5 — {LEVEL_LABELS[Math.round(overallMaturity)]}</span>
+          <span className="text-xs text-gray-500">/5 — {LEVEL_LABELS[overallIdx]}</span>
         </div>
       </div>
       <div className="space-y-2">
-        {maturityScores.map(d => (
-          <div key={d.domain} className="flex items-center gap-3">
-            <span className="text-xs text-gray-600 w-24 flex-shrink-0 truncate">{d.domain}</span>
-            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${(d.maturity / 5) * 100}%`, backgroundColor: LEVEL_COLORS[d.maturity] }} />
+        {maturityScores.map(d => {
+          const mat = Number(d.maturity) || 0;
+          const matIdx = Math.min(Math.max(Math.round(mat), 0), 5);
+          return (
+            <div key={d.domain} className="flex items-center gap-3">
+              <span className="text-xs text-gray-600 w-24 flex-shrink-0 truncate">{d.domain}</span>
+              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${(mat / 5) * 100}%`, backgroundColor: LEVEL_COLORS[matIdx] }} />
+              </div>
+              <span className="text-xs font-medium w-4 text-right" style={{ color: LEVEL_COLORS[matIdx] }}>{mat}</span>
             </div>
-            <span className="text-xs font-medium w-4 text-right" style={{ color: LEVEL_COLORS[d.maturity] }}>{d.maturity}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -621,8 +627,8 @@ function RiskHeatmap({ riskList }: { riskList: Array<{ likelihood?: number; impa
 
   if (riskList.length > 0 && riskList.some(r => r.likelihood != null && r.impact != null)) {
     riskList.forEach(r => {
-      const l = Math.min(Math.max(Math.round(r.likelihood ?? 0), 1), 5);
-      const i = Math.min(Math.max(Math.round(r.impact ?? 0), 1), 5);
+      const l = Math.min(Math.max(Math.round(Number(r.likelihood) || 0), 1), 5);
+      const i = Math.min(Math.max(Math.round(Number(r.impact) || 0), 1), 5);
       matrix[l - 1][i - 1] += 1;
     });
   } else {

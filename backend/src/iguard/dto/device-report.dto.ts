@@ -12,21 +12,25 @@ export class DeviceReportDto {
   @IsString()
   osVersion?: string;
 
-  @ApiProperty({ example: true })
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
   @IsBoolean()
-  diskEncryption: boolean;
+  diskEncryption?: boolean;
 
-  @ApiProperty({ example: true })
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
   @IsBoolean()
-  screenLock: boolean;
+  screenLock?: boolean;
 
-  @ApiProperty({ example: true })
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
   @IsBoolean()
-  antivirusEnabled: boolean;
+  antivirusEnabled?: boolean;
 
-  @ApiProperty({ example: false })
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
   @IsBoolean()
-  osUpToDate: boolean;
+  osUpToDate?: boolean;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
@@ -39,6 +43,27 @@ export class DeviceReportDto {
   @Min(0)
   @Max(60)
   screenLockTimeout?: number;
+
+  // Server-specific fields
+  @ApiPropertyOptional({ example: true, description: 'SSH root login is disabled' })
+  @IsOptional()
+  @IsBoolean()
+  sshRootLoginDisabled?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Firewall (UFW/iptables/Windows Firewall) is active' })
+  @IsOptional()
+  @IsBoolean()
+  firewallActive?: boolean;
+
+  @ApiPropertyOptional({ example: 3, description: 'Number of pending security patches' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  pendingPatches?: number;
+
+  @ApiPropertyOptional({ example: ['22', '80', '443'], description: 'Open listening ports' })
+  @IsOptional()
+  openPorts?: string[];
 
   @ApiPropertyOptional({ description: 'Raw agent data payload' })
   @IsOptional()

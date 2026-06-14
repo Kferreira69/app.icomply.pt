@@ -364,6 +364,7 @@ model Organization {
 
   evidenceIntegrations EvidenceIntegration[]
   deviceAgents         DeviceAgent[]
+  networkProbes        NetworkProbe[]
 
   // Wave 3
   cisControls         CisControl[]           @relation("CisControls")
@@ -4035,8 +4036,8 @@ model MeetingDecision {
 }
 
 // ─────────────────────────────────────────────────────────────
-// iGuard — Endpoint Compliance Agent
-// Monitors employee devices and reports compliance posture
+// iGuard — Endpoint & Server Compliance Agent
+// Monitors employee devices, servers and network infrastructure
 // ─────────────────────────────────────────────────────────────
 
 enum AgentStatus {
@@ -4044,6 +4045,18 @@ enum AgentStatus {
   ACTIVE
   INACTIVE
   REVOKED
+}
+
+enum DeviceType {
+  ENDPOINT        // Laptops / desktops
+  SERVER          // Linux/Windows servers
+  NETWORK_DEVICE  // Managed via NetworkProbe
+}
+
+enum ProbeStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
 }
 
 model DeviceAgent {
@@ -4057,15 +4070,22 @@ model DeviceAgent {
   osVersion           String?
   arch                String?     // "arm64" | "amd64"
   agentVersion        String?
+  deviceType          DeviceType  @default(ENDPOINT)
   status              AgentStatus @default(PENDING)
 
-  // Compliance checks (last reported values)
+  // Compliance checks — endpoints (last reported values)
   diskEncryption      Boolean?
   screenLock          Boolean?
   antivirusEnabled    Boolean?
   osUpToDate          Boolean?
   passwordManager     Boolean?
   screenLockTimeout   Int?        // minutes
+
+  // Compliance checks — servers
+  sshRootLoginDisabled Boolean?
+  firewallActive       Boolean?
+  pendingPatches       Int?
+  openPorts            Json?      // string[]
 
   // Computed
   complianceScore     Int?        // 0-100
@@ -4079,6 +4099,7 @@ model DeviceAgent {
   reports             DeviceReport[]
 
   @@index([organizationId, status])
+  @@index([organizationId, deviceType])
   @@index([userId])
   @@map("device_agents")
 }
@@ -4089,12 +4110,20 @@ model DeviceReport {
   agentVersion        String?
   osVersion           String?
 
+  // Endpoint fields
   diskEncryption      Boolean
   screenLock          Boolean
   antivirusEnabled    Boolean
   osUpToDate          Boolean
   passwordManager     Boolean?
   screenLockTimeout   Int?
+
+  // Server fields
+  sshRootLoginDisabled Boolean?
+  firewallActive       Boolean?
+  pendingPatches       Int?
+  openPorts            Json?
+
   complianceScore     Int
 
   rawData             Json?
@@ -4104,6 +4133,51 @@ model DeviceReport {
 
   @@index([deviceId, reportedAt])
   @@map("device_reports")
+}
+
+// ─── iGuard — Network Probe ──────────────────────────────────
+
+model NetworkProbe {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  subnetCIDR     String
+  probeToken     String       @unique @default(cuid())
+  status         ProbeStatus  @default(INACTIVE)
+  credentials    Json?        // SSH/SNMP credentials (encrypted)
+  lastScannedAt  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  discoveredDevices DiscoveredDevice[]
+
+  @@index([organizationId])
+  @@map("network_probes")
+}
+
+model DiscoveredDevice {
+  id             String   @id @default(cuid())
+  probeId        String
+  ipAddress      String
+  hostname       String?
+  macAddress     String?
+  vendor         String?
+  deviceCategory String?  // "firewall" | "switch" | "router" | "server" | "printer" | "unknown"
+  os             String?
+  firmwareVersion String?
+  openPorts      Json?    // number[]
+  isManaged      Boolean  @default(false)
+  riskScore      Int?     // 0-100
+  issues         Json?    // string[]
+  lastSeenAt     DateTime @default(now())
+  firstSeenAt    DateTime @default(now())
+
+  probe          NetworkProbe @relation(fields: [probeId], references: [id], onDelete: Cascade)
+
+  @@unique([probeId, ipAddress])
+  @@index([probeId])
+  @@map("discovered_devices")
 }
 
 // ─── Integration Hub ─────────────────────────────────────────

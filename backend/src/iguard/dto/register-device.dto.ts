@@ -30,4 +30,10 @@ export class RegisterDeviceDto {
   @IsOptional()
   @IsString()
   agentVersion?: string;
+
+  @ApiPropertyOptional({ enum: ['ENDPOINT', 'SERVER'], example: 'ENDPOINT' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['ENDPOINT', 'SERVER'])
+  deviceType?: string;
 }

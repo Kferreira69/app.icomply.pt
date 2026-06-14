@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { DeviceReportDto } from './dto/device-report.dto';
-import { DeviceAgent, DeviceReport } from '@prisma/client';
+import { DeviceAgent, DeviceReport, NetworkProbe, DiscoveredDevice } from '@prisma/client';
 
 @Injectable()
 export class IGuardService {
@@ -135,6 +135,7 @@ export class IGuardService {
         osVersion: dto.osVersion,
         arch: dto.arch,
         agentVersion: dto.agentVersion,
+        deviceType: (dto.deviceType as any) ?? 'ENDPOINT',
         status: 'PENDING',
       },
     });
@@ -171,14 +172,23 @@ export class IGuardService {
       throw new UnauthorizedException('Invalid or revoked device token');
     }
 
-    // Compute compliance score: 5 checks × 20 pts each (max 100)
-    // diskEncryption, screenLock, antivirusEnabled, osUpToDate, passwordManager
+    const isServer = device.deviceType === 'SERVER';
     let score = 0;
-    if (dto.diskEncryption) score += 20;
-    if (dto.screenLock) score += 20;
-    if (dto.antivirusEnabled) score += 20;
-    if (dto.osUpToDate) score += 20;
-    if (dto.passwordManager === true) score += 20;
+
+    if (isServer) {
+      // Server scoring: 4 checks × 25 pts each (max 100)
+      if (dto.sshRootLoginDisabled) score += 25;
+      if (dto.firewallActive) score += 25;
+      if (dto.osUpToDate) score += 25;
+      if ((dto.pendingPatches ?? 0) === 0) score += 25;
+    } else {
+      // Endpoint scoring: 5 checks × 20 pts each (max 100)
+      if (dto.diskEncryption) score += 20;
+      if (dto.screenLock) score += 20;
+      if (dto.antivirusEnabled) score += 20;
+      if (dto.osUpToDate) score += 20;
+      if (dto.passwordManager === true) score += 20;
+    }
 
     // Create report record
     await this.prisma.deviceReport.create({
@@ -186,12 +196,16 @@ export class IGuardService {
         deviceId: device.id,
         agentVersion: dto.agentVersion,
         osVersion: dto.osVersion,
-        diskEncryption: dto.diskEncryption,
-        screenLock: dto.screenLock,
-        antivirusEnabled: dto.antivirusEnabled,
+        diskEncryption: dto.diskEncryption ?? false,
+        screenLock: dto.screenLock ?? false,
+        antivirusEnabled: dto.antivirusEnabled ?? false,
         osUpToDate: dto.osUpToDate,
         passwordManager: dto.passwordManager,
         screenLockTimeout: dto.screenLockTimeout,
+        sshRootLoginDisabled: dto.sshRootLoginDisabled,
+        firewallActive: dto.firewallActive,
+        pendingPatches: dto.pendingPatches,
+        openPorts: dto.openPorts as any,
         complianceScore: score,
         rawData: dto.rawData ?? undefined,
       },
@@ -211,10 +225,109 @@ export class IGuardService {
         osUpToDate: dto.osUpToDate,
         passwordManager: dto.passwordManager,
         screenLockTimeout: dto.screenLockTimeout,
+        sshRootLoginDisabled: dto.sshRootLoginDisabled,
+        firewallActive: dto.firewallActive,
+        pendingPatches: dto.pendingPatches,
+        openPorts: dto.openPorts as any,
         complianceScore: score,
       },
     });
 
     return { ok: true };
+  }
+
+  // ─── Network Probe methods ────────────────────────────────────
+
+  async listProbes(orgId: string): Promise<(NetworkProbe & { _count: { discoveredDevices: number } })[]> {
+    return this.prisma.networkProbe.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { discoveredDevices: true } } },
+    });
+  }
+
+  async createProbe(orgId: string, name: string, subnetCIDR: string): Promise<NetworkProbe> {
+    return this.prisma.networkProbe.create({
+      data: { organizationId: orgId, name, subnetCIDR },
+    });
+  }
+
+  async getProbeDevices(probeId: string, orgId: string): Promise<DiscoveredDevice[]> {
+    const probe = await this.prisma.networkProbe.findFirst({
+      where: { id: probeId, organizationId: orgId },
+    });
+    if (!probe) throw new NotFoundException('Probe not found');
+
+    return this.prisma.discoveredDevice.findMany({
+      where: { probeId },
+      orderBy: { lastSeenAt: 'desc' },
+    });
+  }
+
+  async deleteProbe(probeId: string, orgId: string): Promise<void> {
+    const probe = await this.prisma.networkProbe.findFirst({
+      where: { id: probeId, organizationId: orgId },
+    });
+    if (!probe) throw new NotFoundException('Probe not found');
+    await this.prisma.networkProbe.delete({ where: { id: probeId } });
+  }
+
+  async submitProbeReport(
+    probeToken: string,
+    devices: Array<{
+      ipAddress: string;
+      hostname?: string;
+      macAddress?: string;
+      vendor?: string;
+      deviceCategory?: string;
+      os?: string;
+      firmwareVersion?: string;
+      openPorts?: number[];
+    }>,
+  ): Promise<{ ok: boolean; upserted: number }> {
+    const probe = await this.prisma.networkProbe.findUnique({
+      where: { probeToken },
+    });
+    if (!probe || probe.status === 'INACTIVE') {
+      throw new UnauthorizedException('Invalid or inactive probe token');
+    }
+
+    let upserted = 0;
+    for (const d of devices) {
+      await this.prisma.discoveredDevice.upsert({
+        where: { probeId_ipAddress: { probeId: probe.id, ipAddress: d.ipAddress } },
+        create: {
+          probeId: probe.id,
+          ipAddress: d.ipAddress,
+          hostname: d.hostname,
+          macAddress: d.macAddress,
+          vendor: d.vendor,
+          deviceCategory: d.deviceCategory,
+          os: d.os,
+          firmwareVersion: d.firmwareVersion,
+          openPorts: d.openPorts as any,
+          lastSeenAt: new Date(),
+          firstSeenAt: new Date(),
+        },
+        update: {
+          hostname: d.hostname,
+          macAddress: d.macAddress,
+          vendor: d.vendor,
+          deviceCategory: d.deviceCategory,
+          os: d.os,
+          firmwareVersion: d.firmwareVersion,
+          openPorts: d.openPorts as any,
+          lastSeenAt: new Date(),
+        },
+      });
+      upserted++;
+    }
+
+    await this.prisma.networkProbe.update({
+      where: { id: probe.id },
+      data: { lastScannedAt: new Date(), status: 'ACTIVE' },
+    });
+
+    return { ok: true, upserted };
   }
 }
