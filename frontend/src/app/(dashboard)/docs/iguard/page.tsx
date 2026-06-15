@@ -90,6 +90,9 @@ export default function IGuardDocsPage() {
               <Link href="/iguard/install" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
                 <Download className="w-3.5 h-3.5" /> Instalar iGuard
               </Link>
+              <Link href="/docs/api" className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 mt-2">
+                <ChevronRight className="w-3.5 h-3.5" /> Documentação API
+              </Link>
               <Link href="/help" className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 mt-2">
                 <ChevronRight className="w-3.5 h-3.5" /> Centro de Ajuda
               </Link>

@@ -109,6 +109,7 @@ const VIDEOS = [
 
 const RESOURCES = [
   { label: 'Documentação técnica iGuard', href: '/docs/iguard', icon: FileText, external: false },
+  { label: 'Documentação da API REST', href: '/docs/api', icon: BookOpen, external: false },
   { label: 'Academia iComply (20 vídeos)', href: '/academy', icon: BookOpen, external: false },
   { label: 'Trust Center público', href: '/trust', icon: Shield, external: false },
 ];

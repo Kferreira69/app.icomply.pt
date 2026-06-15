@@ -122,7 +122,7 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
-      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
+      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-true}
       ENABLE_AUDIT_LOG: 'true'
       # ── AI ──────────────────────────────────────────────────────
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
