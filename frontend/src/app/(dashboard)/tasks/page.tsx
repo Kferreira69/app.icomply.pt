@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { tasksApi, projectsApi } from '@/lib/api';
-import { Plus, Search, CheckSquare, Loader2, Calendar, Pencil, LayoutGrid, List, MessageSquare } from 'lucide-react';
+import {
+  Plus, Search, CheckSquare, Loader2, Calendar, Pencil,
+  LayoutGrid, List, MessageSquare, ChevronUp, ChevronDown,
+  ChevronsUpDown, AlertCircle, X,
+} from 'lucide-react';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
@@ -12,19 +16,52 @@ import { KanbanBoard } from '@/components/tasks/kanban-board';
 import { HelpButton } from '@/components/help/HelpButton';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
+const PRIORITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
+type Priority = typeof PRIORITIES[number];
+type SortKey = 'title' | 'priority' | 'status' | 'dueDate';
+type SortDir = 'asc' | 'desc';
+
+const PRIORITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+const STATUS_ORDER: Record<string, number> = { TODO: 0, IN_PROGRESS: 1, IN_REVIEW: 2, DONE: 3, CANCELLED: 4 };
+
+// ── Sort icon ──────────────────────────────────────────────────
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (col !== sortKey) return <ChevronsUpDown className="w-3 h-3 text-gray-300 inline ml-1" />;
+  return sortDir === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-primary inline ml-1" />
+    : <ChevronDown className="w-3 h-3 text-primary inline ml-1" />;
+}
 
 // ── List row ──────────────────────────────────────────────────
 
-function TaskRow({ task, onStatusChange, onEdit, onOpenDetail, statusLabels, editLabel }: {
+function TaskRow({
+  task, onStatusChange, onEdit, onOpenDetail, statusLabels, editLabel,
+  selected, onSelect,
+}: {
   task: any;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: any) => void;
   onOpenDetail: (taskId: string) => void;
   statusLabels: Record<string, string>;
   editLabel: string;
+  selected: boolean;
+  onSelect: (id: string, checked: boolean) => void;
 }) {
   return (
-    <tr className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', isOverdue(task.dueDate) && task.status !== 'DONE' && 'bg-red-50/30')}>
+    <tr className={cn(
+      'border-b border-gray-100 hover:bg-gray-50 transition-colors',
+      isOverdue(task.dueDate) && task.status !== 'DONE' && 'bg-red-50/30',
+      selected && 'bg-blue-50/40',
+    )}>
+      <td className="px-4 py-3 w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={e => onSelect(task.id, e.target.checked)}
+          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+        />
+      </td>
       <td className="px-4 py-3">
         <div>
           <button
@@ -153,6 +190,78 @@ function EditTaskModal({ task, onClose }: { task: any; onClose: () => void }) {
   );
 }
 
+// ── Bulk action bar ───────────────────────────────────────────
+
+function BulkActionBar({
+  count,
+  onClear,
+  onChangeStatus,
+  onReassign,
+  statusLabels,
+  isPending,
+}: {
+  count: number;
+  onClear: () => void;
+  onChangeStatus: (status: string) => void;
+  onReassign: () => void;
+  statusLabels: Record<string, string>;
+  isPending: boolean;
+}) {
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-3 text-sm">
+      <span className="font-medium text-white/90">
+        {count} {count === 1 ? 'tarefa selecionada' : 'tarefas selecionadas'}
+      </span>
+      <div className="w-px h-5 bg-white/20" />
+
+      {/* Alterar estado */}
+      <div className="relative">
+        <button
+          onClick={() => setShowStatusMenu(s => !s)}
+          disabled={isPending}
+          className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Alterar estado
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+        {showStatusMenu && (
+          <div className="absolute bottom-full mb-2 left-0 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px]">
+            {STATUSES.map(s => (
+              <button
+                key={s}
+                onClick={() => { onChangeStatus(s); setShowStatusMenu(false); }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                {statusLabels[s]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={onReassign}
+        className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"
+      >
+        Reatribuir
+      </button>
+
+      <div className="w-px h-5 bg-white/20" />
+
+      <button
+        onClick={onClear}
+        className="flex items-center gap-1 text-white/60 hover:text-white transition-colors"
+      >
+        <X className="w-3.5 h-3.5" />
+        Limpar seleção
+      </button>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────
 
 export default function TasksPage() {
@@ -160,10 +269,15 @@ export default function TasksPage() {
   const tCommon = useTranslations('common');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<Priority | ''>('');
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('dueDate');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showNew, setShowNew] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const qc = useQueryClient();
 
   const STATUS_LABELS: Record<string, string> = {
@@ -189,6 +303,15 @@ export default function TasksPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   });
 
+  const bulkStatusMutation = useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: string }) =>
+      tasksApi.bulkUpdateStatus(ids, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      setSelectedTaskIds(new Set());
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: any) => tasksApi.create(cleanFormData(data)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setShowNew(false); },
@@ -196,17 +319,88 @@ export default function TasksPage() {
 
   const { register, handleSubmit, reset } = useForm();
 
-  const tasks = (data?.data || []).filter((task: any) =>
-    !search || task.title.toLowerCase().includes(search.toLowerCase()),
+  // ── Client-side filter + sort ─────────────────────────────
+  const tasks = useMemo(() => {
+    let list: any[] = data?.data || [];
+
+    // text search
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((t: any) => t.title.toLowerCase().includes(q));
+    }
+    // priority filter
+    if (priorityFilter) {
+      list = list.filter((t: any) => t.priority === priorityFilter);
+    }
+    // overdue toggle
+    if (showOverdueOnly) {
+      list = list.filter((t: any) => isOverdue(t.dueDate) && t.status !== 'DONE');
+    }
+
+    // sort
+    list = [...list].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'title') {
+        cmp = (a.title || '').localeCompare(b.title || '');
+      } else if (sortKey === 'priority') {
+        cmp = (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
+      } else if (sortKey === 'status') {
+        cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+      } else if (sortKey === 'dueDate') {
+        const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        cmp = da - db;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return list;
+  }, [data, search, priorityFilter, showOverdueOnly, sortKey, sortDir]);
+
+  const overdueCount = useMemo(
+    () => (data?.data || []).filter((t: any) => isOverdue(t.dueDate) && t.status !== 'DONE').length,
+    [data],
   );
 
-  const overdueCount = tasks.filter((task: any) => isOverdue(task.dueDate) && task.status !== 'DONE').length;
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  function handleSelectTask(id: string, checked: boolean) {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  function handleSelectAll(checked: boolean) {
+    if (checked) {
+      setSelectedTaskIds(new Set(tasks.map((t: any) => t.id)));
+    } else {
+      setSelectedTaskIds(new Set());
+    }
+  }
+
+  const allSelected = tasks.length > 0 && tasks.every((t: any) => selectedTaskIds.has(t.id));
+  const someSelected = selectedTaskIds.size > 0;
+
+  const sortableHeaders: { key: SortKey; label: string }[] = [
+    { key: 'title', label: t('colTask') },
+    { key: 'status', label: t('colStatus') },
+    { key: 'priority', label: t('colPriority') },
+  ];
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
           <div className="relative max-w-xs w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -216,7 +410,7 @@ export default function TasksPage() {
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
-          {/* Status filter (hidden in kanban — kanban shows all) */}
+          {/* Status filter */}
           {view === 'list' && (
             <select
               value={statusFilter}
@@ -227,15 +421,43 @@ export default function TasksPage() {
               {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
             </select>
           )}
+          {/* Priority filter */}
+          {view === 'list' && (
+            <select
+              value={priorityFilter}
+              onChange={e => setPriorityFilter(e.target.value as Priority | '')}
+              className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
+            >
+              <option value="">Todas as prioridades</option>
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          )}
+          {/* Overdue toggle */}
+          {view === 'list' && (
+            <button
+              onClick={() => setShowOverdueOnly(v => !v)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors',
+                showOverdueOnly
+                  ? 'bg-red-50 border-red-300 text-red-700'
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+              )}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              Mostrar em atraso
+              {overdueCount > 0 && (
+                <span className={cn(
+                  'text-xs px-1.5 py-0.5 rounded-full font-semibold',
+                  showOverdueOnly ? 'bg-red-200 text-red-800' : 'bg-red-100 text-red-700',
+                )}>
+                  {overdueCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
-          {overdueCount > 0 && (
-            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-              {t('overdueCount', { count: overdueCount })}
-            </span>
-          )}
-
           {/* View toggle */}
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
@@ -300,15 +522,54 @@ export default function TasksPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {[t('colTask'), t('colStatus'), t('colPriority'), t('colAssignee'), t('colDueDate'), ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                ))}
+                {/* Checkbox header */}
+                <th className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={e => handleSelectAll(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                </th>
+                {/* Sortable: Title */}
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <button onClick={() => handleSort('title')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                    {t('colTask')}
+                    <SortIcon col="title" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
+                </th>
+                {/* Sortable: Status */}
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <button onClick={() => handleSort('status')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                    {t('colStatus')}
+                    <SortIcon col="status" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
+                </th>
+                {/* Sortable: Priority */}
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <button onClick={() => handleSort('priority')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                    {t('colPriority')}
+                    <SortIcon col="priority" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
+                </th>
+                {/* Non-sortable: Assignee */}
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  {t('colAssignee')}
+                </th>
+                {/* Sortable: Due Date */}
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <button onClick={() => handleSort('dueDate')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                    {t('colDueDate')}
+                    <SortIcon col="dueDate" sortKey={sortKey} sortDir={sortDir} />
+                  </button>
+                </th>
+                <th className="px-4 py-3 w-24" />
               </tr>
             </thead>
             <tbody>
               {tasks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400">
+                  <td colSpan={7} className="text-center py-12 text-gray-400">
                     <CheckSquare className="w-8 h-8 mx-auto mb-2" />
                     <p className="text-sm">{t('noTasks')}</p>
                   </td>
@@ -322,6 +583,8 @@ export default function TasksPage() {
                   onOpenDetail={setDetailTaskId}
                   statusLabels={STATUS_LABELS}
                   editLabel={tCommon('edit') as string}
+                  selected={selectedTaskIds.has(task.id)}
+                  onSelect={handleSelectTask}
                 />
               ))}
             </tbody>
@@ -397,6 +660,19 @@ export default function TasksPage() {
           </div>
         </div>
       )}
+
+      {/* Bulk action bar */}
+      {someSelected && (
+        <BulkActionBar
+          count={selectedTaskIds.size}
+          onClear={() => setSelectedTaskIds(new Set())}
+          onChangeStatus={status => bulkStatusMutation.mutate({ ids: Array.from(selectedTaskIds), status })}
+          onReassign={() => { /* TODO: open reassign modal */ }}
+          statusLabels={STATUS_LABELS}
+          isPending={bulkStatusMutation.isPending}
+        />
+      )}
+
       <HelpButton page="tasks" />
     </div>
   );

@@ -1,0 +1,53 @@
+# traefik/traefik.yml
+# Configuração principal do Traefik — production hardened
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false   # não enviar telemetria
+
+api:
+  dashboard: true
+  insecure: false             # NUNCA true em produção
+
+log:
+  level: WARN                 # em produção: WARN (não DEBUG — evita log de dados sensíveis)
+  filePath: "/var/log/traefik/traefik.log"
+
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+  bufferingSize: 100
+  filters:
+    statusCodes:
+      - "400-599"             # só logar erros (reduz volume e PII em logs)
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        options: default
+        certResolver: letsencrypt
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "admin@icomply.pt"
+      storage: "/letsencrypt/acme.json"
+      tlsChallenge: {}
+
+providers:
+  docker:
+    exposedByDefault: false   # CRÍTICO: containers não expostos por default
+    network: traefik-public
+  file:
+    directory: "/etc/traefik/config"
+    watch: true

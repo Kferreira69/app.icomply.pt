@@ -53,6 +53,7 @@ export class TasksService {
     overdue?: boolean,
     page = 1,
     limit = 50,
+    search?: string,
   ) {
     const skip = (page - 1) * limit;
     const where: any = {
@@ -64,6 +65,9 @@ export class TasksService {
       ...(overdue && {
         dueDate: { lt: new Date() },
         status: { notIn: ['DONE', 'CANCELLED'] },
+      }),
+      ...(search && {
+        title: { contains: search, mode: 'insensitive' },
       }),
     };
 
@@ -108,9 +112,20 @@ export class TasksService {
 
   async update(id: string, organizationId: string, dto: UpdateTaskDto, userId: string) {
     await this.findOne(id, organizationId);
+
+    const updateData: any = { ...dto };
+
+    if (dto.status === TaskStatus.DONE) {
+      // Transition TO done — stamp completedAt if not already set
+      updateData.completedAt = updateData.completedAt ?? new Date();
+    } else if (dto.status !== undefined) {
+      // Transition AWAY from done — clear completedAt
+      updateData.completedAt = null;
+    }
+
     return this.prisma.task.update({
       where: { id },
-      data: dto,
+      data: updateData,
       include: {
         assignee: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -128,12 +143,13 @@ export class TasksService {
   }
 
   async bulkUpdateStatus(ids: string[], status: TaskStatus, organizationId: string) {
+    const completedAt = status === TaskStatus.DONE ? new Date() : null;
     return this.prisma.task.updateMany({
       where: {
         id: { in: ids },
         project: { organizationId },
       },
-      data: { status },
+      data: { status, completedAt },
     });
   }
 

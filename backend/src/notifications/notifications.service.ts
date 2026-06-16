@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MailService } from '../common/mail/mail.service';
+import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
 import { NotificationType } from '@prisma/client';
 
 interface CreateNotificationDto {
@@ -22,6 +23,7 @@ export class NotificationsService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private complianceMetrics: ComplianceMetricsService,
   ) {}
 
   // ── Create ────────────────────────────────────────────────
@@ -440,27 +442,60 @@ export class NotificationsService {
     }
   }
 
-  // ── High risks without treatment plan ────────────────────────
+  // ── High risks without treatment plan (consolidated per org) ─
 
   private async checkHighRisksNoTreatment() {
-    const risks = await this.prisma.risk.findMany({
-      where: { inherentScore: { gte: 12 }, treatmentPlan: null, status: { notIn: ['CLOSED', 'ACCEPTED'] } } as any,
+    // Gather all orgs that have untreated high/critical risks
+    const risksWithoutTreatment = await this.prisma.risk.findMany({
+      where: {
+        inherentScore: { gte: 12 },
+        treatmentPlan: null,
+        status: { notIn: ['CLOSED', 'ACCEPTED'] },
+      } as any,
       include: { owner: { select: { id: true, organizationId: true } } },
     });
 
-    for (const risk of risks) {
+    // Group risks by organizationId to avoid per-risk alerts that contradict each other
+    const byOrg = new Map<string, { ownerId: string; risks: typeof risksWithoutTreatment }>();
+    for (const risk of risksWithoutTreatment) {
       if (!risk.ownerId || !risk.owner) continue;
+      const orgId = risk.owner.organizationId;
+      if (!byOrg.has(orgId)) byOrg.set(orgId, { ownerId: risk.ownerId, risks: [] });
+      byOrg.get(orgId)!.risks.push(risk);
+    }
+
+    const sevenDaysAgo = new Date(new Date().setDate(new Date().getDate() - 7));
+
+    for (const [orgId, { ownerId, risks }] of byOrg) {
+      // Single consolidated notification per org per week (not per individual risk)
       const existing = await this.prisma.notification.findFirst({
-        where: { entityId: risk.id, type: NotificationType.RISK_HIGH, createdAt: { gte: new Date(new Date().setDate(new Date().getDate() - 7)) } },
+        where: {
+          organizationId: orgId,
+          type: NotificationType.RISK_HIGH,
+          entityType: 'RiskSummary',
+          createdAt: { gte: sevenDaysAgo },
+        },
       });
       if (existing) continue;
+
+      // Use ComplianceMetricsService for accurate, consistent counts
+      const riskCounts = await this.complianceMetrics.getRiskCounts(orgId);
+      const parts: string[] = [];
+      if (riskCounts.critical > 0) parts.push(`${riskCounts.critical} risco(s) CRÍTICO(S)`);
+      if (riskCounts.high > 0)     parts.push(`${riskCounts.high} risco(s) ALTO(S)`);
+
+      const summary = parts.join(' e ');
+      const untreated = risks.length;
+
       await this.create({
-        organizationId: risk.owner.organizationId,
-        userId: risk.ownerId,
+        organizationId: orgId,
+        userId: ownerId,
         type: NotificationType.RISK_HIGH,
-        title: 'Risco alto sem plano de tratamento',
-        message: `O risco "${risk.title}" (score ${risk.inherentScore}) não tem plano de tratamento definido.`,
-        entityType: 'Risk', entityId: risk.id, sendEmail: risk.inherentScore >= 20,
+        title: 'Riscos elevados sem plano de tratamento',
+        message: `Existem ${summary} activos. ${untreated} risco(s) ainda não têm plano de tratamento definido. Aceda ao Registo de Riscos para tomar acção.`,
+        entityType: 'RiskSummary',
+        entityId: orgId,
+        sendEmail: riskCounts.critical > 0,
       });
     }
   }

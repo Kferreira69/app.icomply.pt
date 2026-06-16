@@ -27,14 +27,16 @@ export class RisksController {
   @Get()
   @ApiQuery({ name: 'projectId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: RiskStatus })
+  @ApiQuery({ name: 'search', required: false, description: 'Filter risks by title (case-insensitive)' })
   findAll(
     @CurrentUser('organizationId') orgId: string,
     @Query('projectId') projectId?: string,
     @Query('status') status?: RiskStatus,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('search') search?: string,
   ) {
-    return this.service.findAll(orgId, projectId, status, page, limit);
+    return this.service.findAll(orgId, projectId, status, page, limit, search);
   }
 
   @Get('heatmap')

@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore, secondsUntilExpiry } from '@/store/auth-store';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
@@ -10,41 +10,110 @@ export const api = axios.create({
   withCredentials: true, // send & receive HttpOnly cookies
 });
 
-// ── Request interceptor: attach JWT ─────────────────────────
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+/**
+ * Minimum seconds remaining before we proactively refresh the access token.
+ * 10 minutes — gives plenty of runway for in-flight requests.
+ */
+const PROACTIVE_REFRESH_THRESHOLD_SEC = 10 * 60;
+
+/** Guards against concurrent refresh calls. */
+let isRefreshing = false;
+/** Queue of request resolvers waiting for the refresh to complete. */
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function onRefreshSuccess(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
+/**
+ * Attempts to silently refresh the access token using the stored refresh token.
+ * Returns the new access token on success, or null on failure.
+ */
+async function doTokenRefresh(): Promise<string | null> {
+  const { refreshToken, setTokens, logout, rememberMe } = useAuthStore.getState();
+  if (!refreshToken) return null;
+
+  try {
+    const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
+    const { accessToken, refreshToken: newRefreshToken } = res.data;
+    const nextRefresh = newRefreshToken || refreshToken;
+    // Preserve the rememberMe flag across refreshes
+    setTokens(accessToken, nextRefresh, rememberMe);
+    // Renew the session sentinel so the tab is not evicted on next load
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('icomply-auth-session', '1');
+    }
+    return accessToken as string;
+  } catch {
+    logout();
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    return null;
+  }
+}
+
+// ── Request interceptor: attach JWT + proactive refresh ─────
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  if (typeof window === 'undefined') return config;
+
+  const { accessToken } = useAuthStore.getState();
+  if (!accessToken) return config;
+
+  // Proactive refresh: if token expires in less than 10 minutes, refresh now
+  // before attaching it to the request.
+  const secsLeft = secondsUntilExpiry(accessToken);
+  if (secsLeft > 0 && secsLeft < PROACTIVE_REFRESH_THRESHOLD_SEC) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const newToken = await doTokenRefresh();
+      isRefreshing = false;
+      if (newToken) {
+        onRefreshSuccess(newToken);
+        config.headers.Authorization = `Bearer ${newToken}`;
+        return config;
+      }
+    } else {
+      // Another request is already refreshing — wait for it
+      const newToken = await new Promise<string>((resolve) => {
+        refreshSubscribers.push(resolve);
+      });
+      config.headers.Authorization = `Bearer ${newToken}`;
+      return config;
     }
   }
+
+  config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 });
 
-// ── Response interceptor: handle 401 / token refresh ────────
+// ── Response interceptor: handle 401 / reactive token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const original = error.config as any;
+    const original = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      const { refreshToken, setTokens, logout } = useAuthStore.getState();
 
-      if (refreshToken) {
-        try {
-          const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
-          const { accessToken } = res.data;
-          setTokens(accessToken, refreshToken);
-          original.headers.Authorization = `Bearer ${accessToken}`;
-          return api(original);
-        } catch {
-          logout();
-          if (typeof window !== 'undefined') window.location.href = '/login';
-        }
-      } else {
-        logout();
-        if (typeof window !== 'undefined') window.location.href = '/login';
+      if (isRefreshing) {
+        // Wait for the in-progress refresh and retry with new token
+        const newToken = await new Promise<string>((resolve) => {
+          refreshSubscribers.push(resolve);
+        });
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
+      }
+
+      isRefreshing = true;
+      const newToken = await doTokenRefresh();
+      isRefreshing = false;
+
+      if (newToken) {
+        onRefreshSuccess(newToken);
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
       }
     }
 

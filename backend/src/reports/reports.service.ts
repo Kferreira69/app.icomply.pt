@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
 import { MailService } from '../common/mail/mail.service';
+import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
 import { ReportType, ReportFormat } from '@prisma/client';
 
 const BRAND = {
@@ -59,6 +60,7 @@ export class ReportsService {
     private storage: StorageService,
     private mail: MailService,
     private config: ConfigService,
+    private complianceMetrics: ComplianceMetricsService,
   ) {}
 
   private get frontendUrl(): string {
@@ -97,14 +99,38 @@ export class ReportsService {
   }
 
   async findAll(organizationId: string) {
-    return this.prisma.report.findMany({
+    const reports = await this.prisma.report.findMany({
       where: { organizationId },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Strip raw MinIO/S3 URLs (may contain credentials or internal hostnames).
+    // Return a backend-proxied download path instead.
+    return reports.map(({ s3Url, ...r }) => ({
+      ...r,
+      downloadUrl: r.status === 'READY' ? `/api/v1/reports/${r.id}/download` : null,
+    }));
   }
 
   async findOne(id: string, organizationId: string) {
-    return this.prisma.report.findFirst({ where: { id, organizationId } });
+    const report = await this.prisma.report.findFirst({ where: { id, organizationId } });
+    if (!report) return null;
+    const { s3Url, ...r } = report;
+    return {
+      ...r,
+      downloadUrl: r.status === 'READY' ? `/api/v1/reports/${r.id}/download` : null,
+    };
+  }
+
+  /**
+   * Generate a fresh 5-minute presigned URL for the report file and
+   * return it so the controller can issue a 302 redirect.
+   * Only called by GET /reports/:id/download after JWT validation.
+   */
+  async getPresignedDownloadUrl(id: string, organizationId: string): Promise<string | null> {
+    const report = await this.prisma.report.findFirst({ where: { id, organizationId } });
+    if (!report || report.status !== 'READY' || !report.s3Key) return null;
+    return this.storage.getPresignedUrl(report.s3Key, 300); // 5 minutes
   }
 
   async downloadReport(id: string, organizationId: string, res: Response): Promise<StreamableFile | void> {
@@ -145,7 +171,7 @@ export class ReportsService {
   async getComplianceSummary(organizationId: string, projectId?: string) {
     const where: any = { organizationId, ...(projectId && { id: projectId }) };
 
-    const [projects, tasks, risks, evidence, audits, openCapas, totalAudits, totalCapas] =
+    const [projects, tasks, risks, evidence, audits, openCapas, totalAudits, totalCapas, complianceScore] =
       await Promise.all([
         this.prisma.project.findMany({
           where,
@@ -162,16 +188,14 @@ export class ReportsService {
         this.prisma.capa.count({ where: { createdBy: { organizationId }, status: { notIn: ['CLOSED'] } } }),
         this.prisma.audit.count({ where: { project: { organizationId } } }),
         this.prisma.capa.count({ where: { createdBy: { organizationId } } }),
+        // Single source of truth for compliance score
+        this.complianceMetrics.getComplianceScore(organizationId),
       ]);
-
-    const avgScore = projects.length > 0
-      ? Math.round(projects.reduce((s, p) => s + (p.complianceScore || 0), 0) / projects.length)
-      : 0;
 
     return {
       generatedAt: new Date(),
       organization: { id: organizationId },
-      complianceScore: avgScore,
+      complianceScore,
       projects: { total: projects.length, list: projects },
       tasks: tasks.reduce((acc, t) => ({ ...acc, [t.status]: t._count }), {} as Record<string, number>),
       risks: risks.map((r: any) => ({

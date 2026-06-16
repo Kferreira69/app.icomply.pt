@@ -26,6 +26,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (stored === 'true') { setPinned(true); setCollapsed(false); }
   }, []);
 
+  // Keep the session sentinel alive so the store knows this tab is active.
+  // This also handles users who were already logged in before the sentinel
+  // was introduced — they get the sentinel on first dashboard mount.
+  useEffect(() => {
+    if (isAuthenticated && typeof window !== 'undefined') {
+      sessionStorage.setItem('icomply-auth-session', '1');
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       sessionStorage.setItem('redirectAfterLogin', pathname);

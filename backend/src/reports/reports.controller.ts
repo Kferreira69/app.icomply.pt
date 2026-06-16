@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { StreamableFile } from '@nestjs/common';
 import { ReportsService } from './reports.service';
+import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ReportType, ReportFormat } from '@prisma/client';
 
@@ -10,7 +11,10 @@ import { ReportType, ReportFormat } from '@prisma/client';
 @ApiBearerAuth('JWT')
 @Controller('reports')
 export class ReportsController {
-  constructor(private service: ReportsService) {}
+  constructor(
+    private service: ReportsService,
+    private complianceMetrics: ComplianceMetricsService,
+  ) {}
 
   @Post('generate')
   @ApiOperation({ summary: 'Generate a compliance report' })
@@ -35,13 +39,27 @@ export class ReportsController {
     return this.service.getComplianceSummary(orgId, projectId);
   }
 
+  @Get('kpis')
+  @ApiOperation({ summary: 'Get unified KPI snapshot — single source of truth for dashboard, board reports, and trust center' })
+  getKpis(@CurrentUser('organizationId') orgId: string) {
+    return this.complianceMetrics.getKpiSnapshot(orgId);
+  }
+
   @Get(':id/download')
-  @ApiOperation({ summary: 'Download a generated report file' })
-  download(
+  @ApiOperation({ summary: 'Download a generated report file (proxied — no raw S3 URLs exposed)' })
+  async download(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile | void> {
+    // Try presigned URL redirect first (S3/MinIO path)
+    const presignedUrl = await this.service.getPresignedDownloadUrl(id, orgId);
+    if (presignedUrl) {
+      res.redirect(302, presignedUrl);
+      return;
+    }
+
+    // Fallback: stream through the backend (local storage or S3 buffer read)
     return this.service.downloadReport(id, orgId, res);
   }
 

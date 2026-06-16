@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { TrustCenterAuthRedirect, CopyLinkButton } from './trust-center-client';
 
 export const metadata: Metadata = {
   title: 'Centro de Confiança | iComply',
@@ -310,6 +312,10 @@ export default async function TrustCenterPublicPage({ searchParams }: PageProps)
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Auth redirect — client component, runs on client only */}
+      <Suspense fallback={null}>
+        <TrustCenterAuthRedirect />
+      </Suspense>
 
       {/* ── Demo banner ── */}
       {isDemo && (
@@ -355,11 +361,14 @@ export default async function TrustCenterPublicPage({ searchParams }: PageProps)
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 self-start sm:self-auto">
-              <svg className="w-4 h-4 text-white/70" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd"/>
-              </svg>
-              <span className="text-white/80 text-xs">Última actualização: {formatDate(updatedAt)}</span>
+            <div className="flex flex-col items-end gap-2 self-start sm:self-auto">
+              <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2">
+                <svg className="w-4 h-4 text-white/70" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                  <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd"/>
+                </svg>
+                <span className="text-white/80 text-xs">Última actualização: {formatDate(updatedAt)}</span>
+              </div>
+              <CopyLinkButton accent={accent} />
             </div>
           </div>
 

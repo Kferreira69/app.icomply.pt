@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { RedisModule } from './common/redis/redis.module';
@@ -74,6 +75,7 @@ import { TimeTrackingModule } from './time-tracking/time-tracking.module';
 import { EvidenceIntegrationsModule } from './evidence-integrations/evidence-integrations.module';
 import { IGuardModule } from './iguard/iguard.module';
 import { IntegrationHubModule } from './integration-hub/integration-hub.module';
+import { CommonServicesModule } from './common/services/common-services.module';
 
 @Module({
   imports: [
@@ -97,6 +99,7 @@ import { IntegrationHubModule } from './integration-hub/integration-hub.module';
     // ── Infrastructure ──────────────────────────────────────
     RedisModule,
     PrismaModule,
+    CommonServicesModule,
     StorageModule,
     MailModule,
     AuditLogsModule,
@@ -174,6 +177,11 @@ import { IntegrationHubModule } from './integration-hub/integration-hub.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // ── Global audit interceptor — persists CRUD ops to AuditLog table ──
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
     },
   ],
 })

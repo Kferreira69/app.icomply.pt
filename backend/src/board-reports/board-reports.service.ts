@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
 
 @Injectable()
 export class BoardReportsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private complianceMetrics: ComplianceMetricsService,
+  ) {}
 
   async list(organizationId: string) {
     return (this.prisma as any).boardReport.findMany({
@@ -65,12 +69,56 @@ export class BoardReportsService {
       where: { id: organizationId },
       select: { name: true, industry: true },
     });
-    const [risks, openCapas, evidenceExpiring, completedAudits] = await Promise.all([
-      this.prisma.risk.count({ where: { organizationId, inherentScore: { gte: 12 }, status: { notIn: ['CLOSED', 'ACCEPTED'] } } }),
+
+    // Use ComplianceMetricsService to get consistent, accurate risk counts and score
+    const [riskCounts, complianceScore, openCapas, evidenceExpiring, completedAudits] = await Promise.all([
+      this.complianceMetrics.getRiskCounts(organizationId),
+      this.complianceMetrics.getComplianceScore(organizationId),
       this.prisma.capa.count({ where: { createdBy: { organizationId }, status: { notIn: ['CLOSED'] } } }),
-      this.prisma.evidence.count({ where: { uploadedBy: { organizationId }, expiresAt: { lte: new Date(Date.now() + 30 * 86400000) } } }),
+      this.prisma.evidence.count({
+        where: {
+          uploadedBy: { organizationId },
+          expiresAt: { lte: new Date(Date.now() + 30 * 86400000) },
+          status: { notIn: ['EXPIRED'] },
+        },
+      }),
       this.prisma.audit.count({ where: { project: { organizationId }, status: 'COMPLETED' } }),
     ]);
-    return { report, org, stats: { risks, openCapas, evidenceExpiring, completedAudits } };
+
+    // Fetch the actual high/critical risks for board narrative
+    const highCriticalRisks = await this.prisma.risk.findMany({
+      where: {
+        organizationId,
+        inherentScore: { gte: 12 },
+        status: { notIn: ['CLOSED', 'ACCEPTED'] },
+      },
+      select: { id: true, title: true, inherentScore: true, status: true, category: true },
+      orderBy: { inherentScore: 'desc' },
+      take: 20,
+    });
+
+    const enrichedRisks = highCriticalRisks.map(r => ({
+      ...r,
+      level: r.inherentScore >= 20 ? 'CRITICAL' : 'HIGH',
+    }));
+
+    const hasHighRisks = riskCounts.high > 0 || riskCounts.critical > 0;
+    const riskNarrative = hasHighRisks
+      ? `${riskCounts.critical > 0 ? `${riskCounts.critical} risco(s) CRÍTICO(S)` : ''}${riskCounts.critical > 0 && riskCounts.high > 0 ? ' e ' : ''}${riskCounts.high > 0 ? `${riskCounts.high} risco(s) ALTO(S)` : ''} requerem atenção imediata.`
+      : 'Nenhum risco crítico ou alto activo.';
+
+    return {
+      report,
+      org,
+      stats: {
+        complianceScore,
+        riskCounts,
+        highCriticalRisks: enrichedRisks,
+        riskNarrative,
+        openCapas,
+        evidenceExpiring,
+        completedAudits,
+      },
+    };
   }
 }

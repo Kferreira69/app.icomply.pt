@@ -31,6 +31,7 @@ export class TasksController {
   @ApiQuery({ name: 'status', required: false, enum: TaskStatus })
   @ApiQuery({ name: 'priority', required: false, enum: TaskPriority })
   @ApiQuery({ name: 'overdue', required: false, type: Boolean })
+  @ApiQuery({ name: 'search', required: false, description: 'Filter tasks by title (case-insensitive)' })
   findAll(
     @CurrentUser('organizationId') orgId: string,
     @Query('projectId') projectId?: string,
@@ -40,10 +41,11 @@ export class TasksController {
     @Query('overdue') overdue?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('search') search?: string,
   ) {
     return this.service.findAll(
       orgId, projectId, assigneeId, status, priority,
-      overdue === 'true', page, limit,
+      overdue === 'true', page, limit, search,
     );
   }
 

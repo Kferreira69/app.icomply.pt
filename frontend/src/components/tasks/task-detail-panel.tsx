@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   X, MessageSquare, CheckSquare, Plus, Clock,
   User, Flag, Calendar, Send, Loader2, ChevronRight,
-  Circle, CheckCircle2,
+  Circle, CheckCircle2, Check,
 } from 'lucide-react';
 import { TaskDependenciesPanel } from '@/components/tasks/task-dependencies-panel';
 import { TimeTracker } from '@/components/time-tracking/TimeTracker';
@@ -42,7 +42,10 @@ export function TaskDetailPanel({ taskId, onClose, onStatusChange }: TaskDetailP
   const [comment, setComment] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
   const [addingSubtask, setAddingSubtask] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState<string | null>(null);
+  const [savedDesc, setSavedDesc] = useState(false);
   const commentRef = useRef<HTMLTextAreaElement>(null);
+  const descSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: task, isLoading } = useQuery({
     queryKey: ['task', taskId],
@@ -76,6 +79,25 @@ export function TaskDetailPanel({ taskId, onClose, onStatusChange }: TaskDetailP
       tasksApi.update(id, { status }),
     onSuccess: () => invalidate(),
   });
+
+  const descriptionMutation = useMutation({
+    mutationFn: (description: string) => tasksApi.update(taskId, { description }),
+    onSuccess: () => {
+      invalidate();
+      setSavedDesc(true);
+      if (descSaveTimer.current) clearTimeout(descSaveTimer.current);
+      descSaveTimer.current = setTimeout(() => setSavedDesc(false), 2000);
+    },
+  });
+
+  const handleDescriptionBlur = useCallback(() => {
+    if (descriptionDraft === null) return;
+    const current = task?.description ?? '';
+    if (descriptionDraft !== current) {
+      descriptionMutation.mutate(descriptionDraft);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descriptionDraft, task?.description]);
 
   const toggleSubtaskDone = (subtask: any) => {
     const next = subtask.status === 'DONE' ? 'TODO' : 'DONE';
@@ -160,13 +182,33 @@ export function TaskDetailPanel({ taskId, onClose, onStatusChange }: TaskDetailP
           </div>
 
           <div className="px-5 py-4 space-y-6">
-            {/* Description */}
-            {task.description && (
-              <div>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Descrição</h3>
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+            {/* Description — editable, auto-saves on blur */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Descrição</h3>
+                {savedDesc && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 font-medium animate-in fade-in">
+                    <Check className="w-3 h-3" /> Guardado
+                  </span>
+                )}
+                {descriptionMutation.isPending && (
+                  <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
+                )}
               </div>
-            )}
+              <textarea
+                rows={3}
+                className={`w-full text-sm rounded-lg px-3 py-2 resize-none border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  (descriptionDraft ?? task.description ?? '') === ''
+                    ? 'text-gray-400 border-dashed border-gray-200 bg-gray-50/50'
+                    : 'text-gray-700 border-gray-200 bg-white'
+                }`}
+                placeholder="Adicione contexto ou instruções para esta tarefa..."
+                value={descriptionDraft ?? task.description ?? ''}
+                onChange={e => setDescriptionDraft(e.target.value)}
+                onFocus={() => setDescriptionDraft(prev => prev ?? task.description ?? '')}
+                onBlur={handleDescriptionBlur}
+              />
+            </div>
 
             {/* Time Tracker */}
             <TimeTracker taskId={taskId} />

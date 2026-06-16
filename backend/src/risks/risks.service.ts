@@ -6,18 +6,32 @@ import { UpdateRiskDto } from './dto/update-risk.dto';
 import { RiskStatus, NotificationType } from '@prisma/client';
 
 // Likelihood and impact map 1-5
+// Includes aliases for extended enum values that may appear in DTOs or imports
 const LIKELIHOOD_VALUES: Record<string, number> = {
   RARE: 1, UNLIKELY: 2, POSSIBLE: 3, LIKELY: 4, ALMOST_CERTAIN: 5,
+  VERY_LIKELY: 5, // alias
 };
 const IMPACT_VALUES: Record<string, number> = {
   NEGLIGIBLE: 1, MINOR: 2, MODERATE: 3, MAJOR: 4, CATASTROPHIC: 5,
+  SIGNIFICANT: 4, // alias for MAJOR
+  CRITICAL: 5,    // alias for CATASTROPHIC
 };
+
+function calcRiskLevel(likelihood: string, impact: string): string {
+  const score = (LIKELIHOOD_VALUES[likelihood] ?? 1) * (IMPACT_VALUES[impact] ?? 1);
+  if (score >= 20) return 'CRITICAL';
+  if (score >= 12) return 'HIGH';
+  if (score >= 6) return 'MEDIUM';
+  if (score >= 3) return 'LOW';
+  return 'NEGLIGIBLE';
+}
 
 function getRiskLevel(score: number): string {
   if (score >= 20) return 'CRITICAL';
   if (score >= 12) return 'HIGH';
   if (score >= 6) return 'MEDIUM';
-  return 'LOW';
+  if (score >= 3) return 'LOW';
+  return 'NEGLIGIBLE';
 }
 
 @Injectable()
@@ -28,7 +42,9 @@ export class RisksService {
   ) {}
 
   async create(dto: CreateRiskDto, organizationId: string, ownerId: string) {
-    const inherentScore = LIKELIHOOD_VALUES[dto.likelihood] * IMPACT_VALUES[dto.impact];
+    const inherentScore =
+      (LIKELIHOOD_VALUES[dto.likelihood] ?? 1) * (IMPACT_VALUES[dto.impact] ?? 1);
+    const riskLevel = calcRiskLevel(dto.likelihood, dto.impact);
 
     const risk = await this.prisma.risk.create({
       data: {
@@ -57,7 +73,7 @@ export class RisksService {
       });
     }
 
-    return risk;
+    return { ...risk, riskLevel };
   }
 
   async findAll(
@@ -66,12 +82,16 @@ export class RisksService {
     status?: RiskStatus,
     page = 1,
     limit = 50,
+    search?: string,
   ) {
     const skip = (page - 1) * limit;
     const where: any = {
       organizationId,
       ...(projectId && { projectId }),
       ...(status && { status }),
+      ...(search && {
+        title: { contains: search, mode: 'insensitive' },
+      }),
     };
 
     const [data, total] = await Promise.all([
@@ -129,19 +149,27 @@ export class RisksService {
     }).catch(() => {}); // non-blocking
 
     const updateData: any = { ...dto };
+    const effectiveLikelihood = dto.likelihood ?? existing.likelihood;
+    const effectiveImpact = dto.impact ?? existing.impact;
+
     if (dto.likelihood || dto.impact) {
-      const l = dto.likelihood ? LIKELIHOOD_VALUES[dto.likelihood] : LIKELIHOOD_VALUES[existing.likelihood];
-      const i = dto.impact ? IMPACT_VALUES[dto.impact] : IMPACT_VALUES[existing.impact];
+      const l = LIKELIHOOD_VALUES[effectiveLikelihood] ?? 1;
+      const i = IMPACT_VALUES[effectiveImpact] ?? 1;
       updateData.inherentScore = l * i;
     }
 
-    return this.prisma.risk.update({
+    const updatedRisk = await this.prisma.risk.update({
       where: { id },
       data: updateData,
       include: {
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+
+    return {
+      ...updatedRisk,
+      riskLevel: calcRiskLevel(effectiveLikelihood, effectiveImpact),
+    };
   }
 
   async getHistory(id: string, organizationId: string) {

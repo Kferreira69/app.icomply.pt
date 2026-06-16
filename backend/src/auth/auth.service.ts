@@ -81,7 +81,7 @@ export class AuthService {
     return user;
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     const user = await this.validateUser(dto.email, dto.password);
 
     await this.prisma.user.update({
@@ -96,6 +96,8 @@ export class AuthService {
         action: 'LOGIN',
         entity: 'User',
         entityId: user.id,
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
         metadata: { email: user.email },
       },
     });
@@ -222,7 +224,14 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async acceptInvite(token: string, password: string, firstName: string, lastName: string) {
+  async acceptInvite(
+    token: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     const user = await this.prisma.user.findFirst({
       where: {
         inviteToken: token,
@@ -246,7 +255,7 @@ export class AuthService {
       },
     });
 
-    return this.login({ email: updated.email, password });
+    return this.login({ email: updated.email, password }, ipAddress, userAgent);
   }
 
   async getProfile(userId: string) {

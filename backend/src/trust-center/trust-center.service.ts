@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
 
 @Injectable()
 export class TrustCenterService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private complianceMetrics: ComplianceMetricsService,
+  ) {}
 
   // ── Public: get org profile by slug ──────────────────────────
 
@@ -45,7 +49,8 @@ export class TrustCenterService {
       }),
     ]);
 
-    // Compute per-project compliance
+    // Compute per-project compliance: task DONE ratio per project
+    // (project-level score; org-level score comes from ComplianceMetricsService)
     const projectStats = await Promise.all(
       org.projects.map(async (p) => {
         const [total, done] = await Promise.all([
@@ -53,6 +58,7 @@ export class TrustCenterService {
           this.prisma.task.count({ where: { projectId: p.id, status: 'DONE' } }),
         ]);
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
         return {
           id: p.id,
           name: p.name,
@@ -69,9 +75,8 @@ export class TrustCenterService {
       }),
     );
 
-    const overallScore = projectStats.length > 0
-      ? Math.round(projectStats.reduce((a, b) => a + b.complianceScore, 0) / projectStats.length)
-      : 0;
+    // Use the org-level ComplianceMetricsService score as the single source of truth
+    const overallScore = await this.complianceMetrics.getComplianceScore(org.id);
 
     return {
       organization: {

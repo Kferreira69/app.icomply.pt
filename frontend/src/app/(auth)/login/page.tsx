@@ -16,6 +16,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { setTokens, setUser } = useAuthStore();
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const schema = z.object({
     email: z.string().email(t('invalidEmail') as string),
@@ -32,8 +33,11 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(data.email, data.password);
       const { accessToken, refreshToken, user } = res.data;
-      setTokens(accessToken, refreshToken);
+      // Pass rememberMe flag so auth-store knows whether to enforce TTL
+      setTokens(accessToken, refreshToken, rememberMe);
       setUser(user);
+      // Set session sentinel so this tab is not evicted on next hydration
+      sessionStorage.setItem('icomply-auth-session', '1');
       const redirect = sessionStorage.getItem('redirectAfterLogin') || '/dashboard';
       sessionStorage.removeItem('redirectAfterLogin');
       router.push(redirect);
@@ -88,6 +92,17 @@ export default function LoginPage() {
           </div>
           {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
         </div>
+
+        {/* ── Remember Me ─────────────────────────────────────── */}
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+          />
+          <span className="text-sm text-gray-600">Lembrar-me durante 30 dias</span>
+        </label>
 
         <button
           type="submit"

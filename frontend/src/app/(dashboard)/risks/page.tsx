@@ -1,14 +1,60 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { risksApi } from '@/lib/api';
-import { Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield, CheckCircle2, TrendingDown, TrendingUp, History } from 'lucide-react';
+import {
+  Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield,
+  CheckCircle2, History,
+  ChevronUp, ChevronDown, ChevronsUpDown, FileQuestion,
+} from 'lucide-react';
+import { RiskTreatmentModal } from '@/components/risks/risk-treatment-modal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { cn, getRiskColor, getRiskLabel, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
+import { cn, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { HelpButton } from '@/components/help/HelpButton';
+
+// ── Types ──────────────────────────────────────────────────────
+type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+type RiskSortKey = 'title' | 'score' | 'status' | 'dueDate';
+type SortDir = 'asc' | 'desc';
+
+const RISK_LEVELS: RiskLevel[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+
+const LEVEL_STYLES: Record<RiskLevel, string> = {
+  CRITICAL: 'bg-red-100 text-red-800',
+  HIGH:     'bg-orange-100 text-orange-800',
+  MEDIUM:   'bg-yellow-100 text-yellow-800',
+  LOW:      'bg-green-100 text-green-800',
+};
+
+function scoreToLevel(score: number): RiskLevel {
+  if (score >= 20) return 'CRITICAL';
+  if (score >= 12) return 'HIGH';
+  if (score >= 6)  return 'MEDIUM';
+  return 'LOW';
+}
+
+// ── Level badge ────────────────────────────────────────────────
+function LevelBadge({ score }: { score: number | null | undefined }) {
+  if (score == null) return <span className="text-xs text-gray-400">—</span>;
+  const level = scoreToLevel(score);
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold', LEVEL_STYLES[level])}>
+      {level}
+      <span className="opacity-60">({score})</span>
+    </span>
+  );
+}
+
+// ── Sort icon ──────────────────────────────────────────────────
+function SortIcon({ col, sortKey, sortDir }: { col: RiskSortKey; sortKey: RiskSortKey; sortDir: SortDir }) {
+  if (col !== sortKey) return <ChevronsUpDown className="w-3 h-3 text-gray-300 inline ml-1" />;
+  return sortDir === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-primary inline ml-1" />
+    : <ChevronDown className="w-3 h-3 text-primary inline ml-1" />;
+}
 
 function RiskHeatmap({ data }: { data: any }) {
   const t = useTranslations('risks');
@@ -367,7 +413,13 @@ export default function RisksPage() {
   const tCommon = useTranslations('common');
   const [showNew, setShowNew] = useState(false);
   const [editingRisk, setEditingRisk] = useState<any | null>(null);
+  const [treatmentRisk, setTreatmentRisk] = useState<any | null>(null);
   const [view, setView] = useState<'list' | 'heatmap'>('list');
+  const [levelFilter, setLevelFilter] = useState<RiskLevel | ''>('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [showNoTreatmentOnly, setShowNoTreatmentOnly] = useState(false);
+  const [sortKey, setSortKey] = useState<RiskSortKey>('score');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const { data, isLoading } = useQuery({
     queryKey: ['risks'],
@@ -379,8 +431,14 @@ export default function RisksPage() {
     queryFn: () => risksApi.heatmap().then(r => r.data),
   });
 
-  const risks = data?.data || [];
+  const allRisks: any[] = data?.data || [];
   const summary = heatmap?.summary || {};
+
+  // Collect unique statuses from data
+  const uniqueStatuses = useMemo(() => {
+    const set = new Set<string>(allRisks.map((r: any) => r.status).filter(Boolean));
+    return Array.from(set);
+  }, [allRisks]);
 
   const LIKELIHOOD_LABELS: Record<string, string> = {
     RARE: t('likelihood_values.RARE'),
@@ -397,10 +455,66 @@ export default function RisksPage() {
     CATASTROPHIC: t('impact_values.CATASTROPHIC'),
   };
 
+  // ── Client-side filter + sort ──────────────────────────────
+  const risks = useMemo(() => {
+    let list = [...allRisks];
+
+    if (levelFilter) {
+      list = list.filter((r: any) => scoreToLevel(r.inherentScore) === levelFilter);
+    }
+    if (statusFilter) {
+      list = list.filter((r: any) => r.status === statusFilter);
+    }
+    if (showNoTreatmentOnly) {
+      list = list.filter((r: any) => !r.treatmentPlan || r.treatmentPlan.trim() === '');
+    }
+
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'title') {
+        cmp = (a.title || '').localeCompare(b.title || '');
+      } else if (sortKey === 'score') {
+        cmp = (a.inherentScore ?? 0) - (b.inherentScore ?? 0);
+      } else if (sortKey === 'status') {
+        cmp = (a.status || '').localeCompare(b.status || '');
+      } else if (sortKey === 'dueDate') {
+        const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        cmp = da - db;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return list;
+  }, [allRisks, levelFilter, statusFilter, showNoTreatmentOnly, sortKey, sortDir]);
+
+  const noTreatmentCount = useMemo(
+    () => allRisks.filter((r: any) => !r.treatmentPlan || r.treatmentPlan.trim() === '').length,
+    [allRisks],
+  );
+
+  function handleSort(key: RiskSortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'score' ? 'desc' : 'asc');
+    }
+  }
+
+  const LEVEL_CARD_STYLES: Record<RiskLevel, string> = {
+    CRITICAL: 'border-red-500 bg-red-50 text-red-700',
+    HIGH:     'border-orange-500 bg-orange-50 text-orange-700',
+    MEDIUM:   'border-yellow-500 bg-yellow-50 text-yellow-700',
+    LOW:      'border-green-500 bg-green-50 text-green-700',
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View toggles */}
           {[
             { value: 'list', label: t('viewList') },
             { value: 'heatmap', label: t('viewHeatmap') },
@@ -414,24 +528,75 @@ export default function RisksPage() {
               {v.label}
             </button>
           ))}
+
+          {/* Level filter */}
+          <select
+            value={levelFilter}
+            onChange={e => setLevelFilter(e.target.value as RiskLevel | '')}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none bg-white"
+          >
+            <option value="">Todos os níveis</option>
+            {RISK_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+
+          {/* Status filter */}
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+          >
+            <option value="">Todos os estados</option>
+            {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          {/* No treatment toggle */}
+          <button
+            onClick={() => setShowNoTreatmentOnly(v => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors',
+              showNoTreatmentOnly
+                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+            )}
+          >
+            <FileQuestion className="w-3.5 h-3.5" />
+            Sem tratamento
+            {noTreatmentCount > 0 && (
+              <span className={cn(
+                'text-xs px-1.5 py-0.5 rounded-full font-semibold',
+                showNoTreatmentOnly ? 'bg-amber-200 text-amber-800' : 'bg-amber-100 text-amber-700',
+              )}>
+                {noTreatmentCount}
+              </span>
+            )}
+          </button>
         </div>
+
         <button onClick={() => setShowNew(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
           <Plus className="w-4 h-4" /> {t('registerRisk')}
         </button>
       </div>
 
-      {/* Summary */}
+      {/* Summary cards — clickable level filters */}
       <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: t('level.CRITICAL'), count: summary.critical ?? 0, color: 'border-red-500 bg-red-50 text-red-700' },
-          { label: t('level.HIGH'), count: summary.high ?? 0, color: 'border-orange-500 bg-orange-50 text-orange-700' },
-          { label: t('level.MEDIUM'), count: summary.medium ?? 0, color: 'border-yellow-500 bg-yellow-50 text-yellow-700' },
-          { label: t('level.LOW'), count: summary.low ?? 0, color: 'border-green-500 bg-green-50 text-green-700' },
-        ].map(s => (
-          <div key={s.label} className={cn('bg-white rounded-xl border-2 shadow-sm p-4 text-center', s.color)}>
-            <p className="text-2xl font-bold">{s.count}</p>
-            <p className="text-sm font-medium">{s.label}</p>
-          </div>
+        {([
+          { level: 'CRITICAL' as RiskLevel, count: summary.critical ?? 0 },
+          { level: 'HIGH'     as RiskLevel, count: summary.high     ?? 0 },
+          { level: 'MEDIUM'   as RiskLevel, count: summary.medium   ?? 0 },
+          { level: 'LOW'      as RiskLevel, count: summary.low      ?? 0 },
+        ]).map(({ level, count }) => (
+          <button
+            key={level}
+            onClick={() => setLevelFilter(levelFilter === level ? '' : level)}
+            className={cn(
+              'bg-white rounded-xl border-2 shadow-sm p-4 text-center transition-all hover:shadow-md',
+              LEVEL_CARD_STYLES[level],
+              levelFilter === level && 'ring-2 ring-offset-1 ring-current',
+            )}
+          >
+            <p className="text-2xl font-bold">{count}</p>
+            <p className="text-sm font-medium">{t(`level.${level}`)}</p>
+          </button>
         ))}
       </div>
 
@@ -447,21 +612,50 @@ export default function RisksPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {[t('colRisk'), t('colCategory'), t('colLikelihood'), t('colImpact'), t('colLevel'), t('colStatus'), t('colDueDate'), ''].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
-                  ))}
+                  {/* Sortable: Risk name */}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    <button onClick={() => handleSort('title')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                      {t('colRisk')}
+                      <SortIcon col="title" sortKey={sortKey} sortDir={sortDir} />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('colCategory')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('colLikelihood')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{t('colImpact')}</th>
+                  {/* Sortable: Level/score */}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    <button onClick={() => handleSort('score')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                      {t('colLevel')}
+                      <SortIcon col="score" sortKey={sortKey} sortDir={sortDir} />
+                    </button>
+                  </th>
+                  {/* Sortable: Status */}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    <button onClick={() => handleSort('status')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                      {t('colStatus')}
+                      <SortIcon col="status" sortKey={sortKey} sortDir={sortDir} />
+                    </button>
+                  </th>
+                  {/* Sortable: Due date */}
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    <button onClick={() => handleSort('dueDate')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                      {t('colDueDate')}
+                      <SortIcon col="dueDate" sortKey={sortKey} sortDir={sortDir} />
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 w-28" />
                 </tr>
               </thead>
               <tbody>
                 {risks.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-400">
+                    <td colSpan={8} className="text-center py-12 text-gray-400">
                       <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
                       <p className="text-sm">{t('noRisks')}</p>
                     </td>
                   </tr>
                 ) : risks.map((r: any) => (
-                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-900">{r.title}</p>
                       <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{r.description}</p>
@@ -470,29 +664,59 @@ export default function RisksPage() {
                     <td className="px-4 py-3 text-xs text-gray-600">{LIKELIHOOD_LABELS[r.likelihood]}</td>
                     <td className="px-4 py-3 text-xs text-gray-600">{IMPACT_LABELS[r.impact]}</td>
                     <td className="px-4 py-3">
-                      <span className={cn('text-xs px-2 py-1 rounded-full font-semibold', getRiskColor(r.inherentScore))}>
-                        {getRiskLabel(r.inherentScore)} ({r.inherentScore})
-                      </span>
+                      <LevelBadge score={r.inherentScore} />
                     </td>
                     <td className="px-4 py-3">
                       <span className={cn('text-xs px-2 py-1 rounded-full', getStatusColor(r.status))}>{r.status}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{formatDate(r.dueDate)}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setEditingRisk(r)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title={tCommon('edit') as string}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setTreatmentRisk(r)}
+                          title="Adicionar tratamento"
+                          className={cn(
+                            'flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors font-medium',
+                            r.treatmentPlan
+                              ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
+                              : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
+                          )}
+                        >
+                          <Shield className="w-3 h-3" />
+                          {r.treatmentPlan ? 'Rever' : 'Tratar'}
+                        </button>
+                        <button onClick={() => setEditingRisk(r)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title={tCommon('edit') as string}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
+              {risks.length} risco{risks.length !== 1 ? 's' : ''} encontrado{risks.length !== 1 ? 's' : ''}
+              {(levelFilter || statusFilter || showNoTreatmentOnly) && (
+                <button
+                  onClick={() => { setLevelFilter(''); setStatusFilter(''); setShowNoTreatmentOnly(false); }}
+                  className="ml-2 text-primary hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
           </div>
         )
       )}
 
       {showNew && <NewRiskModal onClose={() => setShowNew(false)} />}
       {editingRisk && <EditRiskModal risk={editingRisk} onClose={() => setEditingRisk(null)} />}
+      {treatmentRisk && (
+        <RiskTreatmentModal
+          risk={treatmentRisk}
+          onClose={() => setTreatmentRisk(null)}
+        />
+      )}
       <HelpButton page="risks" />
     </div>
   );

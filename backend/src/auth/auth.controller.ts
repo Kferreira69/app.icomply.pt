@@ -40,9 +40,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Login — sets HttpOnly cookie and returns tokens' })
   async login(
     @Body() dto: LoginDto,
+    @Request() req: Req,
     @Response({ passthrough: true }) res: Res,
   ) {
-    const result = await this.authService.login(dto);
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip;
+    const ua = req.headers['user-agent'];
+    const result = await this.authService.login(dto, ip, ua);
 
     // Set tokens in HttpOnly cookies (SPA can also use the returned tokens)
     res.cookie('access_token', result.accessToken, COOKIE_OPTIONS);
@@ -113,10 +116,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Accept email invitation and set password' })
   async acceptInvite(
     @Body() dto: AcceptInviteDto,
+    @Request() req: Req,
     @Response({ passthrough: true }) res: Res,
   ) {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip;
+    const ua = req.headers['user-agent'];
     const result = await this.authService.acceptInvite(
-      dto.token, dto.password, dto.firstName, dto.lastName,
+      dto.token, dto.password, dto.firstName, dto.lastName, ip, ua,
     );
     res.cookie('access_token', result.accessToken, COOKIE_OPTIONS);
     res.cookie('refresh_token', result.refreshToken, REFRESH_COOKIE_OPTIONS);

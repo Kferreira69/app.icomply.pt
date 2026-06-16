@@ -30,7 +30,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; }
+interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; pro?: boolean; }
 interface NavDomain { key: string; label: string; icon: React.ElementType; color: string; items: NavLeaf[]; }
 interface NavSection {
   label?: string;
@@ -40,6 +40,33 @@ interface NavSection {
   items?: NavLeaf[];
   overflowAfter?: number;
   fixed?: boolean;       // fixed=true → cannot be hidden
+}
+
+/* ── PRO Toast ───────────────────────────────────────────────── */
+function ProToast({ onDismiss }: { onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-bottom-2 fade-in">
+      <div className="flex items-start gap-3 bg-gray-900 border border-amber-500/40 text-white rounded-2xl shadow-2xl px-4 py-3 max-w-xs">
+        <span className="text-xs bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 mt-0.5">PRO</span>
+        <div>
+          <p className="text-sm font-semibold">Funcionalidade Professional</p>
+          <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">
+            Esta funcionalidade requer o plano Professional.{' '}
+            <a href="mailto:comercial@icomply.pt" className="text-amber-400 hover:underline">
+              Contacte comercial@icomply.pt
+            </a>
+          </p>
+        </div>
+        <button onClick={onDismiss} className="p-0.5 text-gray-500 hover:text-gray-300 flex-shrink-0">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /* ── Quick Add Modal ─────────────────────────────────────────── */
@@ -129,18 +156,28 @@ function useRecentPages(pathname: string, allItems: NavLeaf[]) {
 }
 
 /* ── Nav leaf (with star button) ────────────────────────────── */
-function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md' }: {
+function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md', isFree = false, onProClick }: {
   item: NavLeaf; pathname: string; collapsed: boolean;
   starred: string[]; onStar: (h: string) => void;
   size?: 'sm' | 'md';
+  isFree?: boolean;
+  onProClick?: () => void;
 }) {
   const Icon = item.icon;
   const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
   const isStarred = starred.includes(item.href);
+  const isGated = !!item.pro && isFree;
+
+  const handleGatedClick = (e: React.MouseEvent) => {
+    if (isGated && onProClick) {
+      e.preventDefault();
+      onProClick();
+    }
+  };
 
   if (collapsed) {
     return (
-      <Link href={item.href} title={item.label}
+      <Link href={item.href} title={item.label} onClick={handleGatedClick}
         className={cn('flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-colors',
           isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white')}>
         <Icon className="w-5 h-5" />
@@ -154,7 +191,7 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md' }: {
 
   return (
     <div className="group relative flex items-center">
-      <Link href={item.href}
+      <Link href={item.href} onClick={handleGatedClick}
         className={cn('flex items-center gap-3 rounded-lg font-medium transition-colors flex-1 min-w-0',
           sizeClasses,
           isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white')}>
@@ -163,6 +200,16 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md' }: {
         {item.badge && (
           <span className="ml-auto text-xs bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded-full flex-shrink-0">
             {item.badge}
+          </span>
+        )}
+        {item.pro && (
+          <span className={cn(
+            'ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 tracking-wide',
+            isFree
+              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+          )}>
+            PRO
           </span>
         )}
       </Link>
@@ -174,6 +221,7 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md' }: {
           isStarred
             ? 'opacity-100 text-yellow-400 hover:text-yellow-300'
             : 'opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300',
+          item.pro && 'right-8', // shift left when PRO badge is shown
         )}>
         <Star className={cn('w-3 h-3', isStarred && 'fill-current')} />
       </button>
@@ -182,9 +230,10 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md' }: {
 }
 
 /* ── Domain group (with star on header) ─────────────────────── */
-function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar }: {
+function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar, isFree, onProClick }: {
   domain: NavDomain; pathname: string; defaultOpen: boolean; collapsed: boolean;
   starred: string[]; onStar: (h: string) => void;
+  isFree?: boolean; onProClick?: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const DomainIcon = domain.icon;
@@ -220,7 +269,7 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar
         <div className="mt-0.5 ml-4 pl-3 border-l border-gray-700/60 space-y-0.5">
           {domain.items.map(item => (
             <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
-              starred={starred} onStar={onStar} size="sm" />
+              starred={starred} onStar={onStar} size="sm" isFree={isFree} onProClick={onProClick} />
           ))}
         </div>
       )}
@@ -229,10 +278,11 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar
 }
 
 /* ── Flat section with overflow ──────────────────────────────── */
-function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfter }: {
+function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfter, isFree, onProClick }: {
   items: NavLeaf[]; pathname: string; collapsed: boolean;
   starred: string[]; onStar: (h: string) => void;
   overflowAfter?: number;
+  isFree?: boolean; onProClick?: () => void;
 }) {
   const hasActive = overflowAfter
     ? items.slice(overflowAfter).some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
@@ -246,13 +296,13 @@ function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfte
     <div className="space-y-0.5">
       {visible.map(item => (
         <NavItem key={item.href} item={item} pathname={pathname} collapsed={collapsed}
-          starred={starred} onStar={onStar} />
+          starred={starred} onStar={onStar} isFree={isFree} onProClick={onProClick} />
       ))}
       {overflow.length > 0 && !collapsed && (
         <>
           {showAll && overflow.map(item => (
             <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
-              starred={starred} onStar={onStar} />
+              starred={starred} onStar={onStar} isFree={isFree} onProClick={onProClick} />
           ))}
           <button
             onClick={() => setShowAll(v => !v)}
@@ -431,6 +481,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const t = useTranslations('nav');
   const [quickAdd, setQuickAdd] = useState(false);
   const [customize, setCustomize] = useState(false);
+  const [showProToast, setShowProToast] = useState(false);
   const { starred, toggle: toggleStar } = useStarred();
   const { hidden: hiddenSections, toggle: toggleSection } = useHiddenSections();
   const defaultSectionKeys = ['top', 'gerir', 'conformidade', 'intelligence', 'tools'];
@@ -438,6 +489,12 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
 
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
+
+  // Treat as FREE unless the organization has a paid plan field set.
+  // The auth store doesn't yet carry a plan field, so we default to false (PRO).
+  // When billing is added, replace with: (user?.organization as any)?.plan !== 'PRO'
+  const isFree: boolean = (user?.organization as any)?.plan === 'FREE';
+  const handleProClick = useCallback(() => setShowProToast(true), []);
 
   const INTELLIGENCE_ITEMS: NavLeaf[] = [
     { href: '/approvals',          label: 'Aprovações',              icon: CheckSquare },
@@ -543,7 +600,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         },
         {
           key: 'ai', label: t('aiGovernanceDomain'), icon: Brain, color: 'bg-violet-600 text-white',
-          items: [{ href: '/ai-governance', label: 'AI Act · ISO 42001', icon: Brain }],
+          items: [{ href: '/ai-governance', label: 'AI Act · ISO 42001', icon: Brain, pro: true }],
         },
         {
           key: 'ethics', label: t('ethicsSpeak'), icon: Scale, color: 'bg-orange-600 text-white',
@@ -562,15 +619,15 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         },
         {
           key: 'thirdparty', label: t('thirdPartyGovernance'), icon: Building2, color: 'bg-teal-600 text-white',
-          items: [{ href: '/vendors', label: t('vendors'), icon: Building2 }],
+          items: [{ href: '/vendors', label: t('vendors'), icon: Building2, pro: true }],
         },
         {
           key: 'esg', label: t('esgSustainability'), icon: Leaf, color: 'bg-emerald-600 text-white',
-          items: [{ href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf }],
+          items: [{ href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf, pro: true }],
         },
         {
           key: 'resilience', label: t('resilienceContinuity'), icon: ShieldAlert, color: 'bg-amber-600 text-white',
-          items: [{ href: '/business-continuity', label: 'ISO 22301 · BCP · DR', icon: ShieldAlert }],
+          items: [{ href: '/business-continuity', label: 'ISO 22301 · BCP · DR', icon: ShieldAlert, pro: true }],
         },
         {
           key: 'quality', label: t('qualityOps'), icon: ClipboardList, color: 'bg-cyan-600 text-white',
@@ -631,6 +688,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   return (
     <>
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} />}
+      {showProToast && <ProToast onDismiss={() => setShowProToast(false)} />}
       {customize && (
         <CustomizePanel
           sections={sectionMeta}
@@ -700,7 +758,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
             <div className="space-y-0.5">
               {starredItems.map(item => (
                 <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
-                  starred={starred} onStar={toggleStar} />
+                  starred={starred} onStar={toggleStar} isFree={isFree} onProClick={handleProClick} />
               ))}
             </div>
             <div className="border-t border-gray-700/40 mt-2" />
@@ -753,6 +811,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
                     starred={starred}
                     onStar={toggleStar}
                     overflowAfter={section.overflowAfter}
+                    isFree={isFree}
+                    onProClick={handleProClick}
                   />
                 )}
 
@@ -761,7 +821,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
                     {(section.domains ?? []).map(domain => (
                       <DomainGroup key={domain.key} domain={domain} pathname={pathname}
                         defaultOpen={getDefaultOpen(domain)} collapsed={collapsed}
-                        starred={starred} onStar={toggleStar} />
+                        starred={starred} onStar={toggleStar}
+                        isFree={isFree} onProClick={handleProClick} />
                     ))}
                   </div>
                 )}
