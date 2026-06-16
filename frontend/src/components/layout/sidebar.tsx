@@ -15,11 +15,20 @@ import {
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
   GanttChart, BookTemplate, Plug2, GraduationCap,
-  Star, Clock, ChevronRight, SlidersHorizontal,
+  Star, Clock, ChevronRight, SlidersHorizontal, GripVertical,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState, useEffect, useCallback } from 'react';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; }
 interface NavDomain { key: string; label: string; icon: React.ElementType; color: string; items: NavLeaf[]; }
@@ -276,13 +285,99 @@ function useHiddenSections() {
   return { hidden, toggle };
 }
 
+/* ── Section order hook ──────────────────────────────────────── */
+const ORDER_KEY = 'icomply_section_order';
+
+function useSectionOrder(defaultOrder: string[]) {
+  const [order, setOrder] = useState<string[]>(defaultOrder);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null');
+      if (saved && Array.isArray(saved)) {
+        const merged = [
+          ...saved.filter((k: string) => defaultOrder.includes(k)),
+          ...defaultOrder.filter(k => !saved.includes(k)),
+        ];
+        setOrder(merged);
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const reorder = useCallback((newOrder: string[]) => {
+    setOrder(newOrder);
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(newOrder)); } catch { /* ignore */ }
+  }, []);
+  return { order, reorder };
+}
+
 /* ── Customize Sidebar Panel ─────────────────────────────────── */
 interface SectionMeta { key: string; label: string; fixed?: boolean; }
 
-function CustomizePanel({ sections, hidden, onToggle, onClose }: {
+function SortableSectionItem({ id, label, isFixed, isVisible, onToggle }: {
+  id: string; label: string; isFixed?: boolean; isVisible: boolean; onToggle: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled: !!isFixed });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div ref={setNodeRef} style={style}
+      className={cn(
+        'flex items-center gap-2 px-2 py-2.5 rounded-xl transition-colors select-none',
+        isDragging ? 'bg-gray-700 shadow-lg z-50 ring-1 ring-blue-500/40' : '',
+        isFixed ? 'opacity-50' : 'hover:bg-gray-700/60',
+      )}>
+      {isFixed ? (
+        <div className="w-5 flex-shrink-0" />
+      ) : (
+        <button
+          {...attributes} {...listeners}
+          className="p-0.5 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+          title="Arrastar para reordenar">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <span className="text-sm text-gray-200 flex-1 truncate">{label}</span>
+      <div
+        className={cn(
+          'w-9 h-5 rounded-full transition-colors relative flex-shrink-0',
+          isFixed || isVisible ? 'bg-blue-600' : 'bg-gray-600',
+          !isFixed && 'cursor-pointer',
+        )}
+        onClick={() => !isFixed && onToggle()}>
+        <div className={cn(
+          'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+          isFixed || isVisible ? 'translate-x-4' : 'translate-x-0.5',
+        )} />
+      </div>
+    </div>
+  );
+}
+
+function CustomizePanel({ sections, hidden, onToggle, onClose, order, onReorder }: {
   sections: SectionMeta[]; hidden: string[];
   onToggle: (key: string) => void; onClose: () => void;
+  order: string[]; onReorder: (o: string[]) => void;
 }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const sortedSections = [...sections].sort((a, b) => {
+    const ai = order.indexOf(a.key);
+    const bi = order.indexOf(b.key);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = order.indexOf(active.id as string);
+    const newIdx = order.indexOf(over.id as string);
+    if (oldIdx !== -1 && newIdx !== -1) onReorder(arrayMove(order, oldIdx, newIdx));
+  }
+
   return (
     <div className="fixed inset-0 z-[9998] flex" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -291,36 +386,34 @@ function CustomizePanel({ sections, hidden, onToggle, onClose }: {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-bold text-white">Personalizar sidebar</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Mostra ou esconde secções</p>
+            <p className="text-xs text-gray-400 mt-0.5">Arrasta para reordenar · toggle para esconder</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-700 rounded-lg">
             <X className="w-4 h-4 text-gray-400" />
           </button>
         </div>
-        <div className="space-y-1">
-          {sections.map(s => {
-            const isVisible = !hidden.includes(s.key);
-            return (
-              <div key={s.key}
-                className={cn('flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors',
-                  s.fixed ? 'opacity-50' : 'hover:bg-gray-700/60 cursor-pointer')}
-                onClick={() => !s.fixed && onToggle(s.key)}>
-                <span className="text-sm text-gray-200">{s.label}</span>
-                <div className={cn(
-                  'w-9 h-5 rounded-full transition-colors relative flex-shrink-0',
-                  isVisible ? 'bg-blue-600' : 'bg-gray-600',
-                )}>
-                  <div className={cn(
-                    'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
-                    isVisible ? 'translate-x-4' : 'translate-x-0.5',
-                  )} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={sortedSections.map(s => s.key)}
+            strategy={verticalListSortingStrategy}>
+            <div className="space-y-0.5">
+              {sortedSections.map(s => (
+                <SortableSectionItem
+                  key={s.key}
+                  id={s.key}
+                  label={s.label}
+                  isFixed={s.fixed}
+                  isVisible={!hidden.includes(s.key)}
+                  onToggle={() => onToggle(s.key)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
         <p className="text-xs text-gray-500 mt-3">
-          As secções fixas não podem ser escondidas.
+          Secções fixas não podem ser escondidas nem reordenadas.
         </p>
       </div>
     </div>
@@ -340,6 +433,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const [customize, setCustomize] = useState(false);
   const { starred, toggle: toggleStar } = useStarred();
   const { hidden: hiddenSections, toggle: toggleSection } = useHiddenSections();
+  const defaultSectionKeys = ['top', 'gerir', 'conformidade', 'intelligence', 'tools'];
+  const { order: sectionOrder, reorder: reorderSections } = useSectionOrder(defaultSectionKeys);
 
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
@@ -516,9 +611,15 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
 
   const recents = useRecentPages(pathname, allNavItems);
 
-  const visibleSections = sections.filter(s => s.fixed || !s.key || !hiddenSections.includes(s.key));
+  const orderedSections = [...sections].sort((a, b) => {
+    const ai = a.key ? sectionOrder.indexOf(a.key) : -1;
+    const bi = b.key ? sectionOrder.indexOf(b.key) : -1;
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
 
-  const sectionMeta = sections
+  const visibleSections = orderedSections.filter(s => s.fixed || !s.key || !hiddenSections.includes(s.key));
+
+  const sectionMeta = orderedSections
     .filter(s => s.key && s.label)
     .map(s => ({ key: s.key!, label: s.label!, fixed: s.fixed }));
 
@@ -536,6 +637,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           hidden={hiddenSections}
           onToggle={toggleSection}
           onClose={() => setCustomize(false)}
+          order={sectionOrder}
+          onReorder={reorderSections}
         />
       )}
 
