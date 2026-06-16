@@ -9,21 +9,27 @@ import {
   AlertTriangle, FileText, Shield, AlertCircle, BarChart2, Database,
   Settings, Upload, ChevronDown, Pin, PinOff,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
-  Activity, MessageSquareWarning, Globe, Bot, Brain,
+  Activity, MessageSquareWarning, Bot, Brain,
   Briefcase, Scale, Users, Layers, Zap, ScrollText,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
   GanttChart, BookTemplate, Plug2, GraduationCap,
+  Star, Clock, ChevronRight,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
-import { useState, useEffect } from 'react';
-import { Clock } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
 
 interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; }
 interface NavDomain { key: string; label: string; icon: React.ElementType; color: string; items: NavLeaf[]; }
-interface NavSection { label?: string; type: 'domains' | 'flat'; domains?: NavDomain[]; items?: NavLeaf[]; }
+interface NavSection {
+  label?: string;
+  type: 'domains' | 'flat' | 'flat-overflow';
+  domains?: NavDomain[];
+  items?: NavLeaf[];
+  overflowAfter?: number; // for flat-overflow: show N items, rest behind "Ver mais"
+}
 
 /* ── Quick Add Modal ─────────────────────────────────────────── */
 const QUICK_CREATE = [
@@ -40,27 +46,19 @@ function QuickAddModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs p-4 z-10"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs p-4 z-10" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-gray-900">Criar novo…</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {QUICK_CREATE.map(item => {
             const Icon = item.icon;
             return (
-              <button
-                key={item.href}
-                onClick={() => { router.push(item.href); onClose(); }}
-                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors text-center"
-              >
+              <button key={item.href} onClick={() => { router.push(item.href); onClose(); }}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors text-center">
                 <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', item.color)}>
-                  <Icon className="w-4.5 h-4.5 w-[18px] h-[18px]" />
+                  <Icon className="w-[18px] h-[18px]" />
                 </div>
                 <span className="text-xs font-medium text-gray-700 leading-tight">{item.label}</span>
               </button>
@@ -72,29 +70,125 @@ function QuickAddModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-/* ── Domain group ────────────────────────────────────────────── */
-function DomainGroup({ domain, pathname, defaultOpen, collapsed }: {
+/* ── Starred hook ────────────────────────────────────────────── */
+const STARRED_KEY = 'icomply_starred';
+
+function useStarred() {
+  const [starred, setStarred] = useState<string[]>([]);
+  useEffect(() => {
+    try { setStarred(JSON.parse(localStorage.getItem(STARRED_KEY) || '[]')); } catch { /* ignore */ }
+  }, []);
+  const toggle = useCallback((href: string) => {
+    setStarred(prev => {
+      const next = prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href];
+      try { localStorage.setItem(STARRED_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  return { starred, toggle };
+}
+
+/* ── Recent pages hook ───────────────────────────────────────── */
+const RECENT_KEY = 'icomply_recent_pages';
+const MAX_RECENT = 5;
+const SKIP_PREFIXES = ['/settings', '/backoffice'];
+
+interface RecentPage { href: string; label: string; }
+
+function useRecentPages(pathname: string, allItems: NavLeaf[]) {
+  const [recents, setRecents] = useState<RecentPage[]>([]);
+  useEffect(() => {
+    try { setRecents(JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')); } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    if (SKIP_PREFIXES.some(p => pathname.startsWith(p))) return;
+    const match = allItems.find(i => pathname === i.href || pathname.startsWith(i.href + '/'));
+    if (!match) return;
+    setRecents(prev => {
+      const next = [
+        { href: match.href, label: match.label },
+        ...prev.filter(r => r.href !== match.href),
+      ].slice(0, MAX_RECENT);
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+  return recents;
+}
+
+/* ── Nav leaf (with star button) ────────────────────────────── */
+function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md' }: {
+  item: NavLeaf; pathname: string; collapsed: boolean;
+  starred: string[]; onStar: (h: string) => void;
+  size?: 'sm' | 'md';
+}) {
+  const Icon = item.icon;
+  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+  const isStarred = starred.includes(item.href);
+
+  if (collapsed) {
+    return (
+      <Link href={item.href} title={item.label}
+        className={cn('flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-colors',
+          isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white')}>
+        <Icon className="w-5 h-5" />
+      </Link>
+    );
+  }
+
+  const sizeClasses = size === 'sm'
+    ? 'px-2.5 py-1.5 text-xs'
+    : 'px-3 py-2 text-sm';
+
+  return (
+    <div className="group relative flex items-center">
+      <Link href={item.href}
+        className={cn('flex items-center gap-3 rounded-lg font-medium transition-colors flex-1 min-w-0',
+          sizeClasses,
+          isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white')}>
+        <Icon className={cn('flex-shrink-0', size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
+        <span className="truncate">{item.label}</span>
+        {item.badge && (
+          <span className="ml-auto text-xs bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded-full flex-shrink-0">
+            {item.badge}
+          </span>
+        )}
+      </Link>
+      <button
+        onClick={e => { e.preventDefault(); e.stopPropagation(); onStar(item.href); }}
+        title={isStarred ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+        className={cn(
+          'absolute right-1 p-1 rounded-md transition-all flex-shrink-0',
+          isStarred
+            ? 'opacity-100 text-yellow-400 hover:text-yellow-300'
+            : 'opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300',
+        )}>
+        <Star className={cn('w-3 h-3', isStarred && 'fill-current')} />
+      </button>
+    </div>
+  );
+}
+
+/* ── Domain group (with star on header) ─────────────────────── */
+function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar }: {
   domain: NavDomain; pathname: string; defaultOpen: boolean; collapsed: boolean;
+  starred: string[]; onStar: (h: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const DomainIcon = domain.icon;
   const anyActive = domain.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
 
   if (collapsed) {
-    // Icon-only: show domain icon, tooltip, active indicator
     return (
       <div className="space-y-0.5">
-        {domain.items.slice(0, 1).map(item => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          return (
-            <Link key={item.href} href={item.href} title={domain.label}
-              className={cn('flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-colors',
-                anyActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white',
-              )}>
-              <DomainIcon className="w-5 h-5" />
-            </Link>
-          );
-        })}
+        {domain.items.slice(0, 1).map(item => (
+          <Link key={item.href} href={item.href} title={domain.label}
+            className={cn('flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-colors',
+              anyActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white')}>
+            <DomainIcon className="w-5 h-5" />
+          </Link>
+        ))}
       </div>
     );
   }
@@ -103,8 +197,7 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed }: {
     <div>
       <button onClick={() => setOpen(o => !o)}
         className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors group',
-          anyActive ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800/60 hover:text-gray-200',
-        )}>
+          anyActive ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800/60 hover:text-gray-200')}>
         <div className={cn('w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors',
           anyActive ? domain.color : 'bg-gray-700 group-hover:bg-gray-600')}>
           <DomainIcon className="w-3.5 h-3.5" />
@@ -114,60 +207,53 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed }: {
       </button>
       {open && (
         <div className="mt-0.5 ml-4 pl-3 border-l border-gray-700/60 space-y-0.5">
-          {domain.items.map(item => {
-            const ItemIcon = item.icon;
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            return (
-              <Link key={item.href} href={item.href}
-                className={cn('flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                  isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200',
-                )}>
-                <ItemIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
-                {item.badge && <span className="ml-auto text-xs bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded-full">{item.badge}</span>}
-              </Link>
-            );
-          })}
+          {domain.items.map(item => (
+            <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
+              starred={starred} onStar={onStar} size="sm" />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-/* ── Recent pages hook ───────────────────────────────────────── */
-const RECENT_KEY = 'icomply_recent_pages';
-const MAX_RECENT = 5;
-const SKIP_PREFIXES = ['/dashboard', '/settings', '/backoffice'];
+/* ── Flat section with overflow ──────────────────────────────── */
+function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfter }: {
+  items: NavLeaf[]; pathname: string; collapsed: boolean;
+  starred: string[]; onStar: (h: string) => void;
+  overflowAfter?: number;
+}) {
+  const hasActive = overflowAfter
+    ? items.slice(overflowAfter).some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
+    : false;
+  const [showAll, setShowAll] = useState(hasActive);
 
-interface RecentPage { href: string; label: string; iconName: string; }
+  const visible = overflowAfter ? items.slice(0, overflowAfter) : items;
+  const overflow = overflowAfter ? items.slice(overflowAfter) : [];
 
-function useRecentPages(pathname: string, allItems: NavLeaf[]) {
-  const [recents, setRecents] = useState<RecentPage[]>([]);
-
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') as RecentPage[];
-      setRecents(stored);
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    if (SKIP_PREFIXES.some(p => pathname.startsWith(p))) return;
-    const match = allItems.find(i => pathname === i.href || pathname.startsWith(i.href + '/'));
-    if (!match) return;
-
-    setRecents(prev => {
-      const next = [
-        { href: match.href, label: match.label, iconName: match.icon.displayName ?? match.icon.name ?? '' },
-        ...prev.filter(r => r.href !== match.href),
-      ].slice(0, MAX_RECENT);
-      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  return recents;
+  return (
+    <div className="space-y-0.5">
+      {visible.map(item => (
+        <NavItem key={item.href} item={item} pathname={pathname} collapsed={collapsed}
+          starred={starred} onStar={onStar} />
+      ))}
+      {overflow.length > 0 && !collapsed && (
+        <>
+          {showAll && overflow.map(item => (
+            <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
+              starred={starred} onStar={onStar} />
+          ))}
+          <button
+            onClick={() => setShowAll(v => !v)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors w-full"
+          >
+            <ChevronRight className={cn('w-3 h-3 transition-transform', showAll && 'rotate-90')} />
+            {showAll ? 'Ver menos' : `Ver mais ${overflow.length}…`}
+          </button>
+        </>
+      )}
+    </div>
+  );
 }
 
 /* ── Main Sidebar ────────────────────────────────────────────── */
@@ -180,33 +266,103 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const { user } = useAuthStore();
   const t = useTranslations('nav');
   const [quickAdd, setQuickAdd] = useState(false);
+  const { starred, toggle: toggleStar } = useStarred();
 
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
 
+  const INTELLIGENCE_ITEMS: NavLeaf[] = [
+    { href: '/approvals',          label: 'Aprovações',              icon: CheckSquare },
+    { href: '/portfolio',          label: 'Portfolio GRC',           icon: LayoutDashboard },
+    { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3 },
+    { href: '/intake',             label: 'Intake Forms',            icon: ClipboardList },
+    { href: '/action-plans',       label: 'Planos de Ação',          icon: GanttChart },
+    { href: '/board-reports',      label: 'Board Reports',           icon: BarChart2 },
+    { href: '/program-templates',  label: 'Templates de Programa',   icon: BookTemplate },
+    { href: '/automation',         label: 'Motor de Automações',     icon: Zap },
+    { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity },
+    { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss },
+    { href: '/management-body',    label: 'Órgão de Gestão',         icon: Users },
+    { href: '/auditor-sessions',   label: 'Portal de Auditoria',     icon: ShieldCheck },
+    { href: '/client-hub',         label: 'Client Hub',              icon: Building2 },
+    { href: '/ai-tools',           label: 'AI Compliance Tools',     icon: Brain },
+    { href: '/audit-templates',    label: 'Audit Templates',         icon: ClipboardList },
+    { href: '/integrations',       label: 'Integration Hub',         icon: Plug2 },
+    { href: '/iguard',             label: 'iGuard',                  icon: ShieldAlert },
+    { href: '/academy',            label: 'Centro de Formação',      icon: GraduationCap },
+  ];
+
   const sections: NavSection[] = [
     {
+      // Top-level: always visible, zero friction
       type: 'flat',
       items: [
         { href: '/dashboard',  label: t('dashboard'),  icon: LayoutDashboard },
         { href: '/diagnostic', label: t('diagnostic'), icon: ClipboardCheck },
+        { href: '/tasks',      label: t('tasks'),       icon: CheckSquare },
+        { href: '/risks',      label: t('risks'),       icon: AlertTriangle },
       ],
     },
     {
+      // Gerir = day-to-day GRC operations (was "GRC")
       type: 'domains',
-      label: t('sectionGovernance'),
+      label: 'Gerir',
+      domains: [
+        {
+          key: 'projects', label: t('projectsTasks'), icon: FolderOpen, color: 'bg-sky-600 text-white',
+          items: [
+            { href: '/projects', label: t('projects'),      icon: FolderOpen },
+            { href: '/itsm',     label: 'IT Service Mgmt',  icon: Settings },
+          ],
+        },
+        {
+          key: 'risk', label: t('riskEvidence'), icon: AlertTriangle, color: 'bg-yellow-600 text-white',
+          items: [
+            { href: '/evidence', label: t('evidence'), icon: FileText },
+          ],
+        },
+        {
+          key: 'audit', label: t('auditAssurance'), icon: Shield, color: 'bg-indigo-600 text-white',
+          items: [
+            { href: '/audits', label: t('audits'), icon: Shield },
+            { href: '/capa',   label: t('capa'),   icon: AlertCircle },
+          ],
+        },
+        {
+          key: 'governance', label: t('policiesReports'), icon: BookOpen, color: 'bg-gray-600 text-white',
+          items: [
+            { href: '/policies',            label: t('policies'),         icon: BookOpen },
+            { href: '/reports',             label: t('reports'),          icon: BarChart2 },
+            { href: '/reports/time-report', label: 'Relatório de Tempo',  icon: BarChart2 },
+          ],
+        },
+        {
+          key: 'controls', label: t('unifiedControls'), icon: GitMerge, color: 'bg-rose-600 text-white',
+          items: [
+            { href: '/governance/controls',      label: 'Control Library',    icon: Layers },
+            { href: '/governance/framework-map', label: 'Framework Map',      icon: GitMerge },
+            { href: '/governance/gaps',          label: 'Gap & Impact',       icon: Zap },
+            { href: '/governance/obligations',   label: 'Regulatory Horizon', icon: ScrollText },
+          ],
+        },
+      ],
+    },
+    {
+      // Conformidade = framework-level governance (was "Governance")
+      type: 'domains',
+      label: 'Conformidade',
       domains: [
         {
           key: 'security', label: t('securityGovernance'), icon: ShieldCheck, color: 'bg-blue-600 text-white',
           items: [
-            { href: '/soa',             label: 'ISO 27001 — SoA',          icon: FileCheck2 },
-            { href: '/nis2',            label: 'NIS2 Compliance',           icon: Network },
-            { href: '/nis2/incidents',  label: '↳ Notificações Incidentes', icon: AlertTriangle },
-            { href: '/dora',            label: 'DORA — Resiliência ICT',    icon: Activity },
-            { href: '/dora/register',   label: '↳ Register of Information', icon: Database },
-            { href: '/soc2',            label: 'SOC 2 — Trust Criteria',    icon: Award },
-            { href: '/cis',             label: 'CIS Controls v8',           icon: Shield },
-            { href: '/tisax',           label: 'TISAX — VDA ISA',           icon: Car },
+            { href: '/soa',            label: 'ISO 27001 — SoA',          icon: FileCheck2 },
+            { href: '/nis2',           label: 'NIS2 Compliance',           icon: Network },
+            { href: '/nis2/incidents', label: '↳ Notificações Incidentes', icon: AlertTriangle },
+            { href: '/dora',           label: 'DORA — Resiliência ICT',    icon: Activity },
+            { href: '/dora/register',  label: '↳ Register of Information', icon: Database },
+            { href: '/soc2',           label: 'SOC 2 — Trust Criteria',    icon: Award },
+            { href: '/cis',            label: 'CIS Controls v8',           icon: Shield },
+            { href: '/tisax',          label: 'TISAX — VDA ISA',           icon: Car },
           ],
         },
         {
@@ -223,9 +379,9 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         {
           key: 'ethics', label: t('ethicsSpeak'), icon: Scale, color: 'bg-orange-600 text-white',
           items: [
-            { href: '/denuncias',    label: t('denuncias'),              icon: MessageSquareWarning },
-            { href: '/aml',          label: 'AML · KYC · Sanções',       icon: Scale },
-            { href: '/anti-bribery', label: 'ISO 37001 · Anti-Bribery',  icon: Handshake },
+            { href: '/denuncias',    label: t('denuncias'),             icon: MessageSquareWarning },
+            { href: '/aml',          label: 'AML · KYC · Sanções',      icon: Scale },
+            { href: '/anti-bribery', label: 'ISO 37001 · Anti-Bribery', icon: Handshake },
           ],
         },
         {
@@ -258,73 +414,11 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       ],
     },
     {
-      type: 'domains',
-      label: t('sectionGRC'),
-      domains: [
-        {
-          key: 'projects', label: t('projectsTasks'), icon: FolderOpen, color: 'bg-sky-600 text-white',
-          items: [
-            { href: '/projects', label: t('projects'),     icon: FolderOpen },
-            { href: '/tasks',    label: t('tasks'),        icon: CheckSquare },
-            { href: '/itsm',     label: 'IT Service Mgmt', icon: Settings },
-          ],
-        },
-        {
-          key: 'risk', label: t('riskEvidence'), icon: AlertTriangle, color: 'bg-yellow-600 text-white',
-          items: [
-            { href: '/risks',    label: t('risks'),    icon: AlertTriangle },
-            { href: '/evidence', label: t('evidence'), icon: FileText },
-          ],
-        },
-        {
-          key: 'audit', label: t('auditAssurance'), icon: Shield, color: 'bg-indigo-600 text-white',
-          items: [
-            { href: '/audits', label: t('audits'), icon: Shield },
-            { href: '/capa',   label: t('capa'),   icon: AlertCircle },
-          ],
-        },
-        {
-          key: 'governance', label: t('policiesReports'), icon: BookOpen, color: 'bg-gray-600 text-white',
-          items: [
-            { href: '/policies', label: t('policies'), icon: BookOpen },
-            { href: '/reports',  label: t('reports'),  icon: BarChart2 },
-            { href: '/reports/time-report', label: 'Relatório de Tempo', icon: BarChart2 },
-          ],
-        },
-        {
-          key: 'controls', label: t('unifiedControls'), icon: GitMerge, color: 'bg-rose-600 text-white',
-          items: [
-            { href: '/governance/controls',      label: 'Control Library',    icon: Layers },
-            { href: '/governance/framework-map', label: 'Framework Map',      icon: GitMerge },
-            { href: '/governance/gaps',          label: 'Gap & Impact',       icon: Zap },
-            { href: '/governance/obligations',   label: 'Regulatory Horizon', icon: ScrollText },
-          ],
-        },
-      ],
-    },
-    {
-      type: 'flat',
-      label: 'Intelligence',
-      items: [
-        { href: '/approvals',          label: 'Aprovações',              icon: CheckSquare },
-        { href: '/portfolio',          label: 'Portfolio GRC',           icon: LayoutDashboard },
-        { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3 },
-        { href: '/intake',             label: 'Intake Forms',            icon: ClipboardList },
-        { href: '/action-plans',       label: 'Planos de Ação',          icon: GanttChart },
-        { href: '/program-templates',  label: 'Templates de Programa',   icon: BookTemplate },
-        { href: '/automation',         label: 'Motor de Automações',     icon: Zap },
-        { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity },
-        { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss },
-        { href: '/board-reports',      label: 'Board Reports',           icon: FileText },
-        { href: '/management-body',    label: 'Órgão de Gestão',         icon: Users },
-        { href: '/auditor-sessions',   label: 'Portal de Auditoria',     icon: ShieldCheck },
-        { href: '/client-hub',         label: 'Client Hub',              icon: Building2 },
-        { href: '/ai-tools',           label: 'AI Compliance Tools',     icon: Brain },
-        { href: '/audit-templates',    label: 'Audit Templates',         icon: ClipboardList },
-        { href: '/integrations',       label: 'Integration Hub',         icon: Plug2 },
-        { href: '/iguard',             label: 'iGuard',                  icon: ShieldAlert },
-        { href: '/academy',            label: 'Centro de Formação',       icon: GraduationCap },
-      ],
+      // Intelligence & Insights: collapsed to 6 visible, "Ver mais" for the rest
+      type: 'flat-overflow',
+      label: 'Intelligence & Insights',
+      items: INTELLIGENCE_ITEMS,
+      overflowAfter: 6,
     },
     {
       type: 'flat',
@@ -340,12 +434,17 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const getDefaultOpen = (domain: NavDomain) =>
     domain.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
 
-  // Flat list of all nav leaves for recent tracking
   const allNavItems: NavLeaf[] = sections.flatMap(s => {
-    if (s.type === 'flat') return s.items ?? [];
+    if (s.type === 'flat' || s.type === 'flat-overflow') return s.items ?? [];
     return (s.domains ?? []).flatMap(d => d.items);
   });
+
   const recents = useRecentPages(pathname, allNavItems);
+
+  // Starred items resolved to full NavLeaf
+  const starredItems = starred
+    .map(href => allNavItems.find(i => i.href === href))
+    .filter(Boolean) as NavLeaf[];
 
   return (
     <>
@@ -377,11 +476,9 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
             <>
               <span className="text-base font-bold text-white truncate flex-1">iComply</span>
               {onTogglePin && (
-                <button onClick={onTogglePin}
-                  title={pinned ? 'Desprender' : 'Fixar aberto'}
+                <button onClick={onTogglePin} title={pinned ? 'Desprender' : 'Fixar aberto'}
                   className={cn('p-1.5 rounded-lg transition-colors flex-shrink-0',
-                    pinned ? 'text-blue-400 bg-blue-900/40 hover:bg-blue-900/60' : 'text-gray-500 hover:text-white hover:bg-gray-700',
-                  )}>
+                    pinned ? 'text-blue-400 bg-blue-900/40 hover:bg-blue-900/60' : 'text-gray-500 hover:text-white hover:bg-gray-700')}>
                   {pinned ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
                 </button>
               )}
@@ -390,37 +487,51 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         </div>
 
         {/* ── Quick Add button ─────────────────────────────────── */}
-        <div className={cn('flex-shrink-0 px-2 pt-3 pb-1')}>
-          <button
-            onClick={() => setQuickAdd(true)}
+        <div className="flex-shrink-0 px-2 pt-3 pb-1">
+          <button onClick={() => setQuickAdd(true)}
             className={cn(
               'flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-colors',
               collapsed ? 'w-10 h-10 justify-center mx-auto' : 'w-full px-3 py-2 text-sm',
             )}
-            title="Criar novo…"
-          >
+            title="Criar novo…">
             <Plus className="w-4 h-4 flex-shrink-0" />
             {!collapsed && <span>Criar novo…</span>}
           </button>
         </div>
 
-        {/* ── Recent ──────────────────────────────────────────── */}
+        {/* ── Favoritos ────────────────────────────────────────── */}
+        {!collapsed && starredItems.length > 0 && (
+          <div className="px-2 pb-1 pt-1">
+            <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+              <Star className="w-2.5 h-2.5 fill-yellow-500 text-yellow-500" /> Favoritos
+            </p>
+            <div className="space-y-0.5">
+              {starredItems.map(item => (
+                <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
+                  starred={starred} onStar={toggleStar} />
+              ))}
+            </div>
+            <div className="border-t border-gray-700/40 mt-2" />
+          </div>
+        )}
+
+        {/* ── Recente ──────────────────────────────────────────── */}
         {!collapsed && recents.length > 0 && (
           <div className="px-2 pb-1">
-            <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
-              Recente
+            <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+              <Clock className="w-2.5 h-2.5" /> Recente
             </p>
             <div className="space-y-0.5">
               {recents.map(r => {
                 const match = allNavItems.find(i => i.href === r.href);
-                const Icon = match?.icon ?? Clock;
+                if (!match) return null;
+                const Icon = match.icon;
                 const isActive = pathname === r.href;
                 return (
                   <Link key={r.href} href={r.href}
                     className={cn('flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                      isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200',
-                    )}>
-                    <Clock className="w-3.5 h-3.5 flex-shrink-0 opacity-50" />
+                      isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200')}>
+                    <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                     <span className="truncate">{r.label}</span>
                   </Link>
                 );
@@ -442,36 +553,23 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
                 )}
                 {collapsed && si > 0 && <div className="border-t border-gray-700/40 my-1" />}
 
-                {section.type === 'flat' && (
-                  <div className="space-y-0.5">
-                    {(section.items || []).map(item => {
-                      const Icon = item.icon;
-                      const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                      return collapsed ? (
-                        <Link key={item.href} href={item.href} title={item.label}
-                          className={cn('flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-colors',
-                            isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white',
-                          )}>
-                          <Icon className="w-5 h-5" />
-                        </Link>
-                      ) : (
-                        <Link key={item.href} href={item.href}
-                          className={cn('flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                            isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white',
-                          )}>
-                          <Icon className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">{item.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
+                {(section.type === 'flat' || section.type === 'flat-overflow') && (
+                  <FlatSection
+                    items={section.items ?? []}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                    starred={starred}
+                    onStar={toggleStar}
+                    overflowAfter={section.overflowAfter}
+                  />
                 )}
 
                 {section.type === 'domains' && (
                   <div className="space-y-0.5">
-                    {(section.domains || []).map(domain => (
+                    {(section.domains ?? []).map(domain => (
                       <DomainGroup key={domain.key} domain={domain} pathname={pathname}
-                        defaultOpen={getDefaultOpen(domain)} collapsed={collapsed} />
+                        defaultOpen={getDefaultOpen(domain)} collapsed={collapsed}
+                        starred={starred} onStar={toggleStar} />
                     ))}
                   </div>
                 )}
@@ -485,7 +583,6 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           <LocaleSwitcher collapsed={collapsed} />
         </div>
 
-        {/* ── Version ──────────────────────────────────────────── */}
         {!collapsed && (
           <div className="px-4 py-2 text-xs text-gray-500 text-center flex-shrink-0">
             v1.0.0
