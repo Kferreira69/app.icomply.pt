@@ -17,7 +17,8 @@ import {
   GanttChart, BookTemplate, Plug2, GraduationCap,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Clock } from 'lucide-react';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
 
 interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; }
@@ -131,6 +132,42 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed }: {
       )}
     </div>
   );
+}
+
+/* ── Recent pages hook ───────────────────────────────────────── */
+const RECENT_KEY = 'icomply_recent_pages';
+const MAX_RECENT = 5;
+const SKIP_PREFIXES = ['/dashboard', '/settings', '/backoffice'];
+
+interface RecentPage { href: string; label: string; iconName: string; }
+
+function useRecentPages(pathname: string, allItems: NavLeaf[]) {
+  const [recents, setRecents] = useState<RecentPage[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') as RecentPage[];
+      setRecents(stored);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (SKIP_PREFIXES.some(p => pathname.startsWith(p))) return;
+    const match = allItems.find(i => pathname === i.href || pathname.startsWith(i.href + '/'));
+    if (!match) return;
+
+    setRecents(prev => {
+      const next = [
+        { href: match.href, label: match.label, iconName: match.icon.displayName ?? match.icon.name ?? '' },
+        ...prev.filter(r => r.href !== match.href),
+      ].slice(0, MAX_RECENT);
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  return recents;
 }
 
 /* ── Main Sidebar ────────────────────────────────────────────── */
@@ -303,6 +340,13 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const getDefaultOpen = (domain: NavDomain) =>
     domain.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));
 
+  // Flat list of all nav leaves for recent tracking
+  const allNavItems: NavLeaf[] = sections.flatMap(s => {
+    if (s.type === 'flat') return s.items ?? [];
+    return (s.domains ?? []).flatMap(d => d.items);
+  });
+  const recents = useRecentPages(pathname, allNavItems);
+
   return (
     <>
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} />}
@@ -359,6 +403,32 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
             {!collapsed && <span>Criar novo…</span>}
           </button>
         </div>
+
+        {/* ── Recent ──────────────────────────────────────────── */}
+        {!collapsed && recents.length > 0 && (
+          <div className="px-2 pb-1">
+            <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+              Recente
+            </p>
+            <div className="space-y-0.5">
+              {recents.map(r => {
+                const match = allNavItems.find(i => i.href === r.href);
+                const Icon = match?.icon ?? Clock;
+                const isActive = pathname === r.href;
+                return (
+                  <Link key={r.href} href={r.href}
+                    className={cn('flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                      isActive ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200',
+                    )}>
+                    <Clock className="w-3.5 h-3.5 flex-shrink-0 opacity-50" />
+                    <span className="truncate">{r.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="border-t border-gray-700/40 mt-2" />
+          </div>
+        )}
 
         {/* ── Navigation ──────────────────────────────────────── */}
         <nav className="flex-1 py-2 overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700">

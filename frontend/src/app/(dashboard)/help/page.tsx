@@ -156,27 +156,27 @@ export default function HelpPage() {
             </p>
           </div>
         </a>
-        <a href="https://wa.me/351910000000" target="_blank" rel="noopener noreferrer"
+        <a href="https://wa.me/351917599852" target="_blank" rel="noopener noreferrer"
           className="flex flex-col gap-3 p-5 bg-green-50 border border-green-100 rounded-2xl hover:bg-green-100 transition-colors">
           <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center">
             <MessageCircle className="w-5 h-5 text-white" />
           </div>
           <div>
             <p className="font-semibold text-green-900">WhatsApp / Chat</p>
-            <p className="text-xs text-green-700 mt-0.5">+351 910 000 000</p>
+            <p className="text-xs text-green-700 mt-0.5">+351 917 599 852</p>
             <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> Seg–Sex, 9h–18h
             </p>
           </div>
         </a>
-        <a href="tel:+351910000000"
+        <a href="tel:+351210210039"
           className="flex flex-col gap-3 p-5 bg-purple-50 border border-purple-100 rounded-2xl hover:bg-purple-100 transition-colors">
           <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
             <Phone className="w-5 h-5 text-white" />
           </div>
           <div>
             <p className="font-semibold text-purple-900">Telefone</p>
-            <p className="text-xs text-purple-700 mt-0.5">+351 910 000 000</p>
+            <p className="text-xs text-purple-700 mt-0.5">+351 210 210 039</p>
             <p className="text-xs text-purple-500 mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> Seg–Sex, 9h–18h
             </p>
