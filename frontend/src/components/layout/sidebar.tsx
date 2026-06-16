@@ -15,7 +15,7 @@ import {
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
   GanttChart, BookTemplate, Plug2, GraduationCap,
-  Star, Clock, ChevronRight,
+  Star, Clock, ChevronRight, SlidersHorizontal,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState, useEffect, useCallback } from 'react';
@@ -25,10 +25,12 @@ interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge
 interface NavDomain { key: string; label: string; icon: React.ElementType; color: string; items: NavLeaf[]; }
 interface NavSection {
   label?: string;
+  key?: string;          // unique key for hide/show
   type: 'domains' | 'flat' | 'flat-overflow';
   domains?: NavDomain[];
   items?: NavLeaf[];
-  overflowAfter?: number; // for flat-overflow: show N items, rest behind "Ver mais"
+  overflowAfter?: number;
+  fixed?: boolean;       // fixed=true → cannot be hidden
 }
 
 /* ── Quick Add Modal ─────────────────────────────────────────── */
@@ -256,6 +258,75 @@ function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfte
   );
 }
 
+/* ── Hidden sections hook ────────────────────────────────────── */
+const HIDDEN_KEY = 'icomply_hidden_sections';
+
+function useHiddenSections() {
+  const [hidden, setHidden] = useState<string[]>([]);
+  useEffect(() => {
+    try { setHidden(JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')); } catch { /* ignore */ }
+  }, []);
+  const toggle = useCallback((key: string) => {
+    setHidden(prev => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  return { hidden, toggle };
+}
+
+/* ── Customize Sidebar Panel ─────────────────────────────────── */
+interface SectionMeta { key: string; label: string; fixed?: boolean; }
+
+function CustomizePanel({ sections, hidden, onToggle, onClose }: {
+  sections: SectionMeta[]; hidden: string[];
+  onToggle: (key: string) => void; onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[9998] flex" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="relative ml-14 mt-auto mb-16 z-10 bg-gray-800 rounded-2xl shadow-2xl w-72 p-4"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-white">Personalizar sidebar</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Mostra ou esconde secções</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-700 rounded-lg">
+            <X className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
+        <div className="space-y-1">
+          {sections.map(s => {
+            const isVisible = !hidden.includes(s.key);
+            return (
+              <div key={s.key}
+                className={cn('flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors',
+                  s.fixed ? 'opacity-50' : 'hover:bg-gray-700/60 cursor-pointer')}
+                onClick={() => !s.fixed && onToggle(s.key)}>
+                <span className="text-sm text-gray-200">{s.label}</span>
+                <div className={cn(
+                  'w-9 h-5 rounded-full transition-colors relative flex-shrink-0',
+                  isVisible ? 'bg-blue-600' : 'bg-gray-600',
+                )}>
+                  <div className={cn(
+                    'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                    isVisible ? 'translate-x-4' : 'translate-x-0.5',
+                  )} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          As secções fixas não podem ser escondidas.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Sidebar ────────────────────────────────────────────── */
 export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   collapsed?: boolean;
@@ -266,7 +337,9 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const { user } = useAuthStore();
   const t = useTranslations('nav');
   const [quickAdd, setQuickAdd] = useState(false);
+  const [customize, setCustomize] = useState(false);
   const { starred, toggle: toggleStar } = useStarred();
+  const { hidden: hiddenSections, toggle: toggleSection } = useHiddenSections();
 
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
@@ -294,7 +367,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
 
   const sections: NavSection[] = [
     {
-      // Top-level: always visible, zero friction
+      key: 'top',
+      fixed: true,
       type: 'flat',
       items: [
         { href: '/dashboard',  label: t('dashboard'),  icon: LayoutDashboard },
@@ -304,7 +378,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       ],
     },
     {
-      // Gerir = day-to-day GRC operations (was "GRC")
+      key: 'gerir',
       type: 'domains',
       label: 'Gerir',
       domains: [
@@ -348,7 +422,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       ],
     },
     {
-      // Conformidade = framework-level governance (was "Governance")
+      key: 'conformidade',
       type: 'domains',
       label: 'Conformidade',
       domains: [
@@ -414,13 +488,14 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       ],
     },
     {
-      // Intelligence & Insights: collapsed to 6 visible, "Ver mais" for the rest
+      key: 'intelligence',
       type: 'flat-overflow',
       label: 'Intelligence & Insights',
       items: INTELLIGENCE_ITEMS,
       overflowAfter: 6,
     },
     {
+      key: 'tools',
       type: 'flat',
       label: t('tools'),
       items: [
@@ -441,6 +516,12 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
 
   const recents = useRecentPages(pathname, allNavItems);
 
+  const visibleSections = sections.filter(s => s.fixed || !s.key || !hiddenSections.includes(s.key));
+
+  const sectionMeta = sections
+    .filter(s => s.key && s.label)
+    .map(s => ({ key: s.key!, label: s.label!, fixed: s.fixed }));
+
   // Starred items resolved to full NavLeaf
   const starredItems = starred
     .map(href => allNavItems.find(i => i.href === href))
@@ -449,6 +530,14 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   return (
     <>
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} />}
+      {customize && (
+        <CustomizePanel
+          sections={sectionMeta}
+          hidden={hiddenSections}
+          onToggle={toggleSection}
+          onClose={() => setCustomize(false)}
+        />
+      )}
 
       <aside className={cn(
         'h-full flex flex-col bg-gray-900 text-white flex-shrink-0 shadow-2xl',
@@ -544,7 +633,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         {/* ── Navigation ──────────────────────────────────────── */}
         <nav className="flex-1 py-2 overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700">
           <div className={cn('space-y-4', collapsed ? 'px-1' : 'px-2')}>
-            {sections.map((section, si) => (
+            {visibleSections.map((section, si) => (
               <div key={si}>
                 {section.label && !collapsed && (
                   <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
@@ -579,8 +668,19 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         </nav>
 
         {/* ── Footer ───────────────────────────────────────────── */}
-        <div className="border-t border-gray-700/60 p-2 flex-shrink-0">
-          <LocaleSwitcher collapsed={collapsed} />
+        <div className="border-t border-gray-700/60 p-2 flex-shrink-0 flex items-center gap-1">
+          <div className="flex-1">
+            <LocaleSwitcher collapsed={collapsed} />
+          </div>
+          <button
+            onClick={() => setCustomize(v => !v)}
+            title="Personalizar sidebar"
+            className={cn(
+              'p-1.5 rounded-lg transition-colors flex-shrink-0',
+              customize ? 'bg-blue-900/40 text-blue-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800',
+            )}>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {!collapsed && (
