@@ -1346,7 +1346,8 @@
     "viewErrors": "Ver erros",
     "type": {
       "TASKS": "Tarefas",
-      "RISKS": "Riscos"
+      "RISKS": "Riscos",
+      "GAP_ANALYSIS_ISO27001": "GAP Analysis ISO 27001"
     },
     "importStatus": {
       "PENDING": "Pendente",
