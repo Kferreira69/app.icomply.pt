@@ -378,6 +378,7 @@ model Organization {
   calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
   timeEntries         TimeEntry[]
   platformIntegrations PlatformIntegration[]
+  supportTickets      SupportTicket[]
 
   @@map("organizations")
 }
