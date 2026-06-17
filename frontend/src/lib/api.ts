@@ -177,7 +177,8 @@ export const frameworksApi = {
 };
 
 export const diagnosticsApi = {
-  questions: () => api.get('/diagnostics/questions'),
+  questions: (params?: { category?: string; frameworks?: string }) =>
+    api.get('/diagnostics/questions', { params }),
   startRun: (data?: any) => api.post('/diagnostics/runs', data || {}),
   listRuns: () => api.get('/diagnostics/runs'),
   getRun: (id: string) => api.get(`/diagnostics/runs/${id}`),

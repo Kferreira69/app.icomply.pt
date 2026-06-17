@@ -24,6 +24,9 @@ import {
   BarChart3,
   ClipboardList,
   Zap,
+  Shield,
+  ArrowRight,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { tasksApi } from '@/lib/api';
@@ -32,10 +35,32 @@ import { tasksApi } from '@/lib/api';
 
 type Answer = 'sim' | 'parcial' | 'nao' | null;
 
+type FrameworkKey =
+  | 'ISO_27001'
+  | 'GDPR'
+  | 'NIS2'
+  | 'DORA'
+  | 'SOC2'
+  | 'ISO_9001'
+  | 'ISO_22301'
+  | 'PCI_DSS';
+
+interface FrameworkDef {
+  key: FrameworkKey;
+  name: string;
+  subtitle: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  icon: string;
+}
+
 interface Question {
   id: string;
   text: string;
   category: CategoryKey;
+  frameworks: FrameworkKey[];
 }
 
 interface Category {
@@ -69,69 +94,267 @@ interface Recommendation {
   prefilledDescription: string;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Framework Definitions ────────────────────────────────────────────────────
+
+const FRAMEWORKS: FrameworkDef[] = [
+  {
+    key: 'ISO_27001',
+    name: 'ISO 27001:2022',
+    subtitle: 'Segurança da Informação',
+    description: 'Sistema de Gestão de Segurança da Informação — requisitos para proteção de dados e ativos de informação.',
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-300',
+    icon: '🔒',
+  },
+  {
+    key: 'GDPR',
+    name: 'RGPD / GDPR',
+    subtitle: 'Proteção de Dados Pessoais',
+    description: 'Regulamento Geral de Proteção de Dados — conformidade com o tratamento de dados pessoais de cidadãos da UE.',
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-300',
+    icon: '🛡️',
+  },
+  {
+    key: 'NIS2',
+    name: 'NIS2',
+    subtitle: 'Segurança de Redes e Sistemas',
+    description: 'Diretiva de Segurança de Redes e Sistemas de Informação — obrigatória para entidades essenciais e importantes.',
+    color: 'text-indigo-700',
+    bgColor: 'bg-indigo-50',
+    borderColor: 'border-indigo-300',
+    icon: '🌐',
+  },
+  {
+    key: 'DORA',
+    name: 'DORA',
+    subtitle: 'Resiliência Operacional Digital',
+    description: 'Digital Operational Resilience Act — resiliência digital para entidades do setor financeiro.',
+    color: 'text-orange-700',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-300',
+    icon: '⚡',
+  },
+  {
+    key: 'SOC2',
+    name: 'SOC 2 Type II',
+    subtitle: 'Service Organization Controls',
+    description: 'Critérios de confiança para organizações de serviços — segurança, disponibilidade, confidencialidade e privacidade.',
+    color: 'text-teal-700',
+    bgColor: 'bg-teal-50',
+    borderColor: 'border-teal-300',
+    icon: '✅',
+  },
+  {
+    key: 'ISO_9001',
+    name: 'ISO 9001:2015',
+    subtitle: 'Gestão da Qualidade',
+    description: 'Sistema de Gestão da Qualidade — melhoria contínua, satisfação do cliente e eficiência operacional.',
+    color: 'text-green-700',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-300',
+    icon: '🏆',
+  },
+  {
+    key: 'ISO_22301',
+    name: 'ISO 22301',
+    subtitle: 'Continuidade de Negócio',
+    description: 'Sistema de Gestão de Continuidade de Negócio — preparação e recuperação face a incidentes disruptivos.',
+    color: 'text-amber-700',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-300',
+    icon: '♻️',
+  },
+  {
+    key: 'PCI_DSS',
+    name: 'PCI DSS',
+    subtitle: 'Segurança de Dados de Pagamento',
+    description: 'Payment Card Industry Data Security Standard — proteção de dados de titulares de cartões de pagamento.',
+    color: 'text-red-700',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-300',
+    icon: '💳',
+  },
+];
+
+// ─── Questions with framework tags ───────────────────────────────────────────
 
 const CATEGORIES: Category[] = [
   {
     key: 'riscos',
     label: 'Gestão de Riscos',
     questions: [
-      { id: 'r1', text: 'Tem registo de riscos atualizado?', category: 'riscos' },
-      { id: 'r2', text: 'Riscos são avaliados regularmente?', category: 'riscos' },
-      { id: 'r3', text: 'Existe plano de mitigação para os riscos identificados?', category: 'riscos' },
-      { id: 'r4', text: 'Riscos críticos têm um owner definido?', category: 'riscos' },
+      {
+        id: 'r1',
+        text: 'Tem registo de riscos atualizado?',
+        category: 'riscos',
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+      },
+      {
+        id: 'r2',
+        text: 'Riscos são avaliados regularmente?',
+        category: 'riscos',
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301'],
+      },
+      {
+        id: 'r3',
+        text: 'Existe plano de mitigação para os riscos identificados?',
+        category: 'riscos',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+      },
+      {
+        id: 'r4',
+        text: 'Riscos críticos têm um owner definido?',
+        category: 'riscos',
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001'],
+      },
     ],
   },
   {
     key: 'evidencias',
     label: 'Evidências',
     questions: [
-      { id: 'e1', text: 'Evidências são recolhidas sistematicamente?', category: 'evidencias' },
-      { id: 'e2', text: 'Evidências têm data de validade definida?', category: 'evidencias' },
-      { id: 'e3', text: 'Taxa de evidências válidas superior a 80%?', category: 'evidencias' },
-      { id: 'e4', text: 'Existe processo de revisão de evidências?', category: 'evidencias' },
+      {
+        id: 'e1',
+        text: 'Evidências são recolhidas sistematicamente?',
+        category: 'evidencias',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
+      {
+        id: 'e2',
+        text: 'Evidências têm data de validade definida?',
+        category: 'evidencias',
+        frameworks: ['ISO_27001', 'SOC2', 'PCI_DSS'],
+      },
+      {
+        id: 'e3',
+        text: 'Taxa de evidências válidas superior a 80%?',
+        category: 'evidencias',
+        frameworks: ['ISO_27001', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
+      {
+        id: 'e4',
+        text: 'Existe processo de revisão de evidências?',
+        category: 'evidencias',
+        frameworks: ['ISO_27001', 'GDPR', 'SOC2', 'ISO_9001'],
+      },
     ],
   },
   {
     key: 'tarefas',
     label: 'Tarefas e CAPAs',
     questions: [
-      { id: 't1', text: 'CAPAs têm prazo de conclusão definido?', category: 'tarefas' },
-      { id: 't2', text: 'Taxa de conclusão de tarefas superior a 70%?', category: 'tarefas' },
-      { id: 't3', text: 'Existe processo de escalamento para tarefas em atraso?', category: 'tarefas' },
+      {
+        id: 't1',
+        text: 'CAPAs têm prazo de conclusão definido?',
+        category: 'tarefas',
+        frameworks: ['ISO_27001', 'ISO_9001', 'NIS2', 'SOC2'],
+      },
+      {
+        id: 't2',
+        text: 'Taxa de conclusão de tarefas superior a 70%?',
+        category: 'tarefas',
+        frameworks: ['ISO_27001', 'ISO_9001', 'NIS2', 'DORA', 'SOC2'],
+      },
+      {
+        id: 't3',
+        text: 'Existe processo de escalamento para tarefas em atraso?',
+        category: 'tarefas',
+        frameworks: ['ISO_27001', 'ISO_9001', 'NIS2'],
+      },
     ],
   },
   {
     key: 'auditorias',
     label: 'Auditorias',
     questions: [
-      { id: 'a1', text: 'Auditorias internas são realizadas regularmente?', category: 'auditorias' },
-      { id: 'a2', text: 'Auditorias externas estão planeadas?', category: 'auditorias' },
-      { id: 'a3', text: 'Findings de auditoria são tratados e fechados?', category: 'auditorias' },
+      {
+        id: 'a1',
+        text: 'Auditorias internas são realizadas regularmente?',
+        category: 'auditorias',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+      },
+      {
+        id: 'a2',
+        text: 'Auditorias externas estão planeadas?',
+        category: 'auditorias',
+        frameworks: ['ISO_27001', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
+      {
+        id: 'a3',
+        text: 'Findings de auditoria são tratados e fechados?',
+        category: 'auditorias',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
     ],
   },
   {
     key: 'politicas',
     label: 'Políticas',
     questions: [
-      { id: 'p1', text: 'Políticas de compliance estão publicadas?', category: 'politicas' },
-      { id: 'p2', text: 'Políticas são revistas anualmente?', category: 'politicas' },
-      { id: 'p3', text: 'Colaboradores confirmaram leitura das políticas?', category: 'politicas' },
+      {
+        id: 'p1',
+        text: 'Políticas de compliance estão publicadas?',
+        category: 'politicas',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+      },
+      {
+        id: 'p2',
+        text: 'Políticas são revistas anualmente?',
+        category: 'politicas',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
+      {
+        id: 'p3',
+        text: 'Colaboradores confirmaram leitura das políticas?',
+        category: 'politicas',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'PCI_DSS'],
+      },
     ],
   },
   {
     key: 'formacao',
     label: 'Formação',
     questions: [
-      { id: 'f1', text: 'Existe programa de formação de compliance?', category: 'formacao' },
-      { id: 'f2', text: 'Taxa de conclusão de formação superior a 80%?', category: 'formacao' },
-      { id: 'f3', text: 'Formações são documentadas e rastreadas?', category: 'formacao' },
+      {
+        id: 'f1',
+        text: 'Existe programa de formação de compliance?',
+        category: 'formacao',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
+      {
+        id: 'f2',
+        text: 'Taxa de conclusão de formação superior a 80%?',
+        category: 'formacao',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
+      {
+        id: 'f3',
+        text: 'Formações são documentadas e rastreadas?',
+        category: 'formacao',
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+      },
     ],
   },
 ];
 
-const ALL_QUESTIONS: Question[] = CATEGORIES.flatMap((c) => c.questions);
-const TOTAL_QUESTIONS = ALL_QUESTIONS.length; // 20
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getFilteredCategories(selectedFrameworks: FrameworkKey[]): Category[] {
+  if (selectedFrameworks.length === 0) return CATEGORIES;
+  return CATEGORIES.map((cat) => ({
+    ...cat,
+    questions: cat.questions.filter((q) =>
+      q.frameworks.some((fw) => selectedFrameworks.includes(fw)),
+    ),
+  })).filter((cat) => cat.questions.length > 0);
+}
+
+function getAllFilteredQuestions(selectedFrameworks: FrameworkKey[]): Question[] {
+  return getFilteredCategories(selectedFrameworks).flatMap((c) => c.questions);
+}
 
 const ANSWER_SCORE: Record<NonNullable<Answer>, number> = {
   sim: 100,
@@ -178,6 +401,36 @@ const MATURITY_LEVELS = [
 ];
 
 const TARGET_SCORE = 80;
+
+function categoryScore(
+  answers: WizardAnswers,
+  cat: Category,
+): number {
+  const answered = cat.questions.filter((q) => answers[q.id] != null);
+  if (answered.length === 0) return 0;
+  const total = answered.reduce((sum, q) => sum + ANSWER_SCORE[answers[q.id]!], 0);
+  return Math.round(total / cat.questions.length);
+}
+
+function overallScore(answers: WizardAnswers, categories: Category[]): number {
+  if (categories.length === 0) return 0;
+  const scores = categories.map((c) => categoryScore(answers, c));
+  return Math.round(scores.reduce((a, b) => a + b, 0) / categories.length);
+}
+
+function frameworkScore(answers: WizardAnswers, frameworkKey: FrameworkKey): number {
+  const relevantQuestions = CATEGORIES.flatMap((c) =>
+    c.questions.filter((q) => q.frameworks.includes(frameworkKey)),
+  );
+  const answered = relevantQuestions.filter((q) => answers[q.id] != null);
+  if (answered.length === 0) return 0;
+  const total = answered.reduce((sum, q) => sum + ANSWER_SCORE[answers[q.id]!], 0);
+  return Math.round(total / relevantQuestions.length);
+}
+
+function getMaturity(score: number) {
+  return MATURITY_LEVELS.find((m) => score >= m.min && score <= m.max) ?? MATURITY_LEVELS[0];
+}
 
 // ─── Recommendation engine ───────────────────────────────────────────────────
 
@@ -352,30 +605,15 @@ const PRIORITY_ORDER: Record<Recommendation['priority'], number> = {
   critica: 0, alta: 1, media: 2, baixa: 3,
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function categoryScore(answers: WizardAnswers, catKey: CategoryKey): number {
-  const cat = CATEGORIES.find((c) => c.key === catKey)!;
-  const answered = cat.questions.filter((q) => answers[q.id] != null);
-  if (answered.length === 0) return 0;
-  const total = answered.reduce((sum, q) => sum + ANSWER_SCORE[answers[q.id]!], 0);
-  return Math.round(total / cat.questions.length);
-}
-
-function overallScore(answers: WizardAnswers): number {
-  const scores = CATEGORIES.map((c) => categoryScore(answers, c.key));
-  return Math.round(scores.reduce((a, b) => a + b, 0) / CATEGORIES.length);
-}
-
-function getMaturity(score: number) {
-  return MATURITY_LEVELS.find((m) => score >= m.min && score <= m.max) ?? MATURITY_LEVELS[0];
-}
-
-function generateRecommendations(answers: WizardAnswers): Recommendation[] {
+function generateRecommendations(
+  answers: WizardAnswers,
+  activeQuestionIds: Set<string>,
+): Recommendation[] {
   const recs: Recommendation[] = [];
   const seen = new Set<string>();
 
   for (const entry of REC_MAP) {
+    if (!activeQuestionIds.has(entry.questionId)) continue;
     if (answers[entry.questionId] === entry.answer) {
       const key = `${entry.questionId}-${entry.answer}`;
       if (!seen.has(key)) {
@@ -420,12 +658,23 @@ function exportCsv(recommendations: Recommendation[]) {
   URL.revokeObjectURL(url);
 }
 
-const LS_KEY = 'icomply_diagnostic_v1';
+const LS_KEY = 'icomply_diagnostic_v2';
+const LS_FW_KEY = 'icomply_diagnostic_frameworks_v2';
 
-function loadFromStorage(): WizardAnswers | null {
+function loadAnswersFromStorage(): WizardAnswers | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadFrameworksFromStorage(): FrameworkKey[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LS_FW_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -436,6 +685,15 @@ function saveToStorage(answers: WizardAnswers) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(answers));
+  } catch {
+    // ignore
+  }
+}
+
+function saveFrameworksToStorage(frameworks: FrameworkKey[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LS_FW_KEY, JSON.stringify(frameworks));
   } catch {
     // ignore
   }
@@ -463,26 +721,184 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
+// ─── Step 0: Framework Selector ──────────────────────────────────────────────
+
+function FrameworkSelector({
+  selected,
+  onConfirm,
+}: {
+  selected: FrameworkKey[];
+  onConfirm: (keys: FrameworkKey[]) => void;
+}) {
+  const [draft, setDraft] = useState<FrameworkKey[]>(selected);
+
+  function toggle(key: FrameworkKey) {
+    setDraft((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
+
+  function selectAll() {
+    setDraft(FRAMEWORKS.map((f) => f.key));
+  }
+
+  function clearAll() {
+    setDraft([]);
+  }
+
+  const totalQuestionsForDraft = getAllFilteredQuestions(draft).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Header card */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Layers className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">
+              Passo 1 — Selecione os Frameworks Aplicáveis
+            </h2>
+            <p className="text-sm text-gray-500">
+              Selecione os regulamentos e normas que se aplicam à sua organização. O diagnóstico será filtrado para mostrar apenas as questões relevantes para os frameworks escolhidos.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={selectAll}
+              className="text-xs text-primary hover:underline font-medium"
+            >
+              Selecionar todos
+            </button>
+            <span className="text-gray-300">·</span>
+            <button
+              onClick={clearAll}
+              className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+            >
+              Limpar
+            </button>
+          </div>
+          <div className="text-sm text-gray-500">
+            {draft.length} framework{draft.length !== 1 ? 's' : ''} selecionado{draft.length !== 1 ? 's' : ''}
+            {draft.length > 0 && (
+              <span className="ml-2 text-primary font-medium">
+                · {totalQuestionsForDraft} questões
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Framework grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {FRAMEWORKS.map((fw) => {
+          const isSelected = draft.includes(fw.key);
+          const qCount = getAllFilteredQuestions([fw.key]).length;
+          return (
+            <button
+              key={fw.key}
+              onClick={() => toggle(fw.key)}
+              className={cn(
+                'text-left rounded-xl border-2 p-4 transition-all duration-150 hover:shadow-sm',
+                isSelected
+                  ? `${fw.bgColor} ${fw.borderColor}`
+                  : 'bg-white border-gray-200 hover:border-gray-300',
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-2xl leading-none mt-0.5">{fw.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={cn('text-sm font-bold', isSelected ? fw.color : 'text-gray-900')}>
+                      {fw.name}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle2 className={cn('w-4 h-4 shrink-0', fw.color)} />
+                    )}
+                  </div>
+                  <p className={cn('text-xs font-medium mt-0.5', isSelected ? fw.color : 'text-gray-500')}>
+                    {fw.subtitle}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed line-clamp-2">
+                    {fw.description}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {qCount} questão{qCount !== 1 ? 'ões' : ''} relevante{qCount !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* CTA */}
+      <div className="flex items-center justify-between bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-4">
+        <div className="text-sm text-gray-500">
+          {draft.length === 0 ? (
+            <span className="text-amber-600 font-medium">Selecione pelo menos um framework para continuar</span>
+          ) : (
+            <span>
+              O diagnóstico incluirá{' '}
+              <strong className="text-gray-900">{totalQuestionsForDraft} questões</strong>{' '}
+              distribuídas por {getFilteredCategories(draft).length} categorias.
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            if (draft.length > 0) {
+              saveFrameworksToStorage(draft);
+              onConfirm(draft);
+            }
+          }}
+          disabled={draft.length === 0}
+          className={cn(
+            'flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all',
+            draft.length > 0
+              ? 'bg-primary text-white hover:bg-primary/90'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+          )}
+        >
+          Iniciar Diagnóstico
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Tab 1: Diagnóstico Rápido ────────────────────────────────────────────────
 
 function WizardTab({
   answers,
+  selectedFrameworks,
   onAnswersChange,
   onComplete,
 }: {
   answers: WizardAnswers;
+  selectedFrameworks: FrameworkKey[];
   onAnswersChange: (a: WizardAnswers) => void;
   onComplete: () => void;
 }) {
   const tDiag = useTranslations('diagnostic');
   const [catIdx, setCatIdx] = useState(0);
-  const category = CATEGORIES[catIdx];
 
-  const answeredCount = ALL_QUESTIONS.filter((q) => answers[q.id] != null).length;
-  const progress = Math.round((answeredCount / TOTAL_QUESTIONS) * 100);
+  const filteredCategories = getFilteredCategories(selectedFrameworks);
+  const allFilteredQuestions = getAllFilteredQuestions(selectedFrameworks);
+  const TOTAL_QUESTIONS = allFilteredQuestions.length;
 
-  const catAnswered = category.questions.filter((q) => answers[q.id] != null).length;
-  const catDone = catAnswered === category.questions.length;
+  const category = filteredCategories[catIdx] ?? filteredCategories[0];
+
+  const answeredCount = allFilteredQuestions.filter((q) => answers[q.id] != null).length;
+  const progress = TOTAL_QUESTIONS > 0 ? Math.round((answeredCount / TOTAL_QUESTIONS) * 100) : 0;
+
+  const catAnswered = category?.questions.filter((q) => answers[q.id] != null).length ?? 0;
+  const catDone = category ? catAnswered === category.questions.length : false;
 
   function handleAnswer(qId: string, val: Answer) {
     const next = { ...answers, [qId]: val };
@@ -491,18 +907,41 @@ function WizardTab({
   }
 
   function handleNext() {
-    if (catIdx < CATEGORIES.length - 1) {
+    if (catIdx < filteredCategories.length - 1) {
       setCatIdx((i) => i + 1);
     } else {
       onComplete();
     }
   }
 
-  const catScore = categoryScore(answers, category.key);
-  const overall = overallScore(answers);
+  const catScore = category ? categoryScore(answers, category) : 0;
+  const overall = overallScore(answers, filteredCategories);
+
+  if (!category) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
+        <p className="text-gray-500">Sem questões para os frameworks selecionados.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Selected frameworks pill row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {selectedFrameworks.map((fk) => {
+          const fw = FRAMEWORKS.find((f) => f.key === fk)!;
+          return (
+            <span
+              key={fk}
+              className={cn('text-xs font-medium px-2.5 py-1 rounded-full', fw.bgColor, fw.color)}
+            >
+              {fw.icon} {fw.name}
+            </span>
+          );
+        })}
+      </div>
+
       {/* Overall progress */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-2">
@@ -518,7 +957,7 @@ function WizardTab({
 
         {/* Category pills */}
         <div className="flex gap-2 flex-wrap mt-4">
-          {CATEGORIES.map((c, i) => {
+          {filteredCategories.map((c, i) => {
             const done = c.questions.every((q) => answers[q.id] != null);
             const active = i === catIdx;
             return (
@@ -547,7 +986,7 @@ function WizardTab({
         <div className="flex items-start justify-between mb-6">
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-              Categoria {catIdx + 1} de {CATEGORIES.length}
+              Categoria {catIdx + 1} de {filteredCategories.length}
             </p>
             <h3 className="text-xl font-bold text-gray-900">{category.label}</h3>
           </div>
@@ -619,7 +1058,7 @@ function WizardTab({
               : 'bg-gray-100 text-gray-400 cursor-not-allowed',
           )}
         >
-          {catIdx === CATEGORIES.length - 1 ? (
+          {catIdx === filteredCategories.length - 1 ? (
             <>Ver Análise <Zap className="w-4 h-4" /></>
           ) : (
             <>Próxima categoria <ChevronRight className="w-4 h-4" /></>
@@ -632,9 +1071,18 @@ function WizardTab({
 
 // ─── Tab 2: Análise de Gaps ───────────────────────────────────────────────────
 
-function GapTab({ answers }: { answers: WizardAnswers }) {
-  const radarData = CATEGORIES.map((c) => {
-    const score = categoryScore(answers, c.key);
+function GapTab({
+  answers,
+  selectedFrameworks,
+}: {
+  answers: WizardAnswers;
+  selectedFrameworks: FrameworkKey[];
+}) {
+  const filteredCategories = getFilteredCategories(selectedFrameworks);
+  const allFilteredQuestions = getAllFilteredQuestions(selectedFrameworks);
+
+  const radarData = filteredCategories.map((c) => {
+    const score = categoryScore(answers, c);
     return {
       subject: CATEGORY_LABELS[c.key],
       'Score Diagnóstico': score,
@@ -642,13 +1090,13 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
     };
   });
 
-  const rows = CATEGORIES.map((c) => {
-    const score = categoryScore(answers, c.key);
+  const rows = filteredCategories.map((c) => {
+    const score = categoryScore(answers, c);
     const gap = Math.max(0, TARGET_SCORE - score);
     return { cat: c, score, gap };
   }).sort((a, b) => b.gap - a.gap);
 
-  const noAnswers = ALL_QUESTIONS.every((q) => answers[q.id] == null);
+  const noAnswers = allFilteredQuestions.every((q) => answers[q.id] == null);
 
   if (noAnswers) {
     return (
@@ -666,32 +1114,32 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
         <h3 className="font-semibold text-gray-900 mb-1">Radar de Maturidade</h3>
         <p className="text-sm text-gray-500 mb-4">Score atual por área vs. score alvo (80)</p>
         <div className="min-w-0">
-        <ResponsiveContainer width="100%" height={340} className="md:!h-[340px] !h-[256px]">
-          <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-            <PolarGrid stroke="#e5e7eb" />
-            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#6b7280' }} />
-            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10, fill: '#9ca3af' }} />
-            <Radar
-              name="Score Diagnóstico"
-              dataKey="Score Diagnóstico"
-              stroke="#3b82f6"
-              fill="#3b82f6"
-              fillOpacity={0.25}
-              strokeWidth={2}
-            />
-            <Radar
-              name="Score Alvo"
-              dataKey="Score Alvo"
-              stroke="#10b981"
-              fill="#10b981"
-              fillOpacity={0.08}
-              strokeWidth={2}
-              strokeDasharray="5 3"
-            />
-            <Legend wrapperStyle={{ fontSize: '12px' }} />
-            <Tooltip formatter={(value: number) => [`${value}`, '']} />
-          </RadarChart>
-        </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={340} className="md:!h-[340px] !h-[256px]">
+            <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+              <PolarGrid stroke="#e5e7eb" />
+              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#6b7280' }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10, fill: '#9ca3af' }} />
+              <Radar
+                name="Score Diagnóstico"
+                dataKey="Score Diagnóstico"
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.25}
+                strokeWidth={2}
+              />
+              <Radar
+                name="Score Alvo"
+                dataKey="Score Alvo"
+                stroke="#10b981"
+                fill="#10b981"
+                fillOpacity={0.08}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+              />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Tooltip formatter={(value: number) => [`${value}`, '']} />
+            </RadarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -716,9 +1164,9 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
               {rows.map(({ cat, score, gap }) => {
                 const severity = gap > 30 ? 'red' : gap > 15 ? 'amber' : 'green';
                 const severityColors = {
-                  red: { badge: 'bg-red-100 text-red-700', bar: 'bg-red-500', dot: 'bg-red-500', text: 'text-red-700' },
-                  amber: { badge: 'bg-yellow-100 text-yellow-700', bar: 'bg-yellow-400', dot: 'bg-yellow-400', text: 'text-yellow-700' },
-                  green: { badge: 'bg-green-100 text-green-700', bar: 'bg-green-500', dot: 'bg-green-500', text: 'text-green-700' },
+                  red: { badge: 'bg-red-100 text-red-700', bar: 'bg-red-500', text: 'text-red-700' },
+                  amber: { badge: 'bg-yellow-100 text-yellow-700', bar: 'bg-yellow-400', text: 'text-yellow-700' },
+                  green: { badge: 'bg-green-100 text-green-700', bar: 'bg-green-500', text: 'text-green-700' },
                 };
                 const sc = severityColors[severity];
                 const priorityLabel = gap > 30 ? 'Alta' : gap > 15 ? 'Média' : 'Baixa';
@@ -763,7 +1211,7 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
       {/* Overall summary */}
       <div className="grid grid-cols-3 gap-4">
         {(() => {
-          const overall = overallScore(answers);
+          const overall = overallScore(answers, filteredCategories);
           const maturity = getMaturity(overall);
           const criticalAreas = rows.filter((r) => r.gap > 30).length;
           const okAreas = rows.filter((r) => r.gap <= 15).length;
@@ -792,17 +1240,163 @@ function GapTab({ answers }: { answers: WizardAnswers }) {
   );
 }
 
-// ─── Tab 3: Plano de Ação ─────────────────────────────────────────────────────
+// ─── Tab 3: Score por Framework ───────────────────────────────────────────────
 
-function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
+function FrameworkScoresTab({
+  answers,
+  selectedFrameworks,
+}: {
+  answers: WizardAnswers;
+  selectedFrameworks: FrameworkKey[];
+}) {
+  const allFilteredQuestions = getAllFilteredQuestions(selectedFrameworks);
+  const noAnswers = allFilteredQuestions.every((q) => answers[q.id] == null);
+
+  if (noAnswers) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
+        <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">Complete o Diagnóstico Rápido para ver os scores por framework.</p>
+      </div>
+    );
+  }
+
+  const fwScores = selectedFrameworks.map((fk) => {
+    const fw = FRAMEWORKS.find((f) => f.key === fk)!;
+    const score = frameworkScore(answers, fk);
+    const maturity = getMaturity(score);
+    const relevantQs = CATEGORIES.flatMap((c) =>
+      c.questions.filter((q) => q.frameworks.includes(fk)),
+    );
+    const answeredCount = relevantQs.filter((q) => answers[q.id] != null).length;
+    const gap = Math.max(0, TARGET_SCORE - score);
+    return { fw, score, maturity, relevantQs, answeredCount, gap };
+  }).sort((a, b) => b.score - a.score);
+
+  const overallAvg = fwScores.length > 0
+    ? Math.round(fwScores.reduce((sum, f) => sum + f.score, 0) / fwScores.length)
+    : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary row */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
+          <div className={cn('text-3xl font-bold mb-1', getMaturity(overallAvg).color)}>{overallAvg}</div>
+          <div className="text-sm text-gray-500">Score Médio</div>
+          <ScoreBadge score={overallAvg} />
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
+          <div className="text-3xl font-bold text-green-600 mb-1">
+            {fwScores.filter((f) => f.score >= TARGET_SCORE).length}
+          </div>
+          <div className="text-sm text-gray-500">Frameworks OK</div>
+          <div className="text-xs text-gray-400">score ≥ {TARGET_SCORE}</div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
+          <div className="text-3xl font-bold text-red-600 mb-1">
+            {fwScores.filter((f) => f.score < 60).length}
+          </div>
+          <div className="text-sm text-gray-500">Atenção Urgente</div>
+          <div className="text-xs text-gray-400">score &lt; 60</div>
+        </div>
+      </div>
+
+      {/* Per-framework cards */}
+      <div className="space-y-3">
+        {fwScores.map(({ fw, score, maturity, relevantQs, answeredCount, gap }) => (
+          <div
+            key={fw.key}
+            className="bg-white rounded-xl border border-gray-100 shadow-sm p-5"
+          >
+            <div className="flex items-center gap-4">
+              {/* Icon + name */}
+              <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0', fw.bgColor)}>
+                {fw.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="font-semibold text-gray-900">{fw.name}</div>
+                    <div className={cn('text-xs font-medium', fw.color)}>{fw.subtitle}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={cn('text-2xl font-bold', maturity.color)}>{score}</div>
+                    <div className="text-xs text-gray-400">/ 100</div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                    <span>{answeredCount} de {relevantQs.length} questões respondidas</span>
+                    {gap > 0 ? (
+                      <span className={cn(
+                        'font-medium',
+                        gap > 30 ? 'text-red-600' : gap > 15 ? 'text-amber-600' : 'text-yellow-600',
+                      )}>
+                        Gap: -{gap} pts para o alvo
+                      </span>
+                    ) : (
+                      <span className="text-green-600 font-medium">Acima do alvo</span>
+                    )}
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 relative">
+                    {/* Target marker at 80% */}
+                    <div
+                      className="absolute top-0 h-2.5 w-0.5 bg-gray-400 rounded-full z-10"
+                      style={{ left: `${TARGET_SCORE}%` }}
+                    />
+                    <div
+                      className={cn(
+                        'h-2.5 rounded-full transition-all duration-500',
+                        score >= TARGET_SCORE ? 'bg-green-500' : score >= 60 ? 'bg-yellow-400' : 'bg-red-500',
+                      )}
+                      style={{ width: `${Math.min(score, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 mt-1.5">
+                    <ScoreBadge score={score} />
+                    {score >= TARGET_SCORE && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500 ml-1" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Export note */}
+      <p className="text-xs text-gray-400 text-center">
+        Os scores por framework são calculados com base nas questões respondidas no diagnóstico que se aplicam a cada norma.
+        A linha vertical cinzenta na barra indica o score alvo de {TARGET_SCORE} pontos.
+      </p>
+    </div>
+  );
+}
+
+// ─── Tab 4: Plano de Ação ─────────────────────────────────────────────────────
+
+function ActionPlanTab({
+  answers,
+  selectedFrameworks,
+}: {
+  answers: WizardAnswers;
+  selectedFrameworks: FrameworkKey[];
+}) {
   const tDiag = useTranslations('diagnostic');
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [creatingTaskFor, setCreatingTaskFor] = useState<string | null>(null);
   const [createdTasks, setCreatedTasks] = useState<Set<string>>(new Set());
 
+  const activeQuestionIds = new Set(getAllFilteredQuestions(selectedFrameworks).map((q) => q.id));
+
   useEffect(() => {
-    setRecommendations(generateRecommendations(answers));
-  }, [answers]);
+    setRecommendations(generateRecommendations(answers, activeQuestionIds));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, selectedFrameworks.join(',')]);
 
   const createTaskMutation = useMutation({
     mutationFn: (rec: Recommendation) =>
@@ -833,7 +1427,7 @@ function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
   }
 
   const visible = recommendations.filter((r) => !r.dismissed);
-  const noAnswers = ALL_QUESTIONS.every((q) => answers[q.id] == null);
+  const noAnswers = getAllFilteredQuestions(selectedFrameworks).every((q) => answers[q.id] == null);
 
   if (noAnswers) {
     return (
@@ -901,7 +1495,7 @@ function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
                 </span>
                 <span>
                   <span className="font-medium text-gray-700">Impacto:</span>{' '}
-                  <span className="text-primary font-semibold">+{rec.impactPts} pts</span> no score de{' '}
+                  <span className="text-primary font-semibold">+{rec.impactPts} pts</span> em{' '}
                   {CATEGORY_LABELS[rec.area]}
                 </span>
               </div>
@@ -951,17 +1545,27 @@ function ActionPlanTab({ answers }: { answers: WizardAnswers }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'wizard' | 'gaps' | 'plan';
+type Tab = 'wizard' | 'gaps' | 'frameworks' | 'plan';
+type Step = 'selector' | 'diagnostic';
 
 export default function DiagnosticPage() {
   const t = useTranslations('diagnostic');
+  const [step, setStep] = useState<Step>(() =>
+    loadFrameworksFromStorage() ? 'diagnostic' : 'selector',
+  );
+  const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkKey[]>(
+    () => loadFrameworksFromStorage() ?? [],
+  );
   const [activeTab, setActiveTab] = useState<Tab>('wizard');
-  const [answers, setAnswers] = useState<WizardAnswers>(() => loadFromStorage() ?? {});
+  const [answers, setAnswers] = useState<WizardAnswers>(() => loadAnswersFromStorage() ?? {});
   const [wizardDone, setWizardDone] = useState(false);
 
-  const answeredCount = ALL_QUESTIONS.filter((q) => answers[q.id] != null).length;
-  const isComplete = answeredCount === TOTAL_QUESTIONS;
-  const overall = overallScore(answers);
+  const filteredCategories = getFilteredCategories(selectedFrameworks);
+  const allFilteredQuestions = getAllFilteredQuestions(selectedFrameworks);
+  const answeredCount = allFilteredQuestions.filter((q) => answers[q.id] != null).length;
+  const TOTAL_QUESTIONS = allFilteredQuestions.length;
+  const isComplete = answeredCount === TOTAL_QUESTIONS && TOTAL_QUESTIONS > 0;
+  const overall = overallScore(answers, filteredCategories);
   const maturity = getMaturity(overall);
 
   const handleComplete = useCallback(() => {
@@ -969,16 +1573,43 @@ export default function DiagnosticPage() {
     setActiveTab('gaps');
   }, []);
 
-  function resetWizard() {
+  function handleFrameworkConfirm(keys: FrameworkKey[]) {
+    setSelectedFrameworks(keys);
+    setStep('diagnostic');
     setAnswers({});
     setWizardDone(false);
     setActiveTab('wizard');
     if (typeof window !== 'undefined') localStorage.removeItem(LS_KEY);
   }
 
+  function resetAll() {
+    setAnswers({});
+    setWizardDone(false);
+    setActiveTab('wizard');
+    setSelectedFrameworks([]);
+    setStep('selector');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_FW_KEY);
+    }
+  }
+
+  function changeFrameworks() {
+    setStep('selector');
+    setAnswers({});
+    setWizardDone(false);
+    setActiveTab('wizard');
+    if (typeof window !== 'undefined') localStorage.removeItem(LS_KEY);
+  }
+
+  const recCount = answeredCount > 0
+    ? generateRecommendations(answers, new Set(allFilteredQuestions.map((q) => q.id))).filter((r) => !r.dismissed).length
+    : 0;
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'wizard', label: t('tabs.wizard'), icon: <ClipboardList className="w-4 h-4" /> },
     { key: 'gaps', label: t('tabs.gaps'), icon: <BarChart3 className="w-4 h-4" /> },
+    { key: 'frameworks', label: 'Por Framework', icon: <Shield className="w-4 h-4" /> },
     { key: 'plan', label: t('tabs.plan'), icon: <Zap className="w-4 h-4" /> },
   ];
 
@@ -999,9 +1630,17 @@ export default function DiagnosticPage() {
               <div className="text-xs text-gray-500">{maturity.label}</div>
             </div>
           )}
+          {step === 'diagnostic' && (
+            <button
+              onClick={changeFrameworks}
+              className="text-xs text-primary hover:text-primary/80 px-3 py-1.5 border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+            >
+              Mudar frameworks
+            </button>
+          )}
           {answeredCount > 0 && (
             <button
-              onClick={resetWizard}
+              onClick={resetAll}
               className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
               {t('restart')}
@@ -1010,60 +1649,113 @@ export default function DiagnosticPage() {
         </div>
       </div>
 
-      {/* Resume banner */}
-      {answeredCount > 0 && !isComplete && !wizardDone && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-blue-700 text-sm">
-            <AlertTriangle className="w-4 h-4" />
-            <span>
-              Diagnóstico em progresso — {answeredCount} de {TOTAL_QUESTIONS} questões respondidas.
+      {/* Step indicator — always visible */}
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          'flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full border',
+          step === 'selector'
+            ? 'bg-primary text-white border-primary'
+            : 'bg-green-50 text-green-700 border-green-200',
+        )}>
+          {step === 'selector' ? (
+            <span>1</span>
+          ) : (
+            <CheckCircle2 className="w-3.5 h-3.5" />
+          )}
+          <span>Seleção de Frameworks</span>
+          {step !== 'selector' && selectedFrameworks.length > 0 && (
+            <span className="text-green-600 font-normal">
+              ({selectedFrameworks.length})
             </span>
-          </div>
-          <button
-            onClick={() => setActiveTab('wizard')}
-            className="text-xs text-blue-700 underline hover:no-underline"
-          >
-            Continuar
-          </button>
+          )}
         </div>
-      )}
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-1 overflow-x-auto whitespace-nowrap scrollbar-none">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all -mb-px',
-                activeTab === tab.key
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-              {tab.key === 'plan' && answeredCount > 0 && (
-                <span className="text-xs bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center">
-                  {generateRecommendations(answers).filter((r) => !r.dismissed).length}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
+        <ChevronRight className="w-4 h-4 text-gray-400" />
+        <div className={cn(
+          'flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full border',
+          step === 'diagnostic'
+            ? 'bg-primary text-white border-primary'
+            : 'bg-gray-50 text-gray-400 border-gray-200',
+        )}>
+          <span>2</span>
+          <span>Diagnóstico</span>
+        </div>
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'wizard' && (
-        <WizardTab
-          answers={answers}
-          onAnswersChange={setAnswers}
-          onComplete={handleComplete}
+      {/* ── Step 0: Framework Selector ── */}
+      {step === 'selector' && (
+        <FrameworkSelector
+          selected={selectedFrameworks}
+          onConfirm={handleFrameworkConfirm}
         />
       )}
-      {activeTab === 'gaps' && <GapTab answers={answers} />}
-      {activeTab === 'plan' && <ActionPlanTab answers={answers} />}
+
+      {/* ── Step 1+: Diagnostic tabs ── */}
+      {step === 'diagnostic' && (
+        <>
+          {/* Resume banner */}
+          {answeredCount > 0 && !isComplete && !wizardDone && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-700 text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span>
+                  Diagnóstico em progresso — {answeredCount} de {TOTAL_QUESTIONS} questões respondidas.
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveTab('wizard')}
+                className="text-xs text-blue-700 underline hover:no-underline"
+              >
+                Continuar
+              </button>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="border-b border-gray-200">
+            <nav className="flex gap-1 overflow-x-auto whitespace-nowrap scrollbar-none">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all -mb-px',
+                    activeTab === tab.key
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  )}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  {tab.key === 'plan' && answeredCount > 0 && recCount > 0 && (
+                    <span className="text-xs bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center">
+                      {recCount}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Tab content */}
+          {activeTab === 'wizard' && (
+            <WizardTab
+              answers={answers}
+              selectedFrameworks={selectedFrameworks}
+              onAnswersChange={setAnswers}
+              onComplete={handleComplete}
+            />
+          )}
+          {activeTab === 'gaps' && (
+            <GapTab answers={answers} selectedFrameworks={selectedFrameworks} />
+          )}
+          {activeTab === 'frameworks' && (
+            <FrameworkScoresTab answers={answers} selectedFrameworks={selectedFrameworks} />
+          )}
+          {activeTab === 'plan' && (
+            <ActionPlanTab answers={answers} selectedFrameworks={selectedFrameworks} />
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -12,8 +12,15 @@ export class DiagnosticsController {
 
   @Get('questions')
   @ApiOperation({ summary: 'Get diagnostic questionnaire' })
-  getQuestions(@Query('category') category?: string) {
-    return this.service.getQuestions(category);
+  getQuestions(
+    @Query('category') category?: string,
+    @Query('frameworks') frameworks?: string,
+  ) {
+    // Accept comma-separated framework codes: ?frameworks=ISO_27001,GDPR,NIS2
+    const frameworkCodes = frameworks
+      ? frameworks.split(',').map((c) => c.trim()).filter(Boolean)
+      : undefined;
+    return this.service.getQuestions(category, frameworkCodes);
   }
 
   @Post('runs')

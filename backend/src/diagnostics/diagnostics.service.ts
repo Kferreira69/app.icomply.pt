@@ -7,11 +7,24 @@ export class DiagnosticsService {
   constructor(private prisma: PrismaService) {}
 
   // ── Get all active diagnostic questions ─────────────────────
-  async getQuestions(category?: string) {
+  async getQuestions(category?: string, frameworkCodes?: string[]) {
+    // Build the framework filter: if codes are provided, only return questions
+    // that are either unlinked to a framework OR linked to one of the selected codes.
+    const frameworkFilter =
+      frameworkCodes && frameworkCodes.length > 0
+        ? {
+            OR: [
+              { frameworkId: null },
+              { framework: { code: { in: frameworkCodes } } },
+            ],
+          }
+        : {};
+
     return this.prisma.diagnosticQuestion.findMany({
       where: {
         isActive: true,
         ...(category && { category }),
+        ...frameworkFilter,
       },
       orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
       include: { framework: { select: { name: true, code: true } } },
