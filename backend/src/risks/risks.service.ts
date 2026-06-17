@@ -22,16 +22,14 @@ function calcRiskLevel(likelihood: string, impact: string): string {
   if (score >= 20) return 'CRITICAL';
   if (score >= 12) return 'HIGH';
   if (score >= 6) return 'MEDIUM';
-  if (score >= 3) return 'LOW';
-  return 'NEGLIGIBLE';
+  return 'LOW';
 }
 
 function getRiskLevel(score: number): string {
   if (score >= 20) return 'CRITICAL';
   if (score >= 12) return 'HIGH';
   if (score >= 6) return 'MEDIUM';
-  if (score >= 3) return 'LOW';
-  return 'NEGLIGIBLE';
+  return 'LOW';
 }
 
 @Injectable()
