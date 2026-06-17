@@ -43,7 +43,17 @@ type FrameworkKey =
   | 'SOC2'
   | 'ISO_9001'
   | 'ISO_22301'
-  | 'PCI_DSS';
+  | 'PCI_DSS'
+  | 'LEI_93_2021'
+  | 'MENAC'
+  | 'ISO_31000'
+  | 'ISO_27701'
+  | 'CIS'
+  | 'TISAX'
+  | 'AML'
+  | 'EU_AI_ACT'
+  | 'ESG_CSRD'
+  | 'ePRIVACY';
 
 interface FrameworkDef {
   key: FrameworkKey;
@@ -54,7 +64,31 @@ interface FrameworkDef {
   bgColor: string;
   borderColor: string;
   icon: string;
+  category: FrameworkCategory;
 }
+
+type FrameworkCategory =
+  | 'seguranca'
+  | 'privacidade'
+  | 'resiliencia'
+  | 'qualidade'
+  | 'regulatorio'
+  | 'setor';
+
+interface FrameworkCategoryDef {
+  key: FrameworkCategory;
+  label: string;
+  icon: string;
+}
+
+const FRAMEWORK_CATEGORIES: FrameworkCategoryDef[] = [
+  { key: 'seguranca', label: 'Segurança da Informação', icon: '🔐' },
+  { key: 'privacidade', label: 'Privacidade de Dados', icon: '🛡️' },
+  { key: 'resiliencia', label: 'Resiliência & Continuidade', icon: '♻️' },
+  { key: 'qualidade', label: 'Qualidade & Governança', icon: '🏆' },
+  { key: 'regulatorio', label: 'Regulatório & Compliance', icon: '⚖️' },
+  { key: 'setor', label: 'Frameworks Setoriais', icon: '🏭' },
+];
 
 interface Question {
   id: string;
@@ -75,7 +109,12 @@ type CategoryKey =
   | 'tarefas'
   | 'auditorias'
   | 'politicas'
-  | 'formacao';
+  | 'formacao'
+  | 'incidentes'
+  | 'privacidade'
+  | 'continuidade'
+  | 'denuncias'
+  | 'setorial';
 
 interface WizardAnswers {
   [questionId: string]: Answer;
@@ -97,6 +136,7 @@ interface Recommendation {
 // ─── Framework Definitions ────────────────────────────────────────────────────
 
 const FRAMEWORKS: FrameworkDef[] = [
+  // ── Segurança da Informação ──────────────────────────────────
   {
     key: 'ISO_27001',
     name: 'ISO 27001:2022',
@@ -106,16 +146,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-300',
     icon: '🔒',
-  },
-  {
-    key: 'GDPR',
-    name: 'RGPD / GDPR',
-    subtitle: 'Proteção de Dados Pessoais',
-    description: 'Regulamento Geral de Proteção de Dados — conformidade com o tratamento de dados pessoais de cidadãos da UE.',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-300',
-    icon: '🛡️',
+    category: 'seguranca',
   },
   {
     key: 'NIS2',
@@ -126,6 +157,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     bgColor: 'bg-indigo-50',
     borderColor: 'border-indigo-300',
     icon: '🌐',
+    category: 'seguranca',
   },
   {
     key: 'DORA',
@@ -136,6 +168,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     bgColor: 'bg-orange-50',
     borderColor: 'border-orange-300',
     icon: '⚡',
+    category: 'seguranca',
   },
   {
     key: 'SOC2',
@@ -146,7 +179,88 @@ const FRAMEWORKS: FrameworkDef[] = [
     bgColor: 'bg-teal-50',
     borderColor: 'border-teal-300',
     icon: '✅',
+    category: 'seguranca',
   },
+  {
+    key: 'CIS',
+    name: 'CIS Controls v8',
+    subtitle: 'Controlos de Segurança Críticos',
+    description: 'Center for Internet Security — 18 controlos críticos de segurança para proteção cibernética.',
+    color: 'text-cyan-700',
+    bgColor: 'bg-cyan-50',
+    borderColor: 'border-cyan-300',
+    icon: '🛡',
+    category: 'seguranca',
+  },
+  {
+    key: 'PCI_DSS',
+    name: 'PCI DSS v4.0',
+    subtitle: 'Segurança de Dados de Pagamento',
+    description: 'Payment Card Industry Data Security Standard — proteção de dados de titulares de cartões de pagamento.',
+    color: 'text-red-700',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-300',
+    icon: '💳',
+    category: 'setor',
+  },
+  // ── Privacidade de Dados ─────────────────────────────────────
+  {
+    key: 'GDPR',
+    name: 'RGPD / GDPR',
+    subtitle: 'Proteção de Dados Pessoais',
+    description: 'Regulamento Geral de Proteção de Dados — conformidade com o tratamento de dados pessoais de cidadãos da UE.',
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-300',
+    icon: '🛡️',
+    category: 'privacidade',
+  },
+  {
+    key: 'ISO_27701',
+    name: 'ISO 27701',
+    subtitle: 'Gestão da Privacidade',
+    description: 'Extensão à ISO 27001 para gestão de informação de privacidade (PIMS) — alinha com o RGPD.',
+    color: 'text-violet-700',
+    bgColor: 'bg-violet-50',
+    borderColor: 'border-violet-300',
+    icon: '🔐',
+    category: 'privacidade',
+  },
+  {
+    key: 'ePRIVACY',
+    name: 'ePrivacy',
+    subtitle: 'Diretiva Cookies e Comunicações',
+    description: 'Diretiva de privacidade e comunicações eletrónicas — cookies, marketing direto e metadados de comunicação.',
+    color: 'text-fuchsia-700',
+    bgColor: 'bg-fuchsia-50',
+    borderColor: 'border-fuchsia-300',
+    icon: '🍪',
+    category: 'privacidade',
+  },
+  // ── Resiliência & Continuidade ───────────────────────────────
+  {
+    key: 'ISO_22301',
+    name: 'ISO 22301:2019',
+    subtitle: 'Continuidade de Negócio',
+    description: 'Sistema de Gestão de Continuidade de Negócio — preparação e recuperação face a incidentes disruptivos.',
+    color: 'text-amber-700',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-300',
+    icon: '♻️',
+    category: 'resiliencia',
+  },
+  {
+    key: 'ISO_31000',
+    name: 'ISO 31000:2018',
+    subtitle: 'Gestão de Riscos',
+    description: 'Princípios e diretrizes para gestão de riscos — framework universal aplicável a qualquer organização.',
+    color: 'text-lime-700',
+    bgColor: 'bg-lime-50',
+    borderColor: 'border-lime-300',
+    icon: '⚖️',
+    category: 'resiliencia',
+  },
+  // ── Qualidade & Governança ───────────────────────────────────
   {
     key: 'ISO_9001',
     name: 'ISO 9001:2015',
@@ -156,26 +270,75 @@ const FRAMEWORKS: FrameworkDef[] = [
     bgColor: 'bg-green-50',
     borderColor: 'border-green-300',
     icon: '🏆',
+    category: 'qualidade',
   },
   {
-    key: 'ISO_22301',
-    name: 'ISO 22301',
-    subtitle: 'Continuidade de Negócio',
-    description: 'Sistema de Gestão de Continuidade de Negócio — preparação e recuperação face a incidentes disruptivos.',
-    color: 'text-amber-700',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-300',
-    icon: '♻️',
+    key: 'MENAC',
+    name: 'MENAC',
+    subtitle: 'Mecanismo Nacional Anticorrupção',
+    description: 'Lei 93/2021 — Regime Geral de Prevenção da Corrupção e mecanismo nacional de combate à corrupção.',
+    color: 'text-yellow-700',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-300',
+    icon: '⚖',
+    category: 'qualidade',
   },
   {
-    key: 'PCI_DSS',
-    name: 'PCI DSS',
-    subtitle: 'Segurança de Dados de Pagamento',
-    description: 'Payment Card Industry Data Security Standard — proteção de dados de titulares de cartões de pagamento.',
-    color: 'text-red-700',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-300',
-    icon: '💳',
+    key: 'ESG_CSRD',
+    name: 'ESG / CSRD',
+    subtitle: 'Sustentabilidade e Reporte',
+    description: 'Corporate Sustainability Reporting Directive — reporte de sustentabilidade ambiental, social e de governança.',
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-300',
+    icon: '🌿',
+    category: 'qualidade',
+  },
+  // ── Regulatório & Compliance ─────────────────────────────────
+  {
+    key: 'LEI_93_2021',
+    name: 'Lei 93/2021',
+    subtitle: 'Canal de Denúncias',
+    description: 'Regime de proteção de denunciantes — transpõe a Diretiva UE 2019/1937, obrigatório para organizações ≥50 trabalhadores.',
+    color: 'text-rose-700',
+    bgColor: 'bg-rose-50',
+    borderColor: 'border-rose-300',
+    icon: '📣',
+    category: 'regulatorio',
+  },
+  {
+    key: 'AML',
+    name: 'AML / LBCFT',
+    subtitle: 'Prevenção de Branqueamento',
+    description: 'Anti-Money Laundering — Lei n.º 83/2017 e diretivas UE de prevenção de branqueamento de capitais e financiamento do terrorismo.',
+    color: 'text-slate-700',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-300',
+    icon: '🏦',
+    category: 'regulatorio',
+  },
+  {
+    key: 'EU_AI_ACT',
+    name: 'EU AI Act',
+    subtitle: 'Governança de Inteligência Artificial',
+    description: 'Regulamento europeu de IA — classificação de risco de sistemas de IA e obrigações para operadores de IA de alto risco.',
+    color: 'text-sky-700',
+    bgColor: 'bg-sky-50',
+    borderColor: 'border-sky-300',
+    icon: '🤖',
+    category: 'regulatorio',
+  },
+  // ── Frameworks Setoriais ─────────────────────────────────────
+  {
+    key: 'TISAX',
+    name: 'TISAX',
+    subtitle: 'Segurança na Indústria Automóvel',
+    description: 'Trusted Information Security Assessment Exchange — avaliação de segurança da informação para fornecedores da indústria automóvel.',
+    color: 'text-zinc-700',
+    bgColor: 'bg-zinc-50',
+    borderColor: 'border-zinc-300',
+    icon: '🚗',
+    category: 'setor',
   },
 ];
 
@@ -190,25 +353,49 @@ const CATEGORIES: Category[] = [
         id: 'r1',
         text: 'Tem registo de riscos atualizado?',
         category: 'riscos',
-        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS', 'ISO_31000', 'EU_AI_ACT', 'AML'],
       },
       {
         id: 'r2',
-        text: 'Riscos são avaliados regularmente?',
+        text: 'Riscos são avaliados regularmente (mínimo anual)?',
         category: 'riscos',
-        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301'],
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'ISO_31000', 'AML'],
       },
       {
         id: 'r3',
         text: 'Existe plano de mitigação para os riscos identificados?',
         category: 'riscos',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS', 'ISO_31000'],
       },
       {
         id: 'r4',
         text: 'Riscos críticos têm um owner definido?',
         category: 'riscos',
-        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001'],
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_31000'],
+      },
+      {
+        id: 'r5',
+        text: 'A organização tem um contexto e critérios de risco formalmente definidos?',
+        category: 'riscos',
+        frameworks: ['ISO_31000', 'ISO_27001', 'ISO_9001', 'ISO_22301'],
+      },
+      {
+        id: 'r6',
+        text: 'Os riscos de cibersegurança são avaliados com metodologia estruturada?',
+        category: 'riscos',
+        frameworks: ['NIS2', 'DORA', 'ISO_27001', 'CIS', 'SOC2', 'PCI_DSS'],
+      },
+      {
+        id: 'r7',
+        text: 'Existe avaliação de risco específica para fornecedores e terceiros?',
+        category: 'riscos',
+        frameworks: ['DORA', 'NIS2', 'ISO_27001', 'SOC2', 'AML'],
+      },
+      {
+        id: 'r8',
+        text: 'A organização avaliou os riscos de sistemas de IA utilizados?',
+        category: 'riscos',
+        frameworks: ['EU_AI_ACT'],
       },
     ],
   },
@@ -220,7 +407,7 @@ const CATEGORIES: Category[] = [
         id: 'e1',
         text: 'Evidências são recolhidas sistematicamente?',
         category: 'evidencias',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS', 'CIS'],
       },
       {
         id: 'e2',
@@ -274,19 +461,19 @@ const CATEGORIES: Category[] = [
         id: 'a1',
         text: 'Auditorias internas são realizadas regularmente?',
         category: 'auditorias',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS', 'ISO_27701', 'CIS'],
       },
       {
         id: 'a2',
         text: 'Auditorias externas estão planeadas?',
         category: 'auditorias',
-        frameworks: ['ISO_27001', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'SOC2', 'ISO_9001', 'PCI_DSS', 'TISAX'],
       },
       {
         id: 'a3',
         text: 'Findings de auditoria são tratados e fechados?',
         category: 'auditorias',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS', 'MENAC'],
       },
     ],
   },
@@ -296,21 +483,27 @@ const CATEGORIES: Category[] = [
     questions: [
       {
         id: 'p1',
-        text: 'Políticas de compliance estão publicadas?',
+        text: 'Políticas de compliance estão publicadas e acessíveis?',
         category: 'politicas',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'ISO_22301', 'PCI_DSS', 'LEI_93_2021', 'MENAC', 'AML', 'EU_AI_ACT'],
       },
       {
         id: 'p2',
         text: 'Políticas são revistas anualmente?',
         category: 'politicas',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS', 'AML', 'LEI_93_2021'],
       },
       {
         id: 'p3',
         text: 'Colaboradores confirmaram leitura das políticas?',
         category: 'politicas',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'PCI_DSS', 'LEI_93_2021', 'MENAC'],
+      },
+      {
+        id: 'p4',
+        text: 'Existe Código de Conduta aprovado e comunicado?',
+        category: 'politicas',
+        frameworks: ['MENAC', 'LEI_93_2021', 'ESG_CSRD', 'AML'],
       },
     ],
   },
@@ -322,19 +515,272 @@ const CATEGORIES: Category[] = [
         id: 'f1',
         text: 'Existe programa de formação de compliance?',
         category: 'formacao',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'DORA', 'SOC2', 'ISO_9001', 'PCI_DSS', 'LEI_93_2021', 'MENAC', 'AML'],
       },
       {
         id: 'f2',
         text: 'Taxa de conclusão de formação superior a 80%?',
         category: 'formacao',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS', 'AML'],
       },
       {
         id: 'f3',
         text: 'Formações são documentadas e rastreadas?',
         category: 'formacao',
-        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS'],
+        frameworks: ['ISO_27001', 'GDPR', 'NIS2', 'SOC2', 'ISO_9001', 'PCI_DSS', 'LEI_93_2021'],
+      },
+    ],
+  },
+  // ── Novas categorias para novos frameworks ───────────────────
+  {
+    key: 'incidentes',
+    label: 'Gestão de Incidentes',
+    questions: [
+      {
+        id: 'i1',
+        text: 'Existe um processo formal de gestão e resposta a incidentes?',
+        category: 'incidentes',
+        frameworks: ['ISO_27001', 'NIS2', 'DORA', 'SOC2', 'PCI_DSS', 'CIS'],
+      },
+      {
+        id: 'i2',
+        text: 'Incidentes significativos de TIC são notificados às autoridades no prazo legal (24h/72h)?',
+        category: 'incidentes',
+        frameworks: ['NIS2', 'DORA', 'GDPR'],
+      },
+      {
+        id: 'i3',
+        text: 'A organização tem um registo de incidentes TIC com categorização de impacto?',
+        category: 'incidentes',
+        frameworks: ['DORA', 'NIS2', 'ISO_27001'],
+      },
+      {
+        id: 'i4',
+        text: 'Existem testes de penetração ou resiliência operacional realizados pelo menos anualmente?',
+        category: 'incidentes',
+        frameworks: ['DORA', 'NIS2', 'PCI_DSS', 'ISO_27001', 'CIS'],
+      },
+      {
+        id: 'i5',
+        text: 'A organização mapeia as dependências críticas de fornecedores TIC?',
+        category: 'incidentes',
+        frameworks: ['DORA', 'NIS2'],
+      },
+      {
+        id: 'i6',
+        text: 'Violações de dados pessoais são notificadas à CNPD em ≤72 horas?',
+        category: 'incidentes',
+        frameworks: ['GDPR', 'ISO_27701'],
+      },
+    ],
+  },
+  {
+    key: 'privacidade',
+    label: 'Privacidade e Dados',
+    questions: [
+      {
+        id: 'priv1',
+        text: 'Existe um registo de atividades de tratamento de dados (ROPA)?',
+        category: 'privacidade',
+        frameworks: ['GDPR', 'ISO_27701'],
+      },
+      {
+        id: 'priv2',
+        text: 'As DPIAs (avaliações de impacto) são realizadas para tratamentos de alto risco?',
+        category: 'privacidade',
+        frameworks: ['GDPR', 'ISO_27701', 'EU_AI_ACT'],
+      },
+      {
+        id: 'priv3',
+        text: 'Existe um DPO (Encarregado de Proteção de Dados) nomeado?',
+        category: 'privacidade',
+        frameworks: ['GDPR', 'ISO_27701'],
+      },
+      {
+        id: 'priv4',
+        text: 'Os titulares de dados podem exercer os seus direitos (acesso, apagamento, portabilidade)?',
+        category: 'privacidade',
+        frameworks: ['GDPR', 'ISO_27701'],
+      },
+      {
+        id: 'priv5',
+        text: 'O website/app tem banner de cookies conforme e política de privacidade atualizada?',
+        category: 'privacidade',
+        frameworks: ['ePRIVACY', 'GDPR'],
+      },
+      {
+        id: 'priv6',
+        text: 'Cookies de terceiros e rastreamento requerem consentimento explícito do utilizador?',
+        category: 'privacidade',
+        frameworks: ['ePRIVACY'],
+      },
+      {
+        id: 'priv7',
+        text: 'Transferências de dados para países terceiros têm salvaguardas adequadas (SCCs, BCRs)?',
+        category: 'privacidade',
+        frameworks: ['GDPR', 'ISO_27701'],
+      },
+    ],
+  },
+  {
+    key: 'continuidade',
+    label: 'Continuidade e Resiliência',
+    questions: [
+      {
+        id: 'cont1',
+        text: 'Existe um Plano de Continuidade de Negócio (PCN) documentado?',
+        category: 'continuidade',
+        frameworks: ['ISO_22301', 'DORA', 'ISO_27001', 'SOC2'],
+      },
+      {
+        id: 'cont2',
+        text: 'O PCN foi testado nos últimos 12 meses?',
+        category: 'continuidade',
+        frameworks: ['ISO_22301', 'DORA'],
+      },
+      {
+        id: 'cont3',
+        text: 'A organização tem RTO e RPO definidos para sistemas críticos?',
+        category: 'continuidade',
+        frameworks: ['ISO_22301', 'DORA', 'ISO_27001'],
+      },
+      {
+        id: 'cont4',
+        text: 'Existem backups testados regularmente e armazenados em local separado?',
+        category: 'continuidade',
+        frameworks: ['ISO_22301', 'ISO_27001', 'PCI_DSS', 'DORA', 'CIS'],
+      },
+      {
+        id: 'cont5',
+        text: 'Existe análise de impacto de negócio (BIA) atualizada?',
+        category: 'continuidade',
+        frameworks: ['ISO_22301', 'DORA'],
+      },
+    ],
+  },
+  {
+    key: 'denuncias',
+    label: 'Canal de Denúncias',
+    questions: [
+      {
+        id: 'den1',
+        text: 'A organização tem um canal de denúncias implementado e acessível (interno e/ou externo)?',
+        category: 'denuncias',
+        frameworks: ['LEI_93_2021', 'MENAC'],
+      },
+      {
+        id: 'den2',
+        text: 'Existe um responsável pelo tratamento de denúncias nomeado?',
+        category: 'denuncias',
+        frameworks: ['LEI_93_2021', 'MENAC'],
+      },
+      {
+        id: 'den3',
+        text: 'As denúncias são acusadas de receção em ≤7 dias e tratadas em ≤3 meses?',
+        category: 'denuncias',
+        frameworks: ['LEI_93_2021'],
+      },
+      {
+        id: 'den4',
+        text: 'A confidencialidade e proteção do denunciante são garantidas no processo?',
+        category: 'denuncias',
+        frameworks: ['LEI_93_2021', 'MENAC'],
+      },
+      {
+        id: 'den5',
+        text: 'Os colaboradores foram informados e formados sobre o canal de denúncias?',
+        category: 'denuncias',
+        frameworks: ['LEI_93_2021', 'MENAC'],
+      },
+      {
+        id: 'den6',
+        text: 'Existe um Plano de Prevenção de Riscos de Corrupção (PPRC) aprovado?',
+        category: 'denuncias',
+        frameworks: ['MENAC'],
+      },
+    ],
+  },
+  {
+    key: 'setorial',
+    label: 'Requisitos Setoriais',
+    questions: [
+      {
+        id: 'set1',
+        text: 'Os dados de cartões de pagamento são armazenados com cifragem AES-256 ou equivalente?',
+        category: 'setorial',
+        frameworks: ['PCI_DSS'],
+      },
+      {
+        id: 'set2',
+        text: 'Existe segmentação de rede para sistemas que processam dados de pagamento (CDE)?',
+        category: 'setorial',
+        frameworks: ['PCI_DSS'],
+      },
+      {
+        id: 'set3',
+        text: 'Os scans de vulnerabilidades são realizados trimestralmente por entidade aprovada (ASV)?',
+        category: 'setorial',
+        frameworks: ['PCI_DSS'],
+      },
+      {
+        id: 'set4',
+        text: 'A organização possui uma avaliação TISAX válida para partilha de informação com OEMs?',
+        category: 'setorial',
+        frameworks: ['TISAX'],
+      },
+      {
+        id: 'set5',
+        text: 'Os 18 controlos CIS estão priorizados e em implementação por Grupos de Implementação?',
+        category: 'setorial',
+        frameworks: ['CIS'],
+      },
+      {
+        id: 'set6',
+        text: 'Existem procedimentos de Customer Due Diligence (CDD) e KYC implementados?',
+        category: 'setorial',
+        frameworks: ['AML'],
+      },
+      {
+        id: 'set7',
+        text: 'Transações suspeitas são reportadas às autoridades competentes (DCIAP/UIF)?',
+        category: 'setorial',
+        frameworks: ['AML'],
+      },
+      {
+        id: 'set8',
+        text: 'Os sistemas de IA de alto risco têm documentação técnica e registo de conformidade?',
+        category: 'setorial',
+        frameworks: ['EU_AI_ACT'],
+      },
+      {
+        id: 'set9',
+        text: 'Existe supervisão humana adequada sobre sistemas de IA que tomam decisões com impacto em pessoas?',
+        category: 'setorial',
+        frameworks: ['EU_AI_ACT'],
+      },
+      {
+        id: 'set10',
+        text: 'A organização publica um relatório de sustentabilidade alinhado com ESRS (CSRD)?',
+        category: 'setorial',
+        frameworks: ['ESG_CSRD'],
+      },
+      {
+        id: 'set11',
+        text: 'Existem métricas ESG (ambiental, social, governança) definidas e monitorizadas?',
+        category: 'setorial',
+        frameworks: ['ESG_CSRD'],
+      },
+      {
+        id: 'set12',
+        text: 'A organização realizou análise de dupla materialidade (impacto + financeiro)?',
+        category: 'setorial',
+        frameworks: ['ESG_CSRD'],
+      },
+      {
+        id: 'set13',
+        text: 'A ISO 27701 está implementada como extensão ao SGSI existente?',
+        category: 'setorial',
+        frameworks: ['ISO_27701'],
       },
     ],
   },
@@ -369,6 +815,11 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
   auditorias: 'Auditorias',
   politicas: 'Políticas',
   formacao: 'Formação',
+  incidentes: 'Incidentes',
+  privacidade: 'Privacidade',
+  continuidade: 'Continuidade',
+  denuncias: 'Denúncias',
+  setorial: 'Setorial',
 };
 
 const PRIORITY_LABEL: Record<Recommendation['priority'], string> = {
@@ -599,6 +1050,137 @@ const REC_MAP: Array<{
     prefilledTitle: 'Documentar formações realizadas',
     prefilledDescription: 'Criar registo centralizado de todas as formações realizadas com data, participantes e duração.',
   },
+  // ── Incidentes ───────────────────────────────────────────────
+  {
+    questionId: 'i1', answer: 'nao', priority: 'critica', area: 'incidentes',
+    title: 'Implementar processo formal de gestão de incidentes',
+    effort: '3-4 semanas', impactPts: 20,
+    prefilledTitle: 'Criar processo de gestão de incidentes',
+    prefilledDescription: 'Definir processo formal de deteção, classificação, resposta e registo de incidentes de segurança.',
+  },
+  {
+    questionId: 'i2', answer: 'nao', priority: 'critica', area: 'incidentes',
+    title: 'Implementar notificação de incidentes às autoridades (NIS2/DORA)',
+    effort: '2-3 semanas', impactPts: 18,
+    prefilledTitle: 'Implementar procedimentos de notificação regulatória',
+    prefilledDescription: 'Criar procedimentos para notificar incidentes significativos à CNCS/BdP nos prazos legais (24h notificação inicial, 72h relatório intermédio).',
+  },
+  {
+    questionId: 'i3', answer: 'nao', priority: 'alta', area: 'incidentes',
+    title: 'Criar registo de incidentes TIC com categorização de impacto',
+    effort: '1-2 semanas', impactPts: 12,
+    prefilledTitle: 'Criar registo de incidentes TIC',
+    prefilledDescription: 'Implementar registo centralizado de incidentes TIC com campos de severidade, impacto, sistemas afetados e estado de resolução.',
+  },
+  {
+    questionId: 'i4', answer: 'nao', priority: 'alta', area: 'incidentes',
+    title: 'Agendar testes de penetração e resiliência operacional',
+    effort: '4-8 semanas', impactPts: 15,
+    prefilledTitle: 'Agendar teste de penetração anual',
+    prefilledDescription: 'Contratar entidade especializada para realização de testes de penetração e avaliação de vulnerabilidades com periodicidade anual.',
+  },
+  {
+    questionId: 'i6', answer: 'nao', priority: 'critica', area: 'incidentes',
+    title: 'Implementar procedimento de notificação de violações de dados à CNPD',
+    effort: '2 semanas', impactPts: 20,
+    prefilledTitle: 'Procedimento de notificação de violações RGPD',
+    prefilledDescription: 'Criar procedimento para deteção e notificação de violações de dados à CNPD em ≤72 horas e aos titulares quando necessário.',
+  },
+  // ── Privacidade ──────────────────────────────────────────────
+  {
+    questionId: 'priv1', answer: 'nao', priority: 'critica', area: 'privacidade',
+    title: 'Criar Registo de Atividades de Tratamento (ROPA)',
+    effort: '3-4 semanas', impactPts: 20,
+    prefilledTitle: 'Criar Registo de Atividades de Tratamento',
+    prefilledDescription: 'Elaborar e manter registo de todas as atividades de tratamento de dados pessoais conforme Art.30 RGPD.',
+  },
+  {
+    questionId: 'priv2', answer: 'nao', priority: 'alta', area: 'privacidade',
+    title: 'Implementar processo de DPIA para tratamentos de alto risco',
+    effort: '4-6 semanas', impactPts: 15,
+    prefilledTitle: 'Implementar processo de DPIA',
+    prefilledDescription: 'Criar metodologia e templates para avaliação de impacto sobre proteção de dados para tratamentos de alto risco.',
+  },
+  {
+    questionId: 'priv3', answer: 'nao', priority: 'alta', area: 'privacidade',
+    title: 'Nomear Encarregado de Proteção de Dados (DPO)',
+    effort: '2-3 semanas', impactPts: 15,
+    prefilledTitle: 'Nomear DPO',
+    prefilledDescription: 'Verificar obrigação de nomeação de DPO e, se aplicável, designar internamente ou contratar externamente.',
+  },
+  {
+    questionId: 'priv5', answer: 'nao', priority: 'alta', area: 'privacidade',
+    title: 'Atualizar banner de cookies e política de privacidade',
+    effort: '2 semanas', impactPts: 12,
+    prefilledTitle: 'Atualizar conformidade ePrivacy',
+    prefilledDescription: 'Implementar solução de gestão de consentimento (CMP) conforme ePrivacy e atualizar política de privacidade.',
+  },
+  // ── Continuidade ─────────────────────────────────────────────
+  {
+    questionId: 'cont1', answer: 'nao', priority: 'critica', area: 'continuidade',
+    title: 'Criar Plano de Continuidade de Negócio (PCN)',
+    effort: '6-8 semanas', impactPts: 25,
+    prefilledTitle: 'Criar Plano de Continuidade de Negócio',
+    prefilledDescription: 'Desenvolver PCN completo incluindo BIA, estratégias de recuperação, procedimentos de ativação e comunicação.',
+  },
+  {
+    questionId: 'cont2', answer: 'nao', priority: 'alta', area: 'continuidade',
+    title: 'Realizar teste do Plano de Continuidade de Negócio',
+    effort: '3-4 semanas', impactPts: 15,
+    prefilledTitle: 'Testar PCN',
+    prefilledDescription: 'Planear e executar exercício de teste do PCN (tabletop ou simulação real) e documentar resultados e lições aprendidas.',
+  },
+  {
+    questionId: 'cont3', answer: 'nao', priority: 'alta', area: 'continuidade',
+    title: 'Definir RTO e RPO para sistemas críticos',
+    effort: '2-3 semanas', impactPts: 12,
+    prefilledTitle: 'Definir objetivos de recuperação',
+    prefilledDescription: 'Identificar sistemas críticos e definir Recovery Time Objective (RTO) e Recovery Point Objective (RPO) para cada um.',
+  },
+  // ── Denúncias ────────────────────────────────────────────────
+  {
+    questionId: 'den1', answer: 'nao', priority: 'critica', area: 'denuncias',
+    title: 'Implementar canal de denúncias (Lei 93/2021)',
+    effort: '3-4 semanas', impactPts: 22,
+    prefilledTitle: 'Implementar canal de denúncias',
+    prefilledDescription: 'Criar canal de denúncias interno (e externo se aplicável) conforme Lei 93/2021, com formulário seguro e garantia de confidencialidade.',
+  },
+  {
+    questionId: 'den2', answer: 'nao', priority: 'alta', area: 'denuncias',
+    title: 'Nomear responsável pelo tratamento de denúncias',
+    effort: '1 semana', impactPts: 12,
+    prefilledTitle: 'Nomear gestor de denúncias',
+    prefilledDescription: 'Designar formalmente um responsável pelo tratamento de denúncias com independência e sem conflito de interesses.',
+  },
+  {
+    questionId: 'den6', answer: 'nao', priority: 'alta', area: 'denuncias',
+    title: 'Criar Plano de Prevenção de Riscos de Corrupção (PPRC)',
+    effort: '4-6 semanas', impactPts: 18,
+    prefilledTitle: 'Criar PPRC (MENAC)',
+    prefilledDescription: 'Elaborar Plano de Prevenção de Riscos de Corrupção conforme orientações do MENAC e submetê-lo à aprovação do órgão de gestão.',
+  },
+  // ── Setorial ─────────────────────────────────────────────────
+  {
+    questionId: 'set8', answer: 'nao', priority: 'critica', area: 'setorial',
+    title: 'Documentar sistemas de IA de alto risco (EU AI Act)',
+    effort: '4-6 semanas', impactPts: 20,
+    prefilledTitle: 'Documentar sistemas IA de alto risco',
+    prefilledDescription: 'Catalogar e classificar sistemas de IA utilizados. Para sistemas de alto risco, elaborar documentação técnica conforme Anexo IV do EU AI Act.',
+  },
+  {
+    questionId: 'set10', answer: 'nao', priority: 'alta', area: 'setorial',
+    title: 'Iniciar relatório de sustentabilidade CSRD',
+    effort: '8-12 semanas', impactPts: 15,
+    prefilledTitle: 'Iniciar reporte CSRD/ESRS',
+    prefilledDescription: 'Verificar obrigação de aplicação da CSRD e, se aplicável, iniciar processo de recolha de dados ESG para relatório de sustentabilidade conforme ESRS.',
+  },
+  {
+    questionId: 'set6', answer: 'nao', priority: 'critica', area: 'setorial',
+    title: 'Implementar procedimentos CDD/KYC (AML)',
+    effort: '4-8 semanas', impactPts: 20,
+    prefilledTitle: 'Implementar procedimentos KYC/CDD',
+    prefilledDescription: 'Definir e implementar procedimentos de Customer Due Diligence e Know Your Customer conforme Lei 83/2017 de prevenção de branqueamento de capitais.',
+  },
 ];
 
 const PRIORITY_ORDER: Record<Recommendation['priority'], number> = {
@@ -793,45 +1375,71 @@ function FrameworkSelector({
         </div>
       </div>
 
-      {/* Framework grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {FRAMEWORKS.map((fw) => {
-          const isSelected = draft.includes(fw.key);
-          const qCount = getAllFilteredQuestions([fw.key]).length;
+      {/* Framework grid — grouped by category */}
+      <div className="space-y-5">
+        {FRAMEWORK_CATEGORIES.map((cat) => {
+          const catFrameworks = FRAMEWORKS.filter((fw) => fw.category === cat.key);
+          if (catFrameworks.length === 0) return null;
+          const allCatSelected = catFrameworks.every((fw) => draft.includes(fw.key));
           return (
-            <button
-              key={fw.key}
-              onClick={() => toggle(fw.key)}
-              className={cn(
-                'text-left rounded-xl border-2 p-4 transition-all duration-150 hover:shadow-sm',
-                isSelected
-                  ? `${fw.bgColor} ${fw.borderColor}`
-                  : 'bg-white border-gray-200 hover:border-gray-300',
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl leading-none mt-0.5">{fw.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={cn('text-sm font-bold', isSelected ? fw.color : 'text-gray-900')}>
-                      {fw.name}
-                    </span>
-                    {isSelected && (
-                      <CheckCircle2 className={cn('w-4 h-4 shrink-0', fw.color)} />
-                    )}
-                  </div>
-                  <p className={cn('text-xs font-medium mt-0.5', isSelected ? fw.color : 'text-gray-500')}>
-                    {fw.subtitle}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed line-clamp-2">
-                    {fw.description}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-2">
-                    {qCount} questão{qCount !== 1 ? 'ões' : ''} relevante{qCount !== 1 ? 's' : ''}
-                  </p>
+            <div key={cat.key}>
+              {/* Category header */}
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{cat.icon}</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{cat.label}</span>
                 </div>
+                <div className="flex-1 h-px bg-gray-100" />
+                <button
+                  onClick={() => {
+                    const keys = catFrameworks.map((fw) => fw.key);
+                    if (allCatSelected) {
+                      setDraft((prev) => prev.filter((k) => !keys.includes(k)));
+                    } else {
+                      setDraft((prev) => [...new Set([...prev, ...keys])]);
+                    }
+                  }}
+                  className="text-xs text-primary hover:underline shrink-0"
+                >
+                  {allCatSelected ? 'Remover todos' : 'Selecionar todos'}
+                </button>
               </div>
-            </button>
+              {/* Frameworks in category */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                {catFrameworks.map((fw) => {
+                  const isSelected = draft.includes(fw.key);
+                  const qCount = getAllFilteredQuestions([fw.key]).length;
+                  return (
+                    <button
+                      key={fw.key}
+                      onClick={() => toggle(fw.key)}
+                      className={cn(
+                        'text-left rounded-xl border-2 p-3 transition-all duration-150 hover:shadow-sm',
+                        isSelected
+                          ? `${fw.bgColor} ${fw.borderColor}`
+                          : 'bg-white border-gray-200 hover:border-gray-300',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-1 mb-1.5">
+                        <span className="text-xl leading-none">{fw.icon}</span>
+                        {isSelected && (
+                          <CheckCircle2 className={cn('w-3.5 h-3.5 shrink-0 mt-0.5', fw.color)} />
+                        )}
+                      </div>
+                      <div className={cn('text-xs font-bold leading-tight', isSelected ? fw.color : 'text-gray-900')}>
+                        {fw.name}
+                      </div>
+                      <p className={cn('text-xs mt-0.5 leading-tight', isSelected ? fw.color : 'text-gray-500')}>
+                        {fw.subtitle}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1.5">
+                        {qCount} questõe{qCount !== 1 ? 's' : ''}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
