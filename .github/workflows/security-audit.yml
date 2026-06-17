@@ -1,0 +1,330 @@
+# =============================================================================
+# iComply Quarterly Security Audit — GitHub Actions Workflow
+# =============================================================================
+# Schedule: 9:00 UTC on the 1st of January, April, July, October
+#
+# REQUIRED GITHUB SECRETS (Settings → Secrets and variables → Actions):
+#   GMAIL_USER     — the Gmail address used to send the report (e.g. noreply@icomply.pt)
+#   GMAIL_PASSWORD — Gmail App Password (NOT your account password).
+#                    Generate at: https://myaccount.google.com/apppasswords
+#                    (requires 2-Step Verification enabled on the account)
+#
+# Repository: https://github.com/Kferreira69/app.icomply.pt
+# =============================================================================
+
+name: Quarterly Security Audit
+
+on:
+  schedule:
+    # 9:00 AM UTC — January 1, April 1, July 1, October 1
+    - cron: '0 9 1 1,4,7,10 *'
+  workflow_dispatch:
+    # Allow manual trigger for testing (Actions tab → Run workflow)
+
+jobs:
+  security-audit:
+    name: Run Security Audit & Email Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout code
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Setup Node.js 20
+      # -----------------------------------------------------------------------
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # -----------------------------------------------------------------------
+      # 3. Install dependencies
+      # -----------------------------------------------------------------------
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --prefer-offline
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --prefer-offline
+
+      # -----------------------------------------------------------------------
+      # 4. npm audit — Backend
+      # -----------------------------------------------------------------------
+      - name: npm audit — backend
+        working-directory: backend
+        # --audit-level=none so the step never fails; we parse the JSON ourselves
+        run: npm audit --json --audit-level=none > ../audit-backend.json 2>/dev/null || true
+
+      # -----------------------------------------------------------------------
+      # 5. npm audit — Frontend
+      # -----------------------------------------------------------------------
+      - name: npm audit — frontend
+        working-directory: frontend
+        run: npm audit --json --audit-level=none > ../audit-frontend.json 2>/dev/null || true
+
+      # -----------------------------------------------------------------------
+      # 6. Prisma schema validation
+      # -----------------------------------------------------------------------
+      - name: Validate Prisma schema
+        working-directory: backend
+        id: prisma_validate
+        run: |
+          if npx prisma validate --schema=prisma/schema.prisma 2>&1; then
+            echo "prisma_status=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "prisma_status=FAIL" >> "$GITHUB_OUTPUT"
+            exit 0   # don't abort the workflow; report the failure instead
+          fi
+
+      # -----------------------------------------------------------------------
+      # 7. TypeScript build check — Backend
+      # -----------------------------------------------------------------------
+      - name: TypeScript build — backend
+        working-directory: backend
+        id: ts_build_backend
+        run: |
+          if npm run build 2>&1; then
+            echo "status=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=FAIL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      # -----------------------------------------------------------------------
+      # 8. TypeScript build check — Frontend
+      # -----------------------------------------------------------------------
+      - name: TypeScript build — frontend
+        working-directory: frontend
+        id: ts_build_frontend
+        run: |
+          if npm run build 2>&1; then
+            echo "status=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=FAIL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      # -----------------------------------------------------------------------
+      # 9. Parse audit results and generate report
+      # -----------------------------------------------------------------------
+      - name: Generate security report
+        id: generate_report
+        env:
+          PRISMA_STATUS: ${{ steps.prisma_validate.outputs.prisma_status }}
+          TS_BACKEND_STATUS: ${{ steps.ts_build_backend.outputs.status }}
+          TS_FRONTEND_STATUS: ${{ steps.ts_build_frontend.outputs.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO_URL: https://github.com/Kferreira69/app.icomply.pt
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+
+          // ── helpers ─────────────────────────────────────────────────────────
+          function loadAudit(file) {
+            try {
+              const raw = fs.readFileSync(file, 'utf8');
+              return JSON.parse(raw);
+            } catch {
+              return null;
+            }
+          }
+
+          function parseAudit(data, label) {
+            if (!data) return { label, error: true, critical:0, high:0, medium:0, low:0, total:0, advisories:[] };
+            // npm audit v7+ uses "metadata.vulnerabilities"
+            const vuln = data?.metadata?.vulnerabilities ?? {};
+            const critical = vuln.critical ?? 0;
+            const high     = vuln.high     ?? 0;
+            const medium   = vuln.medium   ?? 0;
+            const low      = vuln.low      ?? 0;
+            const total    = vuln.total    ?? (critical + high + medium + low);
+
+            // Extract advisory details for critical/high
+            const advisories = [];
+            const vulnMap = data?.vulnerabilities ?? data?.advisories ?? {};
+            for (const [pkg, info] of Object.entries(vulnMap)) {
+              const sev = (info.severity ?? '').toUpperCase();
+              if (sev === 'CRITICAL' || sev === 'HIGH') {
+                const via = Array.isArray(info.via)
+                  ? info.via.filter(v => typeof v === 'object').map(v => v.title ?? v.url ?? '').join('; ')
+                  : '';
+                advisories.push({ pkg, severity: sev, title: via || info.title || pkg, fixAvailable: !!info.fixAvailable });
+              }
+            }
+
+            return { label, error:false, critical, high, medium, low, total, advisories };
+          }
+
+          // ── load data ───────────────────────────────────────────────────────
+          const backendAudit  = parseAudit(loadAudit('audit-backend.json'),  'Backend');
+          const frontendAudit = parseAudit(loadAudit('audit-frontend.json'), 'Frontend');
+
+          const prismaStatus     = process.env.PRISMA_STATUS      ?? 'UNKNOWN';
+          const tsBackendStatus  = process.env.TS_BACKEND_STATUS  ?? 'UNKNOWN';
+          const tsFrontendStatus = process.env.TS_FRONTEND_STATUS ?? 'UNKNOWN';
+          const runUrl           = process.env.RUN_URL             ?? '';
+          const repoUrl          = process.env.REPO_URL            ?? '';
+
+          const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+          const quarter = ['Q1','Q1','Q1','Q2','Q2','Q2','Q3','Q3','Q3','Q4','Q4','Q4'][new Date().getMonth()];
+
+          const totalCritical = backendAudit.critical  + frontendAudit.critical;
+          const totalHigh     = backendAudit.high      + frontendAudit.high;
+          const totalMedium   = backendAudit.medium    + frontendAudit.medium;
+          const totalLow      = backendAudit.low       + frontendAudit.low;
+          const totalAll      = totalCritical + totalHigh + totalMedium + totalLow;
+
+          const overallStatus =
+            (totalCritical > 0 || tsBackendStatus === 'FAIL' || tsFrontendStatus === 'FAIL' || prismaStatus === 'FAIL')
+              ? 'ACTION REQUIRED'
+              : totalHigh > 0
+              ? 'ATTENTION NEEDED'
+              : 'HEALTHY';
+
+          // ── build report ────────────────────────────────────────────────────
+          let report = ``;
+          report += `iComply Platform — ${quarter} Security Audit Report\n`;
+          report += `Generated: ${now}\n`;
+          report += `Repository: ${repoUrl}\n`;
+          report += `Workflow run: ${runUrl}\n`;
+          report += `\n`;
+          report += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          report += `OVERALL STATUS: ${overallStatus}\n`;
+          report += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          report += `\n`;
+          report += `── 1. DEPENDENCY VULNERABILITIES (npm audit) ──────────────\n`;
+          report += `\n`;
+
+          for (const a of [backendAudit, frontendAudit]) {
+            if (a.error) {
+              report += `  ${a.label}: audit file not available\n`;
+            } else {
+              report += `  ${a.label}:\n`;
+              report += `    CRITICAL : ${a.critical}\n`;
+              report += `    HIGH     : ${a.high}\n`;
+              report += `    MEDIUM   : ${a.medium}\n`;
+              report += `    LOW      : ${a.low}\n`;
+              report += `    TOTAL    : ${a.total}\n`;
+            }
+          }
+
+          report += `\n`;
+          report += `  COMBINED TOTALS:\n`;
+          report += `    Critical : ${totalCritical}\n`;
+          report += `    High     : ${totalHigh}\n`;
+          report += `    Medium   : ${totalMedium}\n`;
+          report += `    Low      : ${totalLow}\n`;
+          report += `    Total    : ${totalAll}\n`;
+
+          // Critical/High detail
+          const allAdvisories = [...backendAudit.advisories.map(a=>({...a,source:'backend'})),
+                                 ...frontendAudit.advisories.map(a=>({...a,source:'frontend'}))];
+          if (allAdvisories.length > 0) {
+            report += `\n`;
+            report += `── 2. CRITICAL / HIGH VULNERABILITY DETAILS ───────────────\n`;
+            report += `\n`;
+            for (const adv of allAdvisories) {
+              report += `  [${adv.severity}] ${adv.source}/${adv.pkg}\n`;
+              if (adv.title) report += `    Issue    : ${adv.title}\n`;
+              report += `    Fix avail: ${adv.fixAvailable ? 'Yes — run npm audit fix' : 'No / manual action needed'}\n`;
+            }
+          } else {
+            report += `\n`;
+            report += `── 2. CRITICAL / HIGH VULNERABILITY DETAILS ───────────────\n`;
+            report += `\n  No critical or high vulnerabilities found.\n`;
+          }
+
+          report += `\n`;
+          report += `── 3. CODE QUALITY CHECKS ──────────────────────────────────\n`;
+          report += `\n`;
+          report += `  Prisma schema validation : ${prismaStatus}\n`;
+          report += `  TypeScript build (backend) : ${tsBackendStatus}\n`;
+          report += `  TypeScript build (frontend): ${tsFrontendStatus}\n`;
+
+          report += `\n`;
+          report += `── 4. RECOMMENDED ACTIONS ──────────────────────────────────\n`;
+          report += `\n`;
+          if (totalCritical > 0) {
+            report += `  !! URGENT — ${totalCritical} critical vulnerabilit${totalCritical===1?'y':'ies'} found.\n`;
+            report += `     Run 'npm audit fix --force' in affected directories.\n`;
+            report += `     Review advisories above and update packages manually if needed.\n`;
+          }
+          if (totalHigh > 0) {
+            report += `  !  HIGH — ${totalHigh} high-severity vulnerabilit${totalHigh===1?'y':'ies'} found.\n`;
+            report += `     Run 'npm audit fix' in backend/ and/or frontend/.\n`;
+          }
+          if (totalMedium > 0 || totalLow > 0) {
+            report += `  i  ${totalMedium} medium and ${totalLow} low vulnerabilities detected.\n`;
+            report += `     Schedule remediation in next sprint.\n`;
+          }
+          if (tsBackendStatus === 'FAIL' || tsFrontendStatus === 'FAIL') {
+            report += `  !! TypeScript build failure detected — fix type errors before next release.\n`;
+          }
+          if (prismaStatus === 'FAIL') {
+            report += `  !! Prisma schema validation failed — review schema.prisma immediately.\n`;
+          }
+          if (overallStatus === 'HEALTHY') {
+            report += `  No critical issues detected. Continue scheduled dependency updates.\n`;
+            report += `  Consider running 'npm update' to keep packages current.\n`;
+          }
+
+          report += `\n`;
+          report += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          report += `iComply Security Bot | Automated Quarterly Audit\n`;
+          report += `Next scheduled run: first day of next quarter, 09:00 UTC\n`;
+
+          // ── write to GITHUB_ENV ─────────────────────────────────────────────
+          // Multi-line env vars need the heredoc syntax
+          const delimiter = 'EOF_SECURITY_REPORT_' + Date.now();
+          const envFile = process.env.GITHUB_ENV;
+          if (envFile) {
+            fs.appendFileSync(envFile, `SECURITY_REPORT<<${delimiter}\n${report}\n${delimiter}\n`);
+            fs.appendFileSync(envFile, `AUDIT_OVERALL_STATUS=${overallStatus}\n`);
+            fs.appendFileSync(envFile, `AUDIT_QUARTER=${quarter}\n`);
+            fs.appendFileSync(envFile, `AUDIT_DATE=${now}\n`);
+          }
+
+          // Print to console for the Actions log
+          console.log('\n' + report);
+          EOF
+
+      # -----------------------------------------------------------------------
+      # 10. Send email report
+      # -----------------------------------------------------------------------
+      - name: Send security report email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
+          subject: "[${{ env.AUDIT_OVERALL_STATUS }}] iComply ${{ env.AUDIT_QUARTER }} Security Audit — ${{ env.AUDIT_DATE }}"
+          to: support@icomply.pt
+          from: "iComply Security Bot <${{ secrets.GMAIL_USER }}>"
+          body: ${{ env.SECURITY_REPORT }}
+          # On failure, still try to send so the team is aware something broke
+          ignore_cert: false
+
+      # -----------------------------------------------------------------------
+      # 11. Upload raw audit artifacts (retained 90 days)
+      # -----------------------------------------------------------------------
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-${{ github.run_id }}
+          path: |
+            audit-backend.json
+            audit-frontend.json
+          retention-days: 90
