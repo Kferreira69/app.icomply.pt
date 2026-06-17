@@ -2,7 +2,7 @@ import {
   Body, Controller, Get, Param, Patch, Post, Query,
   Request, UseGuards, ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SupportTicketsService } from './support-tickets.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateReplyDto } from './dto/create-reply.dto';
