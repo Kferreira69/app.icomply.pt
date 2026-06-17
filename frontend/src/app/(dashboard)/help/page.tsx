@@ -10,7 +10,7 @@ import {
   Search, X, Laptop, Settings, Key, Database,
   Lock, HelpCircle, Layers, Globe,
   Headphones, Send, RefreshCw, ArrowLeft,
-  AlertCircle,
+  AlertCircle, Paperclip, FileSpreadsheet,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -141,12 +141,20 @@ const TICKET_STATUS_COLORS: Record<string, string> = {
   CLOSED: 'bg-gray-100 text-gray-600',
 };
 
+type TicketAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+};
+
 type TicketReply = {
   id: string;
   body: string;
   isInternal: boolean;
   createdAt: string;
   author: { firstName: string; lastName: string; role: string };
+  attachments?: TicketAttachment[];
 };
 
 type TicketDetail = {
@@ -159,6 +167,7 @@ type TicketDetail = {
   category: string;
   createdAt: string;
   replies?: TicketReply[];
+  attachments?: TicketAttachment[];
 };
 
 function fmtDate(d: string) {
@@ -176,6 +185,100 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function AttachmentZone({ attachments, onAdd, onRemove }: {
+  attachments: File[];
+  onAdd: (files: File[]) => void;
+  onRemove: (index: number) => void;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) onAdd(files);
+  };
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-lg p-3 text-center text-xs text-gray-400 cursor-pointer transition-colors ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+        onClick={() => document.getElementById('attachment-input')?.click()}
+      >
+        <Paperclip className="w-4 h-4 mx-auto mb-1" />
+        Arrasta ficheiros aqui ou clica para selecionar · Imagens, PDFs, documentos
+        <input
+          id="attachment-input"
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+          className="hidden"
+          onChange={e => { const f = Array.from(e.target.files || []); if (f.length) onAdd(f); e.target.value = ''; }}
+        />
+      </div>
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {attachments.map((f, i) => (
+            <div key={i} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1 text-xs">
+              {f.type.startsWith('image/') ? (
+                <img src={URL.createObjectURL(f)} className="w-8 h-8 object-cover rounded" alt="" />
+              ) : (
+                <FileSpreadsheet className="w-3 h-3 text-gray-500" />
+              )}
+              <span className="max-w-[100px] truncate">{f.name}</span>
+              <button onClick={() => onRemove(i)} className="text-gray-400 hover:text-red-500 ml-1">×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttachmentList({ attachments, ticketId }: { attachments?: TicketAttachment[]; ticketId: string }) {
+  if (!attachments || attachments.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {attachments.map(att => (
+        <a
+          key={att.id}
+          href={`/api/v1/support-tickets/attachments/${att.id}/download`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded"
+        >
+          <Paperclip className="w-3 h-3" /> {att.fileName}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+const uploadAttachments = async (ticketId: string, files: File[], replyId?: string) => {
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('file', file);
+    await api.post(
+      `/support-tickets/${ticketId}/attachments${replyId ? `?replyId=${replyId}` : ''}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+  }
+};
+
+const handlePaste = (e: React.ClipboardEvent, onAdd: (files: File[]) => void) => {
+  const items = Array.from(e.clipboardData.items);
+  const imageItems = items.filter(item => item.type.startsWith('image/'));
+  if (imageItems.length > 0) {
+    e.preventDefault();
+    const files = imageItems.map(item => item.getAsFile()).filter(Boolean) as File[];
+    onAdd(files);
+  }
+};
+
 function TicketDetailView({
   ticket,
   onBack,
@@ -184,6 +287,7 @@ function TicketDetailView({
   onBack: () => void;
 }) {
   const [replyBody, setReplyBody] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [detail, setDetail] = useState<TicketDetail>(ticket);
 
@@ -191,13 +295,17 @@ function TicketDetailView({
     if (!replyBody.trim()) return;
     setSending(true);
     try {
-      await api.post(`/support-tickets/${detail.id}/replies`, {
+      const { data: reply } = await api.post(`/support-tickets/${detail.id}/replies`, {
         body: replyBody,
         isInternal: false,
       });
+      if (replyAttachments.length > 0) {
+        await uploadAttachments(detail.id, replyAttachments, reply.id);
+      }
       const { data } = await api.get(`/support-tickets/${detail.id}`);
       setDetail(data);
       setReplyBody('');
+      setReplyAttachments([]);
     } finally {
       setSending(false);
     }
@@ -236,6 +344,7 @@ function TicketDetailView({
           <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-3">
             {detail.description}
           </p>
+          <AttachmentList attachments={detail.attachments} ticketId={detail.id} />
         </div>
       </div>
 
@@ -269,6 +378,7 @@ function TicketDetailView({
                   <span className="text-xs text-gray-400 ml-auto">{fmtDate(r.createdAt)}</span>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{r.body}</p>
+                <AttachmentList attachments={r.attachments} ticketId={detail.id} />
               </div>
             );
           })}
@@ -285,9 +395,15 @@ function TicketDetailView({
         <textarea
           value={replyBody}
           onChange={e => setReplyBody(e.target.value)}
+          onPaste={e => handlePaste(e, files => setReplyAttachments(prev => [...prev, ...files]))}
           placeholder="A tua resposta..."
           rows={4}
           className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+        />
+        <AttachmentZone
+          attachments={replyAttachments}
+          onAdd={files => setReplyAttachments(prev => [...prev, ...files])}
+          onRemove={i => setReplyAttachments(prev => prev.filter((_, idx) => idx !== i))}
         />
         <button
           onClick={sendReply}
@@ -308,6 +424,7 @@ function SupportSection() {
   const [priority, setPriority] = useState('MEDIUM');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
+  const [ticketAttachments, setTicketAttachments] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ ticketNumber: string } | null>(null);
   const [tickets, setTickets] = useState<any[]>([]);
@@ -321,8 +438,12 @@ function SupportSection() {
     try {
       const { data } = await api.post('/support-tickets', { category, priority, subject, description });
       if (data?.id) {
+        if (ticketAttachments.length > 0) {
+          await uploadAttachments(data.id, ticketAttachments);
+        }
         setSubmitted({ ticketNumber: data.ticketNumber });
         setSubject(''); setDescription(''); setCategory('OTHER'); setPriority('MEDIUM');
+        setTicketAttachments([]);
       }
     } finally {
       setSubmitting(false);
@@ -462,6 +583,7 @@ function SupportSection() {
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
+                  onPaste={e => handlePaste(e, files => setTicketAttachments(prev => [...prev, ...files]))}
                   placeholder="Explica o que aconteceu, passos para reproduzir, capturas de ecrã relevantes..."
                   rows={5}
                   maxLength={5000}
@@ -469,6 +591,11 @@ function SupportSection() {
                 />
                 <p className="text-xs text-gray-400 text-right mt-1">{description.length}/5000</p>
               </div>
+              <AttachmentZone
+                attachments={ticketAttachments}
+                onAdd={files => setTicketAttachments(prev => [...prev, ...files])}
+                onRemove={i => setTicketAttachments(prev => prev.filter((_, idx) => idx !== i))}
+              />
               <button
                 onClick={submitTicket}
                 disabled={submitting || !subject.trim() || !description.trim()}

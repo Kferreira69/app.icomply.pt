@@ -379,6 +379,7 @@ model Organization {
   timeEntries         TimeEntry[]
   platformIntegrations PlatformIntegration[]
   supportTickets      SupportTicket[]
+  ticketAttachments   TicketAttachment[]
 
   @@map("organizations")
 }
@@ -4247,6 +4248,7 @@ model SupportTicket {
   assignedToId   String?
   assignedTo     User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
   replies        TicketReply[]
+  attachments    TicketAttachment[]
   resolvedAt     DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -4266,7 +4268,26 @@ model TicketReply {
   body       String
   isInternal Boolean       @default(false)
   createdAt  DateTime      @default(now())
+  attachments TicketAttachment[]
 
   @@index([ticketId])
   @@map("ticket_replies")
+}
+
+model TicketAttachment {
+  id             String         @id @default(uuid())
+  ticketId       String?
+  replyId        String?
+  organizationId String
+  s3Key          String
+  fileName       String
+  fileSize       Int
+  mimeType       String
+  createdAt      DateTime       @default(now())
+
+  ticket         SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  reply          TicketReply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+
+  @@map("ticket_attachments")
 }

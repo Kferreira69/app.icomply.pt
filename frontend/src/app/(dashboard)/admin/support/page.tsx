@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Headphones, RefreshCw, Send,
   Building2, User, Tag, Flag, Lock, X,
+  Paperclip, FileSpreadsheet,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
@@ -55,12 +56,20 @@ const STATUS_TABS = [
 
 // ── Types ─────────────────────────────────────────────────────
 
+type TicketAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+};
+
 type Reply = {
   id: string;
   body: string;
   isInternal: boolean;
   createdAt: string;
   author: { firstName: string; lastName: string; role: string };
+  attachments?: TicketAttachment[];
 };
 
 type Ticket = {
@@ -79,6 +88,7 @@ type Ticket = {
   assignedTo?: { firstName: string; lastName: string };
   _count: { replies: number };
   replies?: Reply[];
+  attachments?: TicketAttachment[];
 };
 
 type Stats = {
@@ -98,6 +108,103 @@ function fmtDate(d: string) {
   }).format(new Date(d));
 }
 
+// ── Attachment helpers ────────────────────────────────────────
+
+function AttachmentZone({ attachments, onAdd, onRemove, inputId }: {
+  attachments: File[];
+  onAdd: (files: File[]) => void;
+  onRemove: (index: number) => void;
+  inputId: string;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) onAdd(files);
+  };
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-lg p-2 text-center text-xs text-gray-400 cursor-pointer transition-colors ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+        onClick={() => document.getElementById(inputId)?.click()}
+      >
+        <Paperclip className="w-3.5 h-3.5 mx-auto mb-0.5" />
+        Anexar ficheiros
+        <input
+          id={inputId}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+          className="hidden"
+          onChange={e => { const f = Array.from(e.target.files || []); if (f.length) onAdd(f); e.target.value = ''; }}
+        />
+      </div>
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {attachments.map((f, i) => (
+            <div key={i} className="flex items-center gap-1 bg-gray-100 rounded px-1.5 py-0.5 text-xs">
+              {f.type.startsWith('image/') ? (
+                <img src={URL.createObjectURL(f)} className="w-6 h-6 object-cover rounded" alt="" />
+              ) : (
+                <FileSpreadsheet className="w-3 h-3 text-gray-500" />
+              )}
+              <span className="max-w-[80px] truncate">{f.name}</span>
+              <button onClick={() => onRemove(i)} className="text-gray-400 hover:text-red-500 ml-0.5">×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttachmentList({ attachments }: { attachments?: TicketAttachment[] }) {
+  if (!attachments || attachments.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {attachments.map(att => (
+        <a
+          key={att.id}
+          href={`/api/v1/support-tickets/attachments/${att.id}/download`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-0.5 rounded"
+        >
+          <Paperclip className="w-3 h-3" /> {att.fileName}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+const uploadAttachments = async (ticketId: string, files: File[], replyId?: string) => {
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('file', file);
+    await api.post(
+      `/support-tickets/${ticketId}/attachments${replyId ? `?replyId=${replyId}` : ''}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+  }
+};
+
+const handlePaste = (e: React.ClipboardEvent, onAdd: (files: File[]) => void) => {
+  const items = Array.from(e.clipboardData.items);
+  const imageItems = items.filter(item => item.type.startsWith('image/'));
+  if (imageItems.length > 0) {
+    e.preventDefault();
+    const files = imageItems.map(item => item.getAsFile()).filter(Boolean) as File[];
+    onAdd(files);
+  }
+};
+
 // ── Page ──────────────────────────────────────────────────────
 
 export default function AdminSupportPage() {
@@ -111,6 +218,7 @@ export default function AdminSupportPage() {
   const [page] = useState(1);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyBody, setReplyBody] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [isInternal, setIsInternal] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -142,6 +250,7 @@ export default function AdminSupportPage() {
     const { data } = await api.get(`/support-tickets/${ticket.id}`);
     setSelectedTicket(data);
     setReplyBody('');
+    setReplyAttachments([]);
     setIsInternal(false);
   };
 
@@ -149,13 +258,17 @@ export default function AdminSupportPage() {
     if (!selectedTicket || !replyBody.trim()) return;
     setSendingReply(true);
     try {
-      await api.post(`/support-tickets/${selectedTicket.id}/replies`, {
+      const { data: reply } = await api.post(`/support-tickets/${selectedTicket.id}/replies`, {
         body: replyBody,
         isInternal,
       });
+      if (replyAttachments.length > 0) {
+        await uploadAttachments(selectedTicket.id, replyAttachments, reply.id);
+      }
       const { data } = await api.get(`/support-tickets/${selectedTicket.id}`);
       setSelectedTicket(data);
       setReplyBody('');
+      setReplyAttachments([]);
       load();
     } finally {
       setSendingReply(false);
@@ -348,6 +461,7 @@ export default function AdminSupportPage() {
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 shrink-0">
             <p className="text-xs font-medium text-gray-500 mb-1.5">Descrição original</p>
             <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedTicket.description}</p>
+            <AttachmentList attachments={selectedTicket.attachments} />
             <p className="text-xs text-gray-400 mt-2">{fmtDate(selectedTicket.createdAt)}</p>
           </div>
 
@@ -384,6 +498,7 @@ export default function AdminSupportPage() {
                     <span className="text-xs text-gray-400 ml-auto">{fmtDate(r.createdAt)}</span>
                   </div>
                   <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{r.body}</p>
+                  <AttachmentList attachments={r.attachments} />
                 </div>
               ))
             )}
@@ -394,11 +509,18 @@ export default function AdminSupportPage() {
             <textarea
               value={replyBody}
               onChange={e => setReplyBody(e.target.value)}
+              onPaste={e => handlePaste(e, files => setReplyAttachments(prev => [...prev, ...files]))}
               placeholder={isInternal ? 'Nota interna (não visível pelo cliente)...' : 'Escreve a resposta ao cliente...'}
               rows={3}
               className={`w-full text-sm border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                 isInternal ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white'
               }`}
+            />
+            <AttachmentZone
+              attachments={replyAttachments}
+              onAdd={files => setReplyAttachments(prev => [...prev, ...files])}
+              onRemove={i => setReplyAttachments(prev => prev.filter((_, idx) => idx !== i))}
+              inputId="admin-reply-attachment-input"
             />
             <div className="flex items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
