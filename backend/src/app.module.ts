@@ -76,6 +76,7 @@ import { EvidenceIntegrationsModule } from './evidence-integrations/evidence-int
 import { IGuardModule } from './iguard/iguard.module';
 import { IntegrationHubModule } from './integration-hub/integration-hub.module';
 import { CommonServicesModule } from './common/services/common-services.module';
+import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 
 @Module({
   imports: [
@@ -171,6 +172,7 @@ import { CommonServicesModule } from './common/services/common-services.module';
     EvidenceIntegrationsModule,
     IGuardModule,
     IntegrationHubModule,
+    SupportTicketsModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

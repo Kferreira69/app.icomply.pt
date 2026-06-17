@@ -9,7 +9,9 @@ import {
   Users, BarChart3, AlertTriangle, Target,
   Search, X, Laptop, Settings, Key, Database,
   Lock, HelpCircle, Layers, Globe,
+  Headphones, Send, RefreshCw,
 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 // ── FAQ ───────────────────────────────────────────────────────
 const FAQ = [
@@ -115,6 +117,219 @@ const RESOURCES = [
   { label: 'Academia iComply (20 vídeos)', href: '/academy', icon: BookOpen, external: false },
   { label: 'Trust Center público', href: '/trust', icon: Shield, external: false },
 ];
+
+// ── Support Tickets ───────────────────────────────────────────
+
+const TICKET_CAT_LABELS: Record<string, string> = {
+  ONBOARDING: 'Onboarding', TECHNICAL_ISSUE: 'Problema Técnico',
+  BILLING: 'Faturação', FEATURE_REQUEST: 'Sugestão de Funcionalidade',
+  BUG_REPORT: 'Reportar Bug', SECURITY: 'Segurança', OTHER: 'Outro',
+};
+const TICKET_PRI_LABELS: Record<string, string> = {
+  LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', URGENT: 'Urgente',
+};
+const TICKET_STATUS_LABELS: Record<string, string> = {
+  OPEN: 'Aberto', IN_PROGRESS: 'Em Progresso',
+  WAITING_USER: 'Aguarda Resposta', RESOLVED: 'Resolvido', CLOSED: 'Fechado',
+};
+const TICKET_STATUS_COLORS: Record<string, string> = {
+  OPEN: 'bg-blue-100 text-blue-700',
+  IN_PROGRESS: 'bg-amber-100 text-amber-700',
+  WAITING_USER: 'bg-purple-100 text-purple-700',
+  RESOLVED: 'bg-green-100 text-green-700',
+  CLOSED: 'bg-gray-100 text-gray-600',
+};
+
+function SupportSection() {
+  const [tab, setTab] = useState<'form' | 'tickets'>('form');
+  const [category, setCategory] = useState('OTHER');
+  const [priority, setPriority] = useState('MEDIUM');
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState<{ ticketNumber: string } | null>(null);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+
+  const submitTicket = async () => {
+    if (!subject.trim() || !description.trim()) return;
+    setSubmitting(true);
+    try {
+      const { data } = await api.post('/support-tickets', { category, priority, subject, description });
+      if (data?.id) {
+        setSubmitted({ ticketNumber: data.ticketNumber });
+        setSubject(''); setDescription(''); setCategory('OTHER'); setPriority('MEDIUM');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const loadTickets = async () => {
+    setLoadingTickets(true);
+    try {
+      const { data } = await api.get('/support-tickets');
+      setTickets(data.data ?? []);
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
+
+  const switchToTickets = () => {
+    setTab('tickets');
+    loadTickets();
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center">
+          <Headphones className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Suporte Técnico</h2>
+          <p className="text-xs text-gray-500">Abre um ticket e respondemos em menos de 4 horas úteis.</p>
+        </div>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-5 w-fit">
+        <button
+          onClick={() => setTab('form')}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'form' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-800'}`}
+        >
+          Abrir Ticket
+        </button>
+        <button
+          onClick={switchToTickets}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'tickets' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-800'}`}
+        >
+          Os Meus Tickets
+        </button>
+      </div>
+
+      {/* Form tab */}
+      {tab === 'form' && (
+        <div className="space-y-4 max-w-2xl">
+          {submitted ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">Pedido enviado com sucesso!</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  O teu ticket{' '}
+                  <span className="font-mono font-semibold text-indigo-600">{submitted.ticketNumber}</span>{' '}
+                  foi criado. Responderemos por email em breve.
+                </p>
+              </div>
+              <button onClick={() => setSubmitted(null)} className="mt-2 text-sm text-indigo-600 hover:underline">
+                Abrir outro ticket
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Categoria</label>
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {Object.entries(TICKET_CAT_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Prioridade</label>
+                  <select
+                    value={priority}
+                    onChange={e => setPriority(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {Object.entries(TICKET_PRI_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Assunto</label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  placeholder="Descreve o problema em poucas palavras..."
+                  maxLength={200}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Descrição detalhada</label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Explica o que aconteceu, passos para reproduzir, capturas de ecrã relevantes..."
+                  rows={5}
+                  maxLength={5000}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+                <p className="text-xs text-gray-400 text-right mt-1">{description.length}/5000</p>
+              </div>
+              <button
+                onClick={submitTicket}
+                disabled={submitting || !subject.trim() || !description.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send className="w-4 h-4" />
+                {submitting ? 'A enviar...' : 'Enviar Pedido'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Tickets tab */}
+      {tab === 'tickets' && (
+        <div>
+          <div className="flex justify-end mb-3">
+            <button onClick={loadTickets} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700">
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingTickets ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
+          </div>
+          {loadingTickets ? (
+            <div className="py-8 text-center text-sm text-gray-400">A carregar tickets...</div>
+          ) : tickets.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-gray-500">Ainda não tens tickets de suporte.</p>
+              <button onClick={() => setTab('form')} className="mt-3 text-sm text-indigo-600 hover:underline">
+                Abrir o primeiro ticket
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {tickets.map((t: any) => (
+                <div key={t.id} className="flex items-center gap-4 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                  <span className="font-mono text-xs text-gray-400 w-12 shrink-0">{t.ticketNumber}</span>
+                  <span className="text-sm text-gray-800 flex-1 truncate">{t.subject}</span>
+                  <span className="text-xs text-gray-500 shrink-0">{TICKET_CAT_LABELS[t.category] ?? t.category}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${TICKET_STATUS_COLORS[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {TICKET_STATUS_LABELS[t.status] ?? t.status}
+                  </span>
+                  <span className="text-xs text-gray-400 shrink-0">{t._count?.replies ?? 0} resp.</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Knowledge Base ────────────────────────────────────────────
 const KB_CATEGORIES = [
@@ -621,6 +836,9 @@ export default function HelpPage() {
           {FAQ.map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}
         </div>
       </div>
+
+      {/* Support Tickets */}
+      <SupportSection />
 
       {/* Knowledge Base */}
       <KnowledgeBase />
