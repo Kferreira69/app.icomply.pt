@@ -16,7 +16,7 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
 
 export default function ExcelImportPage() {
   const t = useTranslations('excelImport');
-  const [importType, setImportType] = useState<'TASKS' | 'RISKS' | 'GAP_ANALYSIS_ISO27001'>('TASKS');
+  const [importType, setImportType] = useState<'TASKS' | 'RISKS' | 'GAP_ANALYSIS_ISO27001' | 'ROPA' | 'ASSET_INVENTORY' | 'TREATMENT_PLAN' | 'ACTION_PLAN' | 'POLICIES'>('TASKS');
   const [selectedProject, setSelectedProject] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,8 +62,8 @@ export default function ExcelImportPage() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-1">{t('downloadTemplates')}</h2>
         <p className="text-sm text-gray-500 mb-4">{t('downloadTemplatesDesc')}</p>
-        <div className="grid grid-cols-2 gap-4">
-          {(['TASKS', 'RISKS', 'GAP_ANALYSIS_ISO27001'] as const).map(type => (
+        <div className="grid grid-cols-3 gap-4">
+          {(['TASKS', 'RISKS', 'GAP_ANALYSIS_ISO27001', 'ROPA', 'ASSET_INVENTORY', 'TREATMENT_PLAN', 'ACTION_PLAN', 'POLICIES'] as const).map(type => (
             <div key={type} className="border border-gray-200 rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
@@ -103,12 +103,17 @@ export default function ExcelImportPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('importType')}</label>
             <select
               value={importType}
-              onChange={e => setImportType(e.target.value as 'TASKS' | 'RISKS')}
+              onChange={e => setImportType(e.target.value as 'TASKS' | 'RISKS' | 'GAP_ANALYSIS_ISO27001' | 'ROPA' | 'ASSET_INVENTORY' | 'TREATMENT_PLAN' | 'ACTION_PLAN' | 'POLICIES')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
             >
               <option value="TASKS">{t('type.TASKS')}</option>
               <option value="RISKS">{t('type.RISKS')}</option>
               <option value="GAP_ANALYSIS_ISO27001">{t('type.GAP_ANALYSIS_ISO27001')}</option>
+              <option value="ROPA">{t('type.ROPA')}</option>
+              <option value="ASSET_INVENTORY">{t('type.ASSET_INVENTORY')}</option>
+              <option value="TREATMENT_PLAN">{t('type.TREATMENT_PLAN')}</option>
+              <option value="ACTION_PLAN">{t('type.ACTION_PLAN')}</option>
+              <option value="POLICIES">{t('type.POLICIES')}</option>
             </select>
           </div>
           <div>
