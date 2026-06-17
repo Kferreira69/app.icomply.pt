@@ -9,7 +9,8 @@ import {
   Users, BarChart3, AlertTriangle, Target,
   Search, X, Laptop, Settings, Key, Database,
   Lock, HelpCircle, Layers, Globe,
-  Headphones, Send, RefreshCw,
+  Headphones, Send, RefreshCw, ArrowLeft,
+  AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -135,10 +136,171 @@ const TICKET_STATUS_LABELS: Record<string, string> = {
 const TICKET_STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-blue-100 text-blue-700',
   IN_PROGRESS: 'bg-amber-100 text-amber-700',
-  WAITING_USER: 'bg-purple-100 text-purple-700',
+  WAITING_USER: 'bg-orange-100 text-orange-700',
   RESOLVED: 'bg-green-100 text-green-700',
   CLOSED: 'bg-gray-100 text-gray-600',
 };
+
+type TicketReply = {
+  id: string;
+  body: string;
+  isInternal: boolean;
+  createdAt: string;
+  author: { firstName: string; lastName: string; role: string };
+};
+
+type TicketDetail = {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  status: string;
+  priority: string;
+  category: string;
+  createdAt: string;
+  replies?: TicketReply[];
+};
+
+function fmtDate(d: string) {
+  return new Intl.DateTimeFormat('pt-PT', {
+    day: '2-digit', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date(d));
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TICKET_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {TICKET_STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+function TicketDetailView({
+  ticket,
+  onBack,
+}: {
+  ticket: TicketDetail;
+  onBack: () => void;
+}) {
+  const [replyBody, setReplyBody] = useState('');
+  const [sending, setSending] = useState(false);
+  const [detail, setDetail] = useState<TicketDetail>(ticket);
+
+  const sendReply = async () => {
+    if (!replyBody.trim()) return;
+    setSending(true);
+    try {
+      await api.post(`/support-tickets/${detail.id}/replies`, {
+        body: replyBody,
+        isInternal: false,
+      });
+      const { data } = await api.get(`/support-tickets/${detail.id}`);
+      setDetail(data);
+      setReplyBody('');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const visibleReplies = (detail.replies ?? []).filter(r => !r.isInternal);
+
+  return (
+    <div className="space-y-5">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Voltar aos pedidos
+      </button>
+
+      {/* Ticket header */}
+      <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-gray-400">Pedido {detail.ticketNumber}</span>
+            <StatusBadge status={detail.status} />
+          </div>
+          <span className="text-xs text-gray-400">{fmtDate(detail.createdAt)}</span>
+        </div>
+
+        <div className="border-t border-gray-100 pt-3">
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">{detail.subject}</h3>
+          <div className="flex items-center gap-4 text-xs text-gray-500 mb-3 flex-wrap">
+            <span>Categoria: <span className="font-medium text-gray-700">{TICKET_CAT_LABELS[detail.category] ?? detail.category}</span></span>
+            <span>Prioridade: <span className="font-medium text-gray-700">{TICKET_PRI_LABELS[detail.priority] ?? detail.priority}</span></span>
+          </div>
+          <p className="text-xs font-medium text-gray-500 mb-1.5">Descrição</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-3">
+            {detail.description}
+          </p>
+        </div>
+      </div>
+
+      {/* Conversation thread */}
+      {visibleReplies.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-xs font-medium text-gray-400 px-2">Conversa</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+
+          {visibleReplies.map(r => {
+            const isSupport = r.author.role === 'SUPER_ADMIN';
+            return (
+              <div
+                key={r.id}
+                className={`rounded-xl p-3.5 border-l-4 ${
+                  isSupport
+                    ? 'bg-blue-50 border-l-blue-400'
+                    : 'bg-gray-50 border-l-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isSupport ? 'bg-blue-500' : 'bg-gray-400'}`}>
+                    {r.author.firstName[0]}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800">
+                    {isSupport ? 'Suporte iComply' : `${r.author.firstName} ${r.author.lastName}`}
+                  </span>
+                  <span className="text-xs text-gray-400 ml-auto">{fmtDate(r.createdAt)}</span>
+                </div>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{r.body}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Reply form */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-px bg-gray-100" />
+          <span className="text-xs font-medium text-gray-400 px-2">Responder</span>
+          <div className="flex-1 h-px bg-gray-100" />
+        </div>
+        <textarea
+          value={replyBody}
+          onChange={e => setReplyBody(e.target.value)}
+          placeholder="A tua resposta..."
+          rows={4}
+          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+        />
+        <button
+          onClick={sendReply}
+          disabled={sending || !replyBody.trim()}
+          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Send className="w-4 h-4" />
+          {sending ? 'A enviar...' : 'Enviar Resposta'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function SupportSection() {
   const [tab, setTab] = useState<'form' | 'tickets'>('form');
@@ -150,6 +312,8 @@ function SupportSection() {
   const [submitted, setSubmitted] = useState<{ ticketNumber: string } | null>(null);
   const [tickets, setTickets] = useState<any[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const submitTicket = async () => {
     if (!subject.trim() || !description.trim()) return;
@@ -177,7 +341,18 @@ function SupportSection() {
 
   const switchToTickets = () => {
     setTab('tickets');
+    setSelectedTicket(null);
     loadTickets();
+  };
+
+  const openTicketDetail = async (t: any) => {
+    setLoadingDetail(true);
+    try {
+      const { data } = await api.get(`/support-tickets/${t.id}`);
+      setSelectedTicket(data);
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
   return (
@@ -192,24 +367,34 @@ function SupportSection() {
         </div>
       </div>
 
-      {/* Tab switcher */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-5 w-fit">
-        <button
-          onClick={() => setTab('form')}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'form' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-800'}`}
-        >
-          Abrir Ticket
-        </button>
-        <button
-          onClick={switchToTickets}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'tickets' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-800'}`}
-        >
-          Os Meus Tickets
-        </button>
-      </div>
+      {/* Tab switcher — hidden when viewing ticket detail */}
+      {!selectedTicket && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-5 w-fit">
+          <button
+            onClick={() => setTab('form')}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'form' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-800'}`}
+          >
+            Abrir Ticket
+          </button>
+          <button
+            onClick={switchToTickets}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === 'tickets' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-800'}`}
+          >
+            Os Meus Tickets
+          </button>
+        </div>
+      )}
+
+      {/* Ticket detail view */}
+      {selectedTicket && (
+        <TicketDetailView
+          ticket={selectedTicket}
+          onBack={() => setSelectedTicket(null)}
+        />
+      )}
 
       {/* Form tab */}
-      {tab === 'form' && (
+      {!selectedTicket && tab === 'form' && (
         <div className="space-y-4 max-w-2xl">
           {submitted ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -224,9 +409,14 @@ function SupportSection() {
                   foi criado. Responderemos por email em breve.
                 </p>
               </div>
-              <button onClick={() => setSubmitted(null)} className="mt-2 text-sm text-indigo-600 hover:underline">
-                Abrir outro ticket
-              </button>
+              <div className="flex gap-4 mt-2">
+                <button onClick={() => setSubmitted(null)} className="text-sm text-indigo-600 hover:underline">
+                  Abrir outro ticket
+                </button>
+                <button onClick={switchToTickets} className="text-sm text-gray-500 hover:underline">
+                  Ver os meus tickets
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -293,7 +483,7 @@ function SupportSection() {
       )}
 
       {/* Tickets tab */}
-      {tab === 'tickets' && (
+      {!selectedTicket && tab === 'tickets' && (
         <div>
           <div className="flex justify-end mb-3">
             <button onClick={loadTickets} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700">
@@ -313,15 +503,19 @@ function SupportSection() {
           ) : (
             <div className="space-y-2">
               {tickets.map((t: any) => (
-                <div key={t.id} className="flex items-center gap-4 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                <button
+                  key={t.id}
+                  onClick={() => openTicketDetail(t)}
+                  disabled={loadingDetail}
+                  className="w-full flex items-center gap-4 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-indigo-100 transition-colors text-left cursor-pointer disabled:opacity-60"
+                >
                   <span className="font-mono text-xs text-gray-400 w-12 shrink-0">{t.ticketNumber}</span>
                   <span className="text-sm text-gray-800 flex-1 truncate">{t.subject}</span>
-                  <span className="text-xs text-gray-500 shrink-0">{TICKET_CAT_LABELS[t.category] ?? t.category}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${TICKET_STATUS_COLORS[t.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {TICKET_STATUS_LABELS[t.status] ?? t.status}
-                  </span>
+                  <span className="text-xs text-gray-500 shrink-0 hidden sm:block">{TICKET_CAT_LABELS[t.category] ?? t.category}</span>
+                  <StatusBadge status={t.status} />
                   <span className="text-xs text-gray-400 shrink-0">{t._count?.replies ?? 0} resp.</span>
-                </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+                </button>
               ))}
             </div>
           )}
@@ -837,11 +1031,22 @@ export default function HelpPage() {
         </div>
       </div>
 
-      {/* Support Tickets */}
-      <SupportSection />
-
       {/* Knowledge Base */}
       <KnowledgeBase />
+
+      {/* Bridge banner — KB → Support */}
+      <div className="flex items-center gap-4 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl">
+        <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+          <AlertCircle className="w-5 h-5 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">Não encontraste o que precisavas?</p>
+          <p className="text-xs text-amber-700 mt-0.5">Abre um pedido de assistência e a nossa equipa responde-te em menos de 4 horas úteis.</p>
+        </div>
+      </div>
+
+      {/* Support Tickets */}
+      <SupportSection />
 
       {/* Resources */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
