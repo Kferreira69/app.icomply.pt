@@ -152,16 +152,33 @@ export default function IGuardInstallPage() {
 
   const tok = token || 'SEU_TOKEN';
 
-  const macosScript = `curl -fsSL https://iguard.icomply.pt/install.sh | bash -s -- --token ${tok}`;
+  const API_URL = 'https://app.icomply.pt/api/v1';
 
-  const windowsRunCmd = `iguard.exe /?token=${tok}`;
+  const macosScript = `chmod +x ./iguard
+./iguard setup --token ${tok} --api ${API_URL}
+./iguard run`;
 
-  const linuxServerScript = `curl -fsSL https://iguard.icomply.pt/install-server.sh | sudo bash -s -- --token ${tok}`;
+  const windowsRunCmd = `# Execute os comandos abaixo no PowerShell (como Administrador):
+
+# Passo 1 — guardar configuração (só uma vez)
+.\\iguard.exe setup --token ${tok} --api ${API_URL}
+
+# Passo 2 — verificar conformidade e enviar relatório
+.\\iguard.exe run`;
+
+  const linuxServerScript = `chmod +x ./iguard-server
+sudo ./iguard-server setup --token ${tok} --api ${API_URL} --mode server
+sudo ./iguard-server service install
+sudo ./iguard-server service start`;
 
   const windowsServerScript = `# Execute no PowerShell como Administrador
-Invoke-WebRequest -Uri "https://iguard.icomply.pt/install-server.ps1" -OutFile install-server.ps1
-Set-ExecutionPolicy Bypass -Scope Process -Force
-.\\install-server.ps1 -Token "${tok}"`;
+
+# Passo 1 — guardar configuração
+.\\iguard.exe setup --token ${tok} --api ${API_URL} --mode server
+
+# Passo 2 — instalar como serviço Windows
+.\\iguard.exe service install
+.\\iguard.exe service start`;
 
   const DL = 'https://app.icomply.pt/downloads';
   const WINDOWS_EXE_URL          = `${DL}/iguard-windows-amd64.exe`;
@@ -364,7 +381,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
                 </div>
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                   <Monitor className="w-4 h-4 shrink-0" />
-                  Clique com o botão direito no iguard.exe → «Executar como administrador»
+                  Abre o PowerShell como Administrador → navega até à pasta do ficheiro → cola os comandos acima. O UAC pedirá a palavra-passe Windows (não do servidor).
                 </div>
               </div>
             )}
@@ -402,7 +419,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
                 </div>
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                   <Monitor className="w-4 h-4 shrink-0" />
-                  O Terminal pode pedir a palavra-passe de administrador para instalar o serviço.
+                  O token acima é o token iComply do teu dispositivo — não é a palavra-passe do servidor. Copia-o exactamente como aparece.
                 </div>
               </div>
             )}
