@@ -8,23 +8,29 @@ export class AmlService {
   async getDashboard(orgId: string) {
     const db = this.prisma as any;
 
-    const [totalCases, openCases, highRiskCases, reportedToFiu, recentCases, screeningStats] =
-      await Promise.all([
-        db.amlCase.count({ where: { organizationId: orgId } }),
-        db.amlCase.count({ where: { organizationId: orgId, status: 'OPEN' } }),
-        db.amlCase.count({ where: { organizationId: orgId, riskLevel: 'HIGH' } }),
-        db.amlCase.count({ where: { organizationId: orgId, reportedToFIU: true } }),
-        db.amlCase.findMany({
-          where: { organizationId: orgId },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        }),
-        db.amlScreening.groupBy({
-          by: ['result'],
-          where: { organizationId: orgId },
-          _count: { result: true },
-        }),
-      ]);
+    const [
+      totalCases, openCases, highRiskCases, reportedToFiu, recentCases, screeningStats,
+      highRiskEntities, pendingTraining, newRegulatoryUpdates, nonCompliantAuditItems,
+    ] = await Promise.all([
+      db.amlCase.count({ where: { organizationId: orgId } }),
+      db.amlCase.count({ where: { organizationId: orgId, status: 'OPEN' } }),
+      db.amlCase.count({ where: { organizationId: orgId, riskLevel: 'HIGH' } }),
+      db.amlCase.count({ where: { organizationId: orgId, reportedToFIU: true } }),
+      db.amlCase.findMany({
+        where: { organizationId: orgId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      db.amlScreening.groupBy({
+        by: ['result'],
+        where: { organizationId: orgId },
+        _count: { result: true },
+      }),
+      db.amlRiskAssessment.count({ where: { organizationId: orgId, overallRisk: { in: ['HIGH', 'VERY_HIGH'] } } }),
+      db.amlTrainingRecord.count({ where: { organizationId: orgId, status: 'PENDING' } }),
+      db.amlRegulatoryUpdate.count({ where: { organizationId: orgId, status: 'NEW' } }),
+      db.amlAuditItem.count({ where: { organizationId: orgId, status: { in: ['NON_COMPLIANT', 'PARTIAL'] } } }),
+    ]);
 
     return {
       totalCases,
@@ -33,6 +39,10 @@ export class AmlService {
       reportedToFiu,
       recentCases,
       screeningStats,
+      highRiskEntities,
+      pendingTraining,
+      newRegulatoryUpdates,
+      nonCompliantAuditItems,
     };
   }
 
@@ -140,5 +150,97 @@ export class AmlService {
       where: { id },
       data,
     });
+  }
+
+  // ── Risk Assessments ──────────────────────────────────────────
+
+  async listRiskAssessments(orgId: string, entityType?: string) {
+    const where: any = { organizationId: orgId };
+    if (entityType) where.entityType = entityType;
+    return (this.prisma as any).amlRiskAssessment.findMany({
+      where,
+      orderBy: { assessedAt: 'desc' },
+    });
+  }
+
+  async createRiskAssessment(orgId: string, dto: any) {
+    return (this.prisma as any).amlRiskAssessment.create({
+      data: { ...dto, organizationId: orgId },
+    });
+  }
+
+  async updateRiskAssessment(id: string, orgId: string, data: any) {
+    const existing = await (this.prisma as any).amlRiskAssessment.findFirst({ where: { id, organizationId: orgId } });
+    if (!existing) throw new Error(`Risk assessment ${id} not found`);
+    return (this.prisma as any).amlRiskAssessment.update({ where: { id }, data });
+  }
+
+  // ── Training Records ──────────────────────────────────────────
+
+  async listTraining(orgId: string, status?: string) {
+    const where: any = { organizationId: orgId };
+    if (status) where.status = status;
+    return (this.prisma as any).amlTrainingRecord.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createTraining(orgId: string, dto: any) {
+    return (this.prisma as any).amlTrainingRecord.create({
+      data: { ...dto, organizationId: orgId },
+    });
+  }
+
+  async updateTraining(id: string, orgId: string, data: any) {
+    const existing = await (this.prisma as any).amlTrainingRecord.findFirst({ where: { id, organizationId: orgId } });
+    if (!existing) throw new Error(`Training record ${id} not found`);
+    return (this.prisma as any).amlTrainingRecord.update({ where: { id }, data });
+  }
+
+  // ── Regulatory Updates ────────────────────────────────────────
+
+  async listRegulatoryUpdates(orgId: string, status?: string) {
+    const where: any = { organizationId: orgId };
+    if (status) where.status = status;
+    return (this.prisma as any).amlRegulatoryUpdate.findMany({
+      where,
+      orderBy: { publishedAt: 'desc' },
+    });
+  }
+
+  async createRegulatoryUpdate(orgId: string, dto: any) {
+    return (this.prisma as any).amlRegulatoryUpdate.create({
+      data: { ...dto, organizationId: orgId },
+    });
+  }
+
+  async updateRegulatoryUpdate(id: string, orgId: string, data: any) {
+    const existing = await (this.prisma as any).amlRegulatoryUpdate.findFirst({ where: { id, organizationId: orgId } });
+    if (!existing) throw new Error(`Regulatory update ${id} not found`);
+    return (this.prisma as any).amlRegulatoryUpdate.update({ where: { id }, data });
+  }
+
+  // ── Audit Items ───────────────────────────────────────────────
+
+  async listAuditItems(orgId: string, category?: string) {
+    const where: any = { organizationId: orgId };
+    if (category) where.category = category;
+    return (this.prisma as any).amlAuditItem.findMany({
+      where,
+      orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async createAuditItem(orgId: string, dto: any) {
+    return (this.prisma as any).amlAuditItem.create({
+      data: { ...dto, organizationId: orgId },
+    });
+  }
+
+  async updateAuditItem(id: string, orgId: string, data: any) {
+    const existing = await (this.prisma as any).amlAuditItem.findFirst({ where: { id, organizationId: orgId } });
+    if (!existing) throw new Error(`Audit item ${id} not found`);
+    return (this.prisma as any).amlAuditItem.update({ where: { id }, data });
   }
 }

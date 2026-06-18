@@ -843,6 +843,24 @@ export const amlApi = {
   listPolicies:    ()                             => api.get('/aml/policies'),
   createPolicy:    (data: any)                    => api.post('/aml/policies', data),
   updatePolicy:    (id: string, data: any)        => api.patch(`/aml/policies/${id}`, data),
+  // Risk Assessments
+  listRiskAssessments: (params?: { entityType?: string }) =>
+    api.get('/aml/risk-assessments', { params }),
+  createRiskAssessment: (data: any)              => api.post('/aml/risk-assessments', data),
+  updateRiskAssessment: (id: string, data: any)  => api.patch(`/aml/risk-assessments/${id}`, data),
+  // Training Records
+  listTraining:    (params?: { status?: string }) => api.get('/aml/training', { params }),
+  createTraining:  (data: any)                   => api.post('/aml/training', data),
+  updateTraining:  (id: string, data: any)       => api.patch(`/aml/training/${id}`, data),
+  // Regulatory Updates
+  listRegulatoryUpdates: (params?: { status?: string }) =>
+    api.get('/aml/regulatory-updates', { params }),
+  createRegulatoryUpdate: (data: any)            => api.post('/aml/regulatory-updates', data),
+  updateRegulatoryUpdate: (id: string, data: any) => api.patch(`/aml/regulatory-updates/${id}`, data),
+  // Audit Items
+  listAuditItems:  (params?: { category?: string }) => api.get('/aml/audit-items', { params }),
+  createAuditItem: (data: any)                   => api.post('/aml/audit-items', data),
+  updateAuditItem: (id: string, data: any)       => api.patch(`/aml/audit-items/${id}`, data),
 };
 
 // ── ISO 27701 — Privacy Information Management ───────────────

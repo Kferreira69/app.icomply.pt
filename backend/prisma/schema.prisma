@@ -359,6 +359,10 @@ model Organization {
   amlCases               AmlCase[]
   amlScreenings          AmlScreening[]
   amlPolicies            AmlPolicy[]
+  amlRiskAssessments     AmlRiskAssessment[]
+  amlTrainingRecords     AmlTrainingRecord[]
+  amlRegulatoryUpdates   AmlRegulatoryUpdate[]
+  amlAuditItems          AmlAuditItem[]
   iso27701Controls       Iso27701Control[]
   soc2Criteria           Soc2Criterion[]
 
@@ -3019,6 +3023,90 @@ model AmlPolicy {
 
   @@index([organizationId, category])
   @@map("aml_policies")
+}
+
+model AmlRiskAssessment {
+  id             String    @id @default(uuid())
+  organizationId String
+  entityName     String
+  entityType     String    @default("CUSTOMER")
+  overallRisk    String    @default("MEDIUM")
+  score          Int       @default(50)
+  factors        String?
+  assessedById   String?
+  assessedAt     DateTime  @default(now())
+  nextReviewAt   DateTime?
+  notes          String?
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, entityType])
+  @@map("aml_risk_assessments")
+}
+
+model AmlTrainingRecord {
+  id             String    @id @default(uuid())
+  organizationId String
+  employeeName   String
+  trainingTitle  String
+  trainingType   String    @default("AML_BASIC")
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  status         String    @default("PENDING")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("aml_training_records")
+}
+
+model AmlRegulatoryUpdate {
+  id             String    @id @default(uuid())
+  organizationId String
+  source         String    @default("FATF")
+  title          String
+  summary        String?
+  url            String?
+  publishedAt    DateTime
+  impactLevel    String    @default("MEDIUM")
+  category       String    @default("GUIDANCE")
+  status         String    @default("NEW")
+  reviewedById   String?
+  reviewedAt     DateTime?
+  actionNotes    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("aml_regulatory_updates")
+}
+
+model AmlAuditItem {
+  id             String    @id @default(uuid())
+  organizationId String
+  category       String    @default("GOVERNANCE")
+  requirement    String
+  reference      String?
+  status         String    @default("PENDING")
+  evidence       String?
+  capaId         String?
+  notes          String?
+  dueDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("aml_audit_items")
 }
 
 // ─── ISO 27701 — Privacy Information Management ───────────────
