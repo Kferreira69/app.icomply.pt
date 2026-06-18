@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 const DEFAULT_FLAGS = [
   // FREE
