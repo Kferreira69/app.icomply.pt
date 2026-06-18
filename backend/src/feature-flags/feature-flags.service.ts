@@ -56,7 +56,7 @@ export class FeatureFlagsService implements OnModuleInit {
 
   async onModuleInit() {
     for (const flag of DEFAULT_FLAGS) {
-      await (this.prisma as any).featureFlag.upsert({
+      await (this.prisma as any).planFeatureFlag.upsert({
         where:  { key: flag.key },
         update: {},
         create: flag,
@@ -65,22 +65,22 @@ export class FeatureFlagsService implements OnModuleInit {
   }
 
   listAll() {
-    return (this.prisma as any).featureFlag.findMany({ orderBy: { sortOrder: 'asc' } });
+    return (this.prisma as any).planFeatureFlag.findMany({ orderBy: { sortOrder: 'asc' } });
   }
 
   async updateFlag(key: string, data: { requiredPlan?: string; isActive?: boolean; label?: string; description?: string }) {
-    return (this.prisma as any).featureFlag.update({ where: { key }, data });
+    return (this.prisma as any).planFeatureFlag.update({ where: { key }, data });
   }
 
   async bulkUpdate(updates: { key: string; requiredPlan: string }[]) {
     const results = await Promise.all(
-      updates.map(u => (this.prisma as any).featureFlag.update({ where: { key: u.key }, data: { requiredPlan: u.requiredPlan } })),
+      updates.map(u => (this.prisma as any).planFeatureFlag.update({ where: { key: u.key }, data: { requiredPlan: u.requiredPlan } })),
     );
     return { updated: results.length };
   }
 
   async getPublic() {
-    const flags = await (this.prisma as any).featureFlag.findMany({
+    const flags = await (this.prisma as any).planFeatureFlag.findMany({
       where:   { isActive: true },
       select:  { key: true, requiredPlan: true },
     });

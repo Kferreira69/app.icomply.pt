@@ -3977,9 +3977,9 @@ model ProgramActivation {
   @@map("program_activations")
 }
 
-// ─── Feature Flags (plan-tier gating) ────────────────────────
+// ─── Plan Feature Flags (plan-tier gating) ───────────────────
 
-model FeatureFlag {
+model PlanFeatureFlag {
   id           String   @id @default(uuid())
   key          String   @unique
   label        String
@@ -3993,7 +3993,7 @@ model FeatureFlag {
 
   @@index([category])
   @@index([requiredPlan])
-  @@map("feature_flags")
+  @@map("plan_feature_flags")
 }
 
 // ─── Automation Engine ────────────────────────────────────────
