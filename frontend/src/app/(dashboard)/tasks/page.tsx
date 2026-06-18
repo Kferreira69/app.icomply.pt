@@ -9,6 +9,8 @@ import {
   LayoutGrid, List, MessageSquare, ChevronUp, ChevronDown,
   ChevronsUpDown, AlertCircle, X,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { cn, formatDate, getStatusColor, getPriorityColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
@@ -507,9 +509,15 @@ export default function TasksPage() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <TableSkeleton rows={6} cols={7} />
+      ) : !isLoading && tasks.length === 0 && view === 'list' ? (
+        <EmptyState
+          icon={CheckSquare}
+          title="Nenhuma tarefa pendente"
+          description="Crie tarefas para acompanhar as ações de conformidade."
+          actionLabel={t('newTask') as string}
+          onAction={() => { reset(); setShowNew(true); }}
+        />
       ) : view === 'kanban' ? (
         <KanbanBoard
           tasks={tasks}

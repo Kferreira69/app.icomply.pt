@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button';
 import {
   Plus, BookOpen, CheckCircle2, Archive,
   Eye, Pencil, Trash2, ThumbsUp, Send,
-  RotateCcw,
+  RotateCcw, FileText,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
 import { format } from 'date-fns';
 
 // ── Modal: Create / Edit Policy ───────────────────────────────
@@ -368,92 +370,91 @@ export default function PoliciesPage() {
       </div>
 
       {/* Table */}
+      {isLoading ? (
+        <TableSkeleton rows={6} cols={8} />
+      ) : policies.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Nenhuma política criada"
+          description="Crie a primeira política para começar a governança documental."
+          actionLabel={t('newPolicy') as string}
+          onAction={() => setShowCreate(true)}
+        />
+      ) : (
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center text-gray-400">{tCommon('loading')}</div>
-        ) : policies.length === 0 ? (
-          <div className="p-12 text-center">
-            <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">{t('noPolicies')}</p>
-            <p className="text-gray-400 text-sm mt-1">{t('noPoliciesDesc')}</p>
-            <Button className="mt-4 gap-2" onClick={() => setShowCreate(true)}>
-              <Plus className="w-4 h-4" /> {t('newPolicy')}
-            </Button>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">{t('colTitle')}</th>
-                <th className="text-left px-4 py-3 font-medium">{t('colCategory')}</th>
-                <th className="text-left px-4 py-3 font-medium">{t('colStatus')}</th>
-                <th className="text-left px-4 py-3 font-medium">{t('colVersion')}</th>
-                <th className="text-left px-4 py-3 font-medium">{t('colOwner')}</th>
-                <th className="text-left px-4 py-3 font-medium">{t('colReview')}</th>
-                <th className="text-left px-4 py-3 font-medium">{t('colAcks')}</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {policies.map((p: any) => {
-                const s = STATUS_STYLES[p.status] ?? STATUS_STYLES.DRAFT;
-                return (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+              <th className="text-left px-4 py-3 font-medium">{t('colTitle')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('colCategory')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('colStatus')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('colVersion')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('colOwner')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('colReview')}</th>
+              <th className="text-left px-4 py-3 font-medium">{t('colAcks')}</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {policies.map((p: any) => {
+              const s = STATUS_STYLES[p.status] ?? STATUS_STYLES.DRAFT;
+              return (
+                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setViewingPolicy(p)}
+                      className="font-medium text-gray-900 hover:text-blue-600 text-left"
+                    >
+                      {p.title}
+                    </button>
+                    {p.description && (
+                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{p.description}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{CATEGORY_LABELS[p.category] ?? p.category ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">v{p.version}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {p.owner ? `${p.owner.firstName} ${p.owner.lastName}` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {p.reviewDate ? format(new Date(p.reviewDate), 'dd/MM/yyyy') : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">{p._count?.acknowledgments ?? 0}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={() => setViewingPolicy(p)}
-                        className="font-medium text-gray-900 hover:text-blue-600 text-left"
+                        className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition-colors"
+                        title={tCommon('view') as string}
                       >
-                        {p.title}
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
-                      {p.description && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{p.description}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{CATEGORY_LABELS[p.category] ?? p.category ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">v{p.version}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {p.owner ? `${p.owner.firstName} ${p.owner.lastName}` : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {p.reviewDate ? format(new Date(p.reviewDate), 'dd/MM/yyyy') : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{p._count?.acknowledgments ?? 0}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setViewingPolicy(p)}
-                          className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition-colors"
-                          title={tCommon('view') as string}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setEditingPolicy(p)}
-                          className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors"
-                          title={tCommon('edit') as string}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => { if (confirm(t('deleteConfirm') as string)) removeMutation.mutate(p.id); }}
-                          className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
-                          title={tCommon('delete') as string}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                      <button
+                        onClick={() => setEditingPolicy(p)}
+                        className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors"
+                        title={tCommon('edit') as string}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => { if (confirm(t('deleteConfirm') as string)) removeMutation.mutate(p.id); }}
+                        className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
+                        title={tCommon('delete') as string}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+      )}
 
       {/* Modals */}
       {showCreate && (

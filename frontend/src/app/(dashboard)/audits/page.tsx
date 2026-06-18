@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { auditsApi, projectsApi } from '@/lib/api';
-import { Plus, Search, ClipboardList, Loader2, Calendar, ChevronRight, Pencil } from 'lucide-react';
+import { Plus, Search, ClipboardList, Loader2, Calendar, ChevronRight, Pencil, Download } from 'lucide-react';
+import { usePdfExport } from '@/hooks/usePdfExport';
 import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
@@ -302,6 +303,7 @@ export default function AuditsPage() {
   const [tab, setTab] = useState<'audits' | 'findings'>('audits');
   const [showFindingModal, setShowFindingModal] = useState(false);
   const [editFinding, setEditFinding] = useState<any>(null);
+  const { exportAudits } = usePdfExport();
 
   const AUDIT_TYPE_LABELS: Record<string, string> = {
     INTERNAL: t('type.INTERNAL'),
@@ -431,6 +433,12 @@ export default function AuditsPage() {
                 <option value="">{t('allStatuses')}</option>
                 {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
+              <button
+                onClick={() => exportAudits(audits)}
+                className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 bg-white transition-colors"
+              >
+                <Download className="w-4 h-4" />PDF
+              </button>
               <button
                 onClick={() => setShowNew(true)}
                 className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 whitespace-nowrap"

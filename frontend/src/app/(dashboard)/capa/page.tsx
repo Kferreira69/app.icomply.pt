@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { capaApi } from '@/lib/api';
-import { Plus, AlertCircle, Loader2, Calendar, Pencil } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, Calendar, Pencil, Download } from 'lucide-react';
+import { usePdfExport } from '@/hooks/usePdfExport';
 import { cn, formatDate, getStatusColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
@@ -152,6 +153,7 @@ export default function CapaPage() {
   const [editingCapa, setEditingCapa] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const qc = useQueryClient();
+  const { exportCapas } = usePdfExport();
 
   const CAPA_STATUS_LABELS: Record<string, string> = {
     OPEN: t('status.OPEN'),
@@ -187,6 +189,9 @@ export default function CapaPage() {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
+        <button onClick={() => exportCapas(capas)} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 bg-white transition-colors">
+          <Download className="w-4 h-4" />PDF
+        </button>
         <button onClick={() => setShowNew(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
           <Plus className="w-4 h-4" /> {t('newCapa')}
         </button>

@@ -8,8 +8,9 @@ import {
   Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield,
   CheckCircle2, History,
   ChevronUp, ChevronDown, ChevronsUpDown, FileQuestion,
-  LayoutGrid, ShieldCheck,
+  LayoutGrid, ShieldCheck, Download,
 } from 'lucide-react';
+import { usePdfExport } from '@/hooks/usePdfExport';
 import { RiskTreatmentModal } from '@/components/risks/risk-treatment-modal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { cn, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
@@ -743,6 +744,7 @@ export default function RisksPage() {
   const [showNoTreatmentOnly, setShowNoTreatmentOnly] = useState(false);
   const [sortKey, setSortKey] = useState<RiskSortKey>('score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const { exportRisks } = usePdfExport();
 
   const { data, isLoading } = useQuery({
     queryKey: ['risks'],
@@ -901,6 +903,9 @@ export default function RisksPage() {
           )}
         </div>
 
+        <button onClick={() => exportRisks(risks)} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 bg-white transition-colors">
+          <Download className="w-4 h-4" />PDF
+        </button>
         <button onClick={() => setShowNew(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
           <Plus className="w-4 h-4" /> {t('registerRisk')}
         </button>

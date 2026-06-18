@@ -4,7 +4,9 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { evidenceApi } from '@/lib/api';
-import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2, CheckCheck, Square, CheckSquare } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2, CheckCheck, Square, CheckSquare, Database } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
 import { HelpButton } from '@/components/help/HelpButton';
 import { cn, formatDate, formatBytes, formatRelative, getStatusColor } from '@/lib/utils';
 
@@ -182,9 +184,15 @@ export default function EvidencePage() {
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <TableSkeleton rows={6} cols={6} />
+      ) : evidences.length === 0 ? (
+        <EmptyState
+          icon={Database}
+          title="Nenhuma evidência registada"
+          description="Adicione evidências para suportar os seus controlos de conformidade."
+          actionLabel={t('uploadEvidence') as string}
+          onAction={() => setShowUpload(true)}
+        />
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <table className="w-full">
@@ -197,14 +205,7 @@ export default function EvidencePage() {
               </tr>
             </thead>
             <tbody>
-              {evidences.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400">
-                    <FileText className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">{t('noEvidence')}</p>
-                  </td>
-                </tr>
-              ) : evidences.map((e: any) => (
+              {evidences.map((e: any) => (
                 <tr key={e.id} className={cn('border-b border-gray-100 hover:bg-gray-50 transition-colors', selected.has(e.id) && 'bg-blue-50')}>
                   <td className="px-4 py-3">
                     <button onClick={() => toggleSelect(e.id)} className="p-0.5">

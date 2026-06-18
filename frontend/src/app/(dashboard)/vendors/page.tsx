@@ -9,6 +9,8 @@ import {
   ExternalLink, Trash2, Edit2, Download, ShieldCheck, AlertCircle, Send, Copy, CheckCircle2,
   ClipboardCheck,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -757,6 +759,36 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
   );
 }
 
+// ── CSV Export ────────────────────────────────────────────────────
+
+function exportCsv(vendors: any[]) {
+  const headers = ['Name', 'Category', 'Status', 'Risk Level', 'Risk Score', 'Contact Name', 'Contact Email', 'Website', 'Data Processor', 'Contract Start', 'Contract End', 'Countries', 'Notes'];
+  const rows = vendors.map(v => [
+    v.name ?? '',
+    v.category ?? '',
+    v.status ?? '',
+    v.riskLevel ?? '',
+    v.riskScore ?? '',
+    v.contactName ?? '',
+    v.contactEmail ?? '',
+    v.website ?? '',
+    v.dataProcessor ? 'Yes' : 'No',
+    v.contractStart ? new Date(v.contractStart).toLocaleDateString('pt-PT') : '',
+    v.contractEnd ? new Date(v.contractEnd).toLocaleDateString('pt-PT') : '',
+    v.countries ?? '',
+    v.notes ?? '',
+  ].map(cell => `"${String(cell).replace(/"/g, '""')}"`));
+
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vendors_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Main Page ─────────────────────────────────────────────────────
 
 type Tab = 'vendors' | 'assessments';
@@ -775,7 +807,6 @@ export default function VendorsPage() {
   const [editVendor, setEditVendor] = useState<any>(null);
   const [panelVendor, setPanelVendor] = useState<any>(null);
   const [assessVendor, setAssessVendor] = useState<any>(null);
-  const [exporting, setExporting] = useState(false);
 
   const { data: dashboard } = useQuery({
     queryKey: ['vendors-dashboard'],
@@ -795,19 +826,6 @@ export default function VendorsPage() {
 
   const vendors: any[] = vendorsResponse?.items ?? [];
   const vendorsTotal: number = vendorsResponse?.total ?? 0;
-
-  const handleExportCsv = async () => {
-    setExporting(true);
-    try {
-      const res = await vendorsApi.exportCsv();
-      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
-      const a = document.createElement('a');
-      a.href = url; a.download = 'vendors.csv'; a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setExporting(false);
-    }
-  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => vendorsApi.remove(id),
@@ -844,10 +862,10 @@ export default function VendorsPage() {
         <div className="flex items-center gap-2">
           {activeTab === 'vendors' && (
             <>
-              <button onClick={handleExportCsv} disabled={exporting}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+              <button onClick={() => exportCsv(filtered)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
                 <Download className="w-4 h-4" />
-                {exporting ? '...' : t('exportCsv')}
+                Exportar CSV
               </button>
               <button onClick={() => { setEditVendor(null); setShowModal(true); }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
@@ -946,18 +964,19 @@ export default function VendorsPage() {
           </div>
 
           {/* Table */}
+          {isLoading ? (
+            <TableSkeleton rows={6} cols={8} />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="Nenhum fornecedor registado"
+              description="Adicione o primeiro fornecedor para iniciar a gestão de terceiros."
+              actionLabel="Adicionar Fornecedor"
+              onAction={() => { setEditVendor(null); setShowModal(true); }}
+            />
+          ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-48 text-gray-400">{t('loading')}</div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                <Building2 className="w-10 h-10 mb-2 opacity-30" />
-                <p>{t('notFound')}</p>
-                <button onClick={() => setShowModal(true)}
-                  className="mt-3 text-sm text-blue-600 hover:underline">{t('registerFirst')}</button>
-              </div>
-            ) : (
-              <table className="w-full text-sm">
+            <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="text-left px-5 py-3 font-semibold text-gray-600">{t('colVendor')}</th>
@@ -1041,8 +1060,8 @@ export default function VendorsPage() {
                   ))}
                 </tbody>
               </table>
-            )}
           </div>
+          )}
         </>
       )}
 
