@@ -74,6 +74,8 @@ jobs:
       - name: Validate Prisma schema
         working-directory: backend
         id: prisma_validate
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
         run: |
           if npx prisma validate --schema=prisma/schema.prisma 2>&1; then
             echo "prisma_status=PASS" >> "$GITHUB_OUTPUT"
