@@ -1,4 +1,7 @@
-import AWS from 'aws-sdk';
+import {
+  CloudTrailClient,
+  LookupEventsCommand,
+} from '@aws-sdk/client-cloudtrail';
 import { EvidenceItem } from './github.provider';
 
 export interface AwsCloudTrailConfig {
@@ -11,25 +14,20 @@ export interface AwsCloudTrailConfig {
 export async function fetchAwsCloudTrailEvents(config: AwsCloudTrailConfig): Promise<EvidenceItem[]> {
   const { accessKeyId, secretAccessKey, region } = config;
 
-  AWS.config.update({
-    accessKeyId,
-    secretAccessKey,
+  const client = new CloudTrailClient({
     region,
+    credentials: { accessKeyId, secretAccessKey },
   });
-
-  const cloudtrail = new AWS.CloudTrail({ region });
 
   const endTime = new Date();
   const startTime = new Date(endTime.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   try {
-    const result = await cloudtrail
-      .lookupEvents({
-        StartTime: startTime,
-        EndTime: endTime,
-        MaxResults: 50,
-      })
-      .promise();
+    const result = await client.send(new LookupEventsCommand({
+      StartTime: startTime,
+      EndTime: endTime,
+      MaxResults: 50,
+    }));
 
     const events = result.Events ?? [];
 
