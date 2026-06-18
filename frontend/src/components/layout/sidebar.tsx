@@ -524,7 +524,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       type: 'flat',
       items: [
         { href: '/dashboard',  label: t('dashboard'),  icon: LayoutDashboard },
-        { href: '/diagnostic', label: t('diagnostic'), icon: ClipboardCheck },
+        { href: '/diagnostics', label: t('diagnostic'), icon: ClipboardCheck },
         { href: '/tasks',      label: t('tasks'),       icon: CheckSquare },
         { href: '/risks',      label: t('risks'),       icon: AlertTriangle },
       ],
@@ -565,10 +565,11 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         {
           key: 'controls', label: t('unifiedControls'), icon: GitMerge, color: 'bg-rose-600 text-white',
           items: [
-            { href: '/governance/controls',      label: 'Control Library',    icon: Layers },
-            { href: '/governance/framework-map', label: 'Framework Map',      icon: GitMerge },
-            { href: '/governance/gaps',          label: 'Gap & Impact',       icon: Zap },
-            { href: '/governance/obligations',   label: 'Regulatory Horizon', icon: ScrollText },
+            { href: '/unified-controls',         label: 'Biblioteca Unificada',  icon: Layers },
+            { href: '/governance/controls',      label: 'Control Library',       icon: Layers },
+            { href: '/governance/framework-map', label: 'Framework Map',         icon: GitMerge },
+            { href: '/governance/gaps',          label: 'Gap & Impact',          icon: Zap },
+            { href: '/governance/obligations',   label: 'Regulatory Horizon',    icon: ScrollText },
           ],
         },
       ],
