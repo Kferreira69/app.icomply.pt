@@ -1051,3 +1051,12 @@ export const integrationHubApi = {
   saveTrutoKey: (apiKey: string)            => api.post('/integration-hub/truto/key', { apiKey }),
 };
 
+// ── Feature Flags ─────────────────────────────────────────────
+
+export const featureFlagsApi = {
+  listAll:     ()                                                    => api.get('/feature-flags'),
+  getPublic:   ()                                                    => api.get('/feature-flags/public'),
+  update:      (key: string, data: any)                             => api.patch(`/feature-flags/${key}`, data),
+  bulkUpdate:  (updates: { key: string; requiredPlan: string }[])   => api.patch('/feature-flags', { updates }),
+};
+

@@ -15,7 +15,7 @@ import {
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
   GanttChart, BookTemplate, Plug2, GraduationCap,
-  Star, Clock, ChevronRight, SlidersHorizontal, GripVertical,
+  Star, Clock, ChevronRight, SlidersHorizontal, GripVertical, Flag,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState, useEffect, useCallback } from 'react';
@@ -654,7 +654,10 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       items: [
         { href: '/ai-assistant', label: t('aiAssistant'), icon: Bot },
         { href: '/excel-import', label: t('import'),      icon: Upload },
-        ...(isCCAdmin ? [{ href: '/backoffice/licensing', label: t('backoffice'), icon: Layers }] : []),
+        ...(isCCAdmin ? [
+          { href: '/backoffice/licensing',      label: t('backoffice'), icon: Layers },
+          { href: '/backoffice/feature-flags',  label: 'Feature Flags', icon: Flag   },
+        ] : []),
       ],
     },
   ];

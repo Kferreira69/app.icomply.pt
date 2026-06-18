@@ -77,6 +77,7 @@ import { IGuardModule } from './iguard/iguard.module';
 import { IntegrationHubModule } from './integration-hub/integration-hub.module';
 import { CommonServicesModule } from './common/services/common-services.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -173,6 +174,7 @@ import { SupportTicketsModule } from './support-tickets/support-tickets.module';
     IGuardModule,
     IntegrationHubModule,
     SupportTicketsModule,
+    FeatureFlagsModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

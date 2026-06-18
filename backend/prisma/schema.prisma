@@ -378,6 +378,7 @@ model Organization {
   workforceCompliance WorkforceCompliance[]  @relation("WorkforceCompliance")
   qualityControls     QualityControl[]       @relation("QualityControls")
   capaRecords         CapaRecord[]           @relation("CapaRecords")
+  nonConformances     NonConformance[]       @relation("NonConformances")
   regulatoryChanges   RegulatoryChange[]     @relation("RegulatoryChanges")
   calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
   timeEntries         TimeEntry[]
@@ -3368,6 +3369,51 @@ model CapaRecord {
   @@map("capa_records")
 }
 
+// ─── Non-Conformance ──────────────────────────────────────────
+
+enum NCCategory {
+  PRODUCT
+  PROCESS
+  SUPPLIER
+  SYSTEM
+}
+
+enum NCSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum NCStatus {
+  OPEN
+  INVESTIGATING
+  CORRECTED
+  CLOSED
+}
+
+model NonConformance {
+  id                String      @id @default(cuid())
+  ncId              String      @unique
+  organizationId    String
+  title             String
+  category          NCCategory
+  severity          NCSeverity
+  status            NCStatus    @default(OPEN)
+  description       String
+  rootCause         String?
+  correctiveAction  String?
+  responsiblePerson String?
+  detectedAt        DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  organization      Organization @relation("NonConformances", fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("non_conformances")
+}
+
 // ─── Regulatory Change Governance ─────────────────────────────
 
 enum RegChangeStatus {
@@ -3929,6 +3975,25 @@ model ProgramActivation {
 
   @@index([organizationId])
   @@map("program_activations")
+}
+
+// ─── Feature Flags (plan-tier gating) ────────────────────────
+
+model FeatureFlag {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  label        String
+  description  String?
+  category     String   @default("COMPLIANCE")
+  requiredPlan String   @default("FREE")   // FREE | STARTER | PROFESSIONAL | ENTERPRISE
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([requiredPlan])
+  @@map("feature_flags")
 }
 
 // ─── Automation Engine ────────────────────────────────────────
