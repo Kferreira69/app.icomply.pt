@@ -17,7 +17,7 @@ export class FeatureFlagsController {
   /** Superadmin: full list with all fields */
   @Get()
   listAll(@CurrentUser('role') role: string) {
-    if (role !== 'SUPERADMIN') return [];
+    if (role !== 'SUPER_ADMIN') return [];
     return this.svc.listAll();
   }
 
@@ -28,7 +28,7 @@ export class FeatureFlagsController {
     @Param('key') key: string,
     @Body() body: { requiredPlan?: string; isActive?: boolean; label?: string; description?: string },
   ) {
-    if (role !== 'SUPERADMIN') throw new Error('Forbidden');
+    if (role !== 'SUPER_ADMIN') throw new Error('Forbidden');
     return this.svc.updateFlag(key, body);
   }
 
@@ -38,7 +38,7 @@ export class FeatureFlagsController {
     @CurrentUser('role') role: string,
     @Body() body: { updates: { key: string; requiredPlan: string }[] },
   ) {
-    if (role !== 'SUPERADMIN') throw new Error('Forbidden');
+    if (role !== 'SUPER_ADMIN') throw new Error('Forbidden');
     return this.svc.bulkUpdate(body.updates);
   }
 }

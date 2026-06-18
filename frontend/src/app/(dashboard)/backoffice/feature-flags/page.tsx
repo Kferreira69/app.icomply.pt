@@ -121,7 +121,7 @@ export default function FeatureFlagsPage() {
 
   const dirtyCount = Object.keys(dirty).length;
 
-  if (user?.role !== 'SUPERADMIN') {
+  if (user?.role !== 'SUPER_ADMIN') {
     return (
       <div className="flex items-center justify-center h-96 text-gray-500">
         <AlertCircle className="w-6 h-6 mr-2" />
