@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { featureFlagsApi } from '@/lib/api';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -30,8 +32,12 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; pro?: boolean; }
+interface NavLeaf  { href: string; label: string; icon: React.ElementType; badge?: string; pro?: boolean; flagKey?: string; }
 interface NavDomain { key: string; label: string; icon: React.ElementType; color: string; items: NavLeaf[]; }
+
+const PLAN_RANK: Record<string, number> = { FREE: 0, STARTER: 1, PROFESSIONAL: 2, ENTERPRISE: 3 };
+const PLAN_LABEL: Record<string, string> = { STARTER: 'Starter', PROFESSIONAL: 'Professional', ENTERPRISE: 'Enterprise', FREE: 'Free' };
+const PLAN_BADGE: Record<string, string> = { STARTER: 'STR', PROFESSIONAL: 'PRO', ENTERPRISE: 'ENT', FREE: '' };
 interface NavSection {
   label?: string;
   key?: string;          // unique key for hide/show
@@ -43,19 +49,20 @@ interface NavSection {
 }
 
 /* ── PRO Toast ───────────────────────────────────────────────── */
-function ProToast({ onDismiss }: { onDismiss: () => void }) {
+function ProToast({ plan, onDismiss }: { plan: string; onDismiss: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 4000);
     return () => clearTimeout(t);
   }, [onDismiss]);
+  const planLabel = PLAN_LABEL[plan] ?? plan;
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-bottom-2 fade-in">
       <div className="flex items-start gap-3 bg-gray-900 border border-amber-500/40 text-white rounded-2xl shadow-2xl px-4 py-3 max-w-xs">
-        <span className="text-xs bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 mt-0.5">PRO</span>
+        <span className="text-xs bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 mt-0.5">{PLAN_BADGE[plan] ?? 'PRO'}</span>
         <div>
-          <p className="text-sm font-semibold">Funcionalidade Professional</p>
+          <p className="text-sm font-semibold">Plano {planLabel} necessário</p>
           <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">
-            Esta funcionalidade requer o plano Professional.{' '}
+            Esta funcionalidade requer o plano {planLabel} ou superior.{' '}
             <a href="mailto:comercial@icomply.pt" className="text-amber-400 hover:underline">
               Contacte comercial@icomply.pt
             </a>
@@ -156,22 +163,29 @@ function useRecentPages(pathname: string, allItems: NavLeaf[]) {
 }
 
 /* ── Nav leaf (with star button) ────────────────────────────── */
-function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md', isFree = false, onProClick }: {
+function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md', flagsMap = {}, userPlan = 'FREE', onGatedClick }: {
   item: NavLeaf; pathname: string; collapsed: boolean;
   starred: string[]; onStar: (h: string) => void;
   size?: 'sm' | 'md';
-  isFree?: boolean;
-  onProClick?: () => void;
+  flagsMap?: Record<string, string>;
+  userPlan?: string;
+  onGatedClick?: (plan: string) => void;
 }) {
   const Icon = item.icon;
   const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
   const isStarred = starred.includes(item.href);
-  const isGated = !!item.pro && isFree;
+
+  // determine required plan: DB flag takes priority, then legacy `pro` field
+  const requiredPlan: string = item.flagKey
+    ? (flagsMap[item.flagKey] ?? 'FREE')
+    : (item.pro ? 'PROFESSIONAL' : 'FREE');
+  const isGated = PLAN_RANK[userPlan] < PLAN_RANK[requiredPlan];
+  const hasBadge = requiredPlan !== 'FREE';
 
   const handleGatedClick = (e: React.MouseEvent) => {
-    if (isGated && onProClick) {
+    if (isGated && onGatedClick) {
       e.preventDefault();
-      onProClick();
+      onGatedClick(requiredPlan);
     }
   };
 
@@ -202,14 +216,14 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md', isFr
             {item.badge}
           </span>
         )}
-        {item.pro && (
+        {hasBadge && (
           <span className={cn(
             'ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 tracking-wide',
-            isFree
+            isGated
               ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
               : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
           )}>
-            PRO
+            {PLAN_BADGE[requiredPlan] ?? 'PRO'}
           </span>
         )}
       </Link>
@@ -221,7 +235,7 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md', isFr
           isStarred
             ? 'opacity-100 text-yellow-400 hover:text-yellow-300'
             : 'opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300',
-          item.pro && 'right-8', // shift left when PRO badge is shown
+          hasBadge && 'right-8',
         )}>
         <Star className={cn('w-3 h-3', isStarred && 'fill-current')} />
       </button>
@@ -230,10 +244,10 @@ function NavItem({ item, pathname, collapsed, starred, onStar, size = 'md', isFr
 }
 
 /* ── Domain group (with star on header) ─────────────────────── */
-function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar, isFree, onProClick }: {
+function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar, flagsMap, userPlan, onGatedClick }: {
   domain: NavDomain; pathname: string; defaultOpen: boolean; collapsed: boolean;
   starred: string[]; onStar: (h: string) => void;
-  isFree?: boolean; onProClick?: () => void;
+  flagsMap?: Record<string, string>; userPlan?: string; onGatedClick?: (plan: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const DomainIcon = domain.icon;
@@ -269,7 +283,7 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar
         <div className="mt-0.5 ml-4 pl-3 border-l border-gray-700/60 space-y-0.5">
           {domain.items.map(item => (
             <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
-              starred={starred} onStar={onStar} size="sm" isFree={isFree} onProClick={onProClick} />
+              starred={starred} onStar={onStar} size="sm" flagsMap={flagsMap} userPlan={userPlan} onGatedClick={onGatedClick} />
           ))}
         </div>
       )}
@@ -278,11 +292,11 @@ function DomainGroup({ domain, pathname, defaultOpen, collapsed, starred, onStar
 }
 
 /* ── Flat section with overflow ──────────────────────────────── */
-function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfter, isFree, onProClick }: {
+function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfter, flagsMap, userPlan, onGatedClick }: {
   items: NavLeaf[]; pathname: string; collapsed: boolean;
   starred: string[]; onStar: (h: string) => void;
   overflowAfter?: number;
-  isFree?: boolean; onProClick?: () => void;
+  flagsMap?: Record<string, string>; userPlan?: string; onGatedClick?: (plan: string) => void;
 }) {
   const hasActive = overflowAfter
     ? items.slice(overflowAfter).some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
@@ -296,13 +310,13 @@ function FlatSection({ items, pathname, collapsed, starred, onStar, overflowAfte
     <div className="space-y-0.5">
       {visible.map(item => (
         <NavItem key={item.href} item={item} pathname={pathname} collapsed={collapsed}
-          starred={starred} onStar={onStar} isFree={isFree} onProClick={onProClick} />
+          starred={starred} onStar={onStar} flagsMap={flagsMap} userPlan={userPlan} onGatedClick={onGatedClick} />
       ))}
       {overflow.length > 0 && !collapsed && (
         <>
           {showAll && overflow.map(item => (
             <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
-              starred={starred} onStar={onStar} isFree={isFree} onProClick={onProClick} />
+              starred={starred} onStar={onStar} flagsMap={flagsMap} userPlan={userPlan} onGatedClick={onGatedClick} />
           ))}
           <button
             onClick={() => setShowAll(v => !v)}
@@ -481,7 +495,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const t = useTranslations('nav');
   const [quickAdd, setQuickAdd] = useState(false);
   const [customize, setCustomize] = useState(false);
-  const [showProToast, setShowProToast] = useState(false);
+  const [proToastPlan, setProToastPlan] = useState<string | null>(null);
   const { starred, toggle: toggleStar } = useStarred();
   const { hidden: hiddenSections, toggle: toggleSection } = useHiddenSections();
   const defaultSectionKeys = ['top', 'gerir', 'conformidade', 'intelligence', 'tools'];
@@ -490,30 +504,35 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
 
-  // Treat as FREE unless the organization has a paid plan field set.
-  // The auth store doesn't yet carry a plan field, so we default to false (PRO).
-  // When billing is added, replace with: (user?.organization as any)?.plan !== 'PRO'
-  const isFree: boolean = (user?.organization as any)?.plan === 'FREE';
-  const handleProClick = useCallback(() => setShowProToast(true), []);
+  const userPlan: string = (user?.organization as any)?.plan ?? 'FREE';
+
+  // Load feature flag plan requirements from DB
+  const { data: flagsMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ['feature-flags-public'],
+    queryFn:  () => featureFlagsApi.getPublic().then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleGatedClick = useCallback((plan: string) => setProToastPlan(plan), []);
 
   const INTELLIGENCE_ITEMS: NavLeaf[] = [
     { href: '/approvals',          label: 'Aprovações',              icon: CheckSquare },
-    { href: '/portfolio',          label: 'Portfolio GRC',           icon: LayoutDashboard },
-    { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3 },
+    { href: '/portfolio',          label: 'Portfolio GRC',           icon: LayoutDashboard, flagKey: 'portfolio' },
+    { href: '/raci',               label: 'Matriz RACI',             icon: Grid3X3,         flagKey: 'raci' },
     { href: '/intake',             label: 'Intake Forms',            icon: ClipboardList },
     { href: '/action-plans',       label: 'Planos de Ação',          icon: GanttChart },
-    { href: '/board-reports',      label: 'Board Reports',           icon: BarChart2 },
-    { href: '/program-templates',  label: 'Templates de Programa',   icon: BookTemplate },
-    { href: '/automation',         label: 'Motor de Automações',     icon: Zap },
-    { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity },
-    { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss },
-    { href: '/management-body',    label: 'Órgão de Gestão',         icon: Users },
-    { href: '/auditor-sessions',   label: 'Portal de Auditoria',     icon: ShieldCheck },
-    { href: '/client-hub',         label: 'Client Hub',              icon: Building2 },
-    { href: '/ai-tools',           label: 'AI Compliance Tools',     icon: Brain },
-    { href: '/audit-templates',    label: 'Audit Templates',         icon: ClipboardList },
-    { href: '/integrations',       label: 'Integration Hub',         icon: Plug2 },
-    { href: '/iguard',             label: 'iGuard',                  icon: ShieldAlert },
+    { href: '/board-reports',      label: 'Board Reports',           icon: BarChart2,        flagKey: 'board_reports' },
+    { href: '/program-templates',  label: 'Templates de Programa',   icon: BookTemplate,    flagKey: 'program_templates' },
+    { href: '/automation',         label: 'Motor de Automações',     icon: Zap,             flagKey: 'automation' },
+    { href: '/compliance-monitor', label: 'Compliance Monitor',      icon: Activity,        flagKey: 'compliance_monitor' },
+    { href: '/regulatory-feed',    label: 'Regulatory Intelligence', icon: Rss,             flagKey: 'regulatory_change' },
+    { href: '/management-body',    label: 'Órgão de Gestão',         icon: Users,           flagKey: 'management_body' },
+    { href: '/auditor-sessions',   label: 'Portal de Auditoria',     icon: ShieldCheck,     flagKey: 'auditor_sessions' },
+    { href: '/client-hub',         label: 'Client Hub',              icon: Building2,       flagKey: 'client_hub' },
+    { href: '/ai-tools',           label: 'AI Compliance Tools',     icon: Brain,           flagKey: 'ai_tools' },
+    { href: '/audit-templates',    label: 'Audit Templates',         icon: ClipboardList,   flagKey: 'audit_templates' },
+    { href: '/integrations',       label: 'Integration Hub',         icon: Plug2,           flagKey: 'integrations' },
+    { href: '/iguard',             label: 'iGuard',                  icon: ShieldAlert,     flagKey: 'iguard' },
     { href: '/academy',            label: 'Centro de Formação',      icon: GraduationCap },
   ];
 
@@ -523,10 +542,10 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       fixed: true,
       type: 'flat',
       items: [
-        { href: '/dashboard',  label: t('dashboard'),  icon: LayoutDashboard },
-        { href: '/diagnostics', label: t('diagnostic'), icon: ClipboardCheck },
-        { href: '/tasks',      label: t('tasks'),       icon: CheckSquare },
-        { href: '/risks',      label: t('risks'),       icon: AlertTriangle },
+        { href: '/dashboard',   label: t('dashboard'),  icon: LayoutDashboard },
+        { href: '/diagnostics', label: t('diagnostic'), icon: ClipboardCheck, flagKey: 'diagnostic' },
+        { href: '/tasks',       label: t('tasks'),       icon: CheckSquare,   flagKey: 'tasks' },
+        { href: '/risks',       label: t('risks'),       icon: AlertTriangle, flagKey: 'risks_basic' },
       ],
     },
     {
@@ -537,35 +556,35 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         {
           key: 'projects', label: t('projectsTasks'), icon: FolderOpen, color: 'bg-sky-600 text-white',
           items: [
-            { href: '/projects', label: t('projects'),      icon: FolderOpen },
-            { href: '/itsm',     label: 'IT Service Mgmt',  icon: Settings },
+            { href: '/projects', label: t('projects'),      icon: FolderOpen, flagKey: 'projects' },
+            { href: '/itsm',     label: 'IT Service Mgmt',  icon: Settings,   flagKey: 'itsm' },
           ],
         },
         {
           key: 'risk', label: t('riskEvidence'), icon: AlertTriangle, color: 'bg-yellow-600 text-white',
           items: [
-            { href: '/evidence', label: t('evidence'), icon: FileText },
+            { href: '/evidence', label: t('evidence'), icon: FileText, flagKey: 'evidence' },
           ],
         },
         {
           key: 'audit', label: t('auditAssurance'), icon: Shield, color: 'bg-indigo-600 text-white',
           items: [
-            { href: '/audits', label: t('audits'), icon: Shield },
-            { href: '/capa',   label: t('capa'),   icon: AlertCircle },
+            { href: '/audits', label: t('audits'), icon: Shield,        flagKey: 'audits' },
+            { href: '/capa',   label: t('capa'),   icon: AlertCircle,   flagKey: 'capa' },
           ],
         },
         {
           key: 'governance', label: t('policiesReports'), icon: BookOpen, color: 'bg-gray-600 text-white',
           items: [
-            { href: '/policies',            label: t('policies'),         icon: BookOpen },
-            { href: '/reports',             label: t('reports'),          icon: BarChart2 },
-            { href: '/reports/time-report', label: 'Relatório de Tempo',  icon: BarChart2 },
+            { href: '/policies',            label: t('policies'),         icon: BookOpen,  flagKey: 'policies' },
+            { href: '/reports',             label: t('reports'),          icon: BarChart2, flagKey: 'reports' },
+            { href: '/reports/time-report', label: 'Relatório de Tempo',  icon: BarChart2, flagKey: 'reports' },
           ],
         },
         {
           key: 'controls', label: t('unifiedControls'), icon: GitMerge, color: 'bg-rose-600 text-white',
           items: [
-            { href: '/unified-controls',         label: 'Biblioteca Unificada',  icon: Layers },
+            { href: '/unified-controls',         label: 'Biblioteca Unificada',  icon: Layers,  flagKey: 'unified_controls' },
             { href: '/governance/controls',      label: 'Control Library',       icon: Layers },
             { href: '/governance/framework-map', label: 'Framework Map',         icon: GitMerge },
             { href: '/governance/gaps',          label: 'Gap & Impact',          icon: Zap },
@@ -582,53 +601,53 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         {
           key: 'security', label: t('securityGovernance'), icon: ShieldCheck, color: 'bg-blue-600 text-white',
           items: [
-            { href: '/soa',            label: 'ISO 27001 — SoA',          icon: FileCheck2 },
-            { href: '/nis2',           label: 'NIS2 Compliance',           icon: Network },
-            { href: '/nis2/incidents', label: '↳ Notificações Incidentes', icon: AlertTriangle },
-            { href: '/dora',           label: 'DORA — Resiliência ICT',    icon: Activity },
-            { href: '/dora/register',  label: '↳ Register of Information', icon: Database },
-            { href: '/soc2',           label: 'SOC 2 — Trust Criteria',    icon: Award },
-            { href: '/cis',            label: 'CIS Controls v8',           icon: Shield },
-            { href: '/tisax',          label: 'TISAX — VDA ISA',           icon: Car },
+            { href: '/soa',            label: 'ISO 27001 — SoA',          icon: FileCheck2,   flagKey: 'audits' },
+            { href: '/nis2',           label: 'NIS2 Compliance',           icon: Network,      flagKey: 'nis2' },
+            { href: '/nis2/incidents', label: '↳ Notificações Incidentes', icon: AlertTriangle,flagKey: 'nis2' },
+            { href: '/dora',           label: 'DORA — Resiliência ICT',    icon: Activity,     flagKey: 'dora' },
+            { href: '/dora/register',  label: '↳ Register of Information', icon: Database,     flagKey: 'dora' },
+            { href: '/soc2',           label: 'SOC 2 — Trust Criteria',    icon: Award,        flagKey: 'soc2' },
+            { href: '/cis',            label: 'CIS Controls v8',           icon: Shield,       flagKey: 'cis' },
+            { href: '/tisax',          label: 'TISAX — VDA ISA',           icon: Car,          flagKey: 'tisax' },
           ],
         },
         {
           key: 'privacy', label: t('privacyGovernance'), icon: Eye, color: 'bg-purple-600 text-white',
           items: [
-            { href: '/gdpr',     label: 'GDPR · ROPA · DPIA', icon: ShieldCheck },
-            { href: '/iso27701', label: 'ISO 27701 — PIMS',    icon: Eye },
+            { href: '/gdpr',     label: 'GDPR · ROPA · DPIA', icon: ShieldCheck, flagKey: 'gdpr_basic' },
+            { href: '/iso27701', label: 'ISO 27701 — PIMS',    icon: Eye,         flagKey: 'iso27701' },
           ],
         },
         {
           key: 'ai', label: t('aiGovernanceDomain'), icon: Brain, color: 'bg-violet-600 text-white',
-          items: [{ href: '/ai-governance', label: 'AI Act · ISO 42001', icon: Brain, pro: true }],
+          items: [{ href: '/ai-governance', label: 'AI Act · ISO 42001', icon: Brain, flagKey: 'ai_governance' }],
         },
         {
           key: 'ethics', label: t('ethicsSpeak'), icon: Scale, color: 'bg-orange-600 text-white',
           items: [
             { href: '/denuncias',    label: t('denuncias'),             icon: MessageSquareWarning },
-            { href: '/aml',          label: 'AML · KYC · Sanções',      icon: Scale },
-            { href: '/anti-bribery', label: 'ISO 37001 · Anti-Bribery', icon: Handshake },
+            { href: '/aml',          label: 'AML · KYC · Sanções',      icon: Scale,     flagKey: 'aml' },
+            { href: '/anti-bribery', label: 'ISO 37001 · Anti-Bribery', icon: Handshake, flagKey: 'anti_bribery' },
           ],
         },
         {
           key: 'workforce', label: t('workforceGovernance'), icon: Briefcase, color: 'bg-green-600 text-white',
           items: [
-            { href: '/hr-compliance', label: t('hrCompliance'),            icon: Briefcase },
-            { href: '/workforce',     label: 'ISO 45001 · OHS Compliance', icon: HardHat },
+            { href: '/hr-compliance', label: t('hrCompliance'),            icon: Briefcase, flagKey: 'hr_compliance' },
+            { href: '/workforce',     label: 'ISO 45001 · OHS Compliance', icon: HardHat,   flagKey: 'workforce' },
           ],
         },
         {
           key: 'thirdparty', label: t('thirdPartyGovernance'), icon: Building2, color: 'bg-teal-600 text-white',
-          items: [{ href: '/vendors', label: t('vendors'), icon: Building2, pro: true }],
+          items: [{ href: '/vendors', label: t('vendors'), icon: Building2, flagKey: 'vendors' }],
         },
         {
           key: 'esg', label: t('esgSustainability'), icon: Leaf, color: 'bg-emerald-600 text-white',
-          items: [{ href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf, pro: true }],
+          items: [{ href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf, flagKey: 'esg' }],
         },
         {
           key: 'resilience', label: t('resilienceContinuity'), icon: ShieldAlert, color: 'bg-amber-600 text-white',
-          items: [{ href: '/business-continuity', label: 'ISO 22301 · BCP · DR', icon: ShieldAlert, pro: true }],
+          items: [{ href: '/business-continuity', label: 'ISO 22301 · BCP · DR', icon: ShieldAlert, flagKey: 'business_continuity' }],
         },
         {
           key: 'quality', label: t('qualityOps'), icon: ClipboardList, color: 'bg-cyan-600 text-white',
@@ -636,7 +655,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         },
         {
           key: 'regulatory', label: t('regulatoryChangeDomain'), icon: CalendarDays, color: 'bg-pink-600 text-white',
-          items: [{ href: '/regulatory-change', label: 'Regulatory Horizon · Calendar', icon: CalendarDays }],
+          items: [{ href: '/regulatory-change', label: 'Regulatory Horizon · Calendar', icon: CalendarDays, flagKey: 'regulatory_change' }],
         },
       ],
     },
@@ -652,7 +671,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       type: 'flat',
       label: t('tools'),
       items: [
-        { href: '/ai-assistant', label: t('aiAssistant'), icon: Bot },
+        { href: '/ai-assistant', label: t('aiAssistant'), icon: Bot,    flagKey: 'ai_assistant' },
         { href: '/excel-import', label: t('import'),      icon: Upload },
         ...(isCCAdmin ? [
           { href: '/backoffice/licensing',      label: t('backoffice'), icon: Layers },
@@ -692,7 +711,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   return (
     <>
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} />}
-      {showProToast && <ProToast onDismiss={() => setShowProToast(false)} />}
+      {proToastPlan && <ProToast plan={proToastPlan} onDismiss={() => setProToastPlan(null)} />}
       {customize && (
         <CustomizePanel
           sections={sectionMeta}
@@ -762,7 +781,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
             <div className="space-y-0.5">
               {starredItems.map(item => (
                 <NavItem key={item.href} item={item} pathname={pathname} collapsed={false}
-                  starred={starred} onStar={toggleStar} isFree={isFree} onProClick={handleProClick} />
+                  starred={starred} onStar={toggleStar} flagsMap={flagsMap} userPlan={userPlan} onGatedClick={handleGatedClick} />
               ))}
             </div>
             <div className="border-t border-gray-700/40 mt-2" />
@@ -815,8 +834,9 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
                     starred={starred}
                     onStar={toggleStar}
                     overflowAfter={section.overflowAfter}
-                    isFree={isFree}
-                    onProClick={handleProClick}
+                    flagsMap={flagsMap}
+                    userPlan={userPlan}
+                    onGatedClick={handleGatedClick}
                   />
                 )}
 
@@ -826,7 +846,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
                       <DomainGroup key={domain.key} domain={domain} pathname={pathname}
                         defaultOpen={getDefaultOpen(domain)} collapsed={collapsed}
                         starred={starred} onStar={toggleStar}
-                        isFree={isFree} onProClick={handleProClick} />
+                        flagsMap={flagsMap} userPlan={userPlan} onGatedClick={handleGatedClick} />
                     ))}
                   </div>
                 )}
