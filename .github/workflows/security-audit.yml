@@ -1,7 +1,7 @@
 # =============================================================================
-# iComply Quarterly Security Audit — GitHub Actions Workflow
+# iComply Monthly Security Audit — GitHub Actions Workflow
 # =============================================================================
-# Schedule: 9:00 UTC on the 1st of January, April, July, October
+# Schedule: 9:00 UTC on the 1st of every month
 #
 # REQUIRED GITHUB SECRETS (Settings → Secrets and variables → Actions):
 #   GMAIL_USER     — the Gmail address used to send the report (e.g. noreply@icomply.pt)
@@ -12,12 +12,12 @@
 # Repository: https://github.com/Kferreira69/app.icomply.pt
 # =============================================================================
 
-name: Quarterly Security Audit
+name: Monthly Security Audit
 
 on:
   schedule:
-    # 9:00 AM UTC — January 1, April 1, July 1, October 1
-    - cron: '0 9 1 1,4,7,10 *'
+    # 9:00 AM UTC — 1st of every month
+    - cron: '0 9 1 * *'
   workflow_dispatch:
     # Allow manual trigger for testing (Actions tab → Run workflow)
 
@@ -278,8 +278,8 @@ jobs:
 
           report += `\n`;
           report += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-          report += `iComply Security Bot | Automated Quarterly Audit\n`;
-          report += `Next scheduled run: first day of next quarter, 09:00 UTC\n`;
+          report += `iComply Security Bot | Automated Monthly Audit\n`;
+          report += `Next scheduled run: 1st of next month, 09:00 UTC\n`;
 
           // ── write to GITHUB_ENV ─────────────────────────────────────────────
           // Multi-line env vars need the heredoc syntax
