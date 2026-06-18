@@ -52,6 +52,16 @@ export class AuditsController {
     return this.service.updateStatus(id, body.status, orgId, body.summary, body.score);
   }
 
+  @Get('findings')
+  @ApiOperation({ summary: 'List all findings across audits for the organization' })
+  listFindings(
+    @CurrentUser('organizationId') orgId: string,
+    @Query('auditId') auditId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.service.listFindings(orgId, auditId, status);
+  }
+
   @Post(':id/findings')
   @ApiOperation({ summary: 'Add a finding (HIGH/CRITICAL auto-creates CAPA)' })
   createFinding(

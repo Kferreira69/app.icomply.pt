@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { doraApi } from '@/lib/api';
+import { doraApi, doraRegisterApi } from '@/lib/api';
 import { format } from 'date-fns';
 import {
   Activity, AlertTriangle, CheckCircle, Clock, Plus,
-  Shield, Zap, AlertCircle, BarChart2, X,
+  Shield, Zap, AlertCircle, BarChart2, X, Building2, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +40,29 @@ const TEST_STATUS_COLORS: Record<TestStatus, string> = {
   COMPLETED:   'bg-green-100 text-green-700',
   FAILED:      'bg-red-100 text-red-700',
 };
+
+// ── DORA Classification helpers ───────────────────────────────
+
+function getDoraClassification(score: number): { label: string; color: string; bg: string } {
+  if (score >= 80) return { label: 'Avançado',    color: 'text-green-700',  bg: 'bg-green-50' };
+  if (score >= 60) return { label: 'Intermédio',  color: 'text-amber-700',  bg: 'bg-amber-50' };
+  if (score >= 40) return { label: 'Básico',      color: 'text-orange-700', bg: 'bg-orange-50' };
+  return             { label: 'Insuficiente', color: 'text-red-700',    bg: 'bg-red-50' };
+}
+
+function getIctRiskScore(openIncidents: number, majorIncidents: number, overdueTests: number): number {
+  // Higher = worse risk. Normalised 0-100.
+  const rawRisk = (majorIncidents * 20) + (openIncidents * 5) + (overdueTests * 10);
+  return Math.min(100, rawRisk);
+}
+
+function getRiskLabel(riskScore: number): { label: string; color: string; bg: string } {
+  if (riskScore === 0)  return { label: 'Baixo',   color: 'text-green-700',  bg: 'bg-green-50' };
+  if (riskScore < 20)  return { label: 'Reduzido', color: 'text-blue-700',   bg: 'bg-blue-50' };
+  if (riskScore < 40)  return { label: 'Médio',    color: 'text-amber-700',  bg: 'bg-amber-50' };
+  if (riskScore < 60)  return { label: 'Elevado',  color: 'text-orange-700', bg: 'bg-orange-50' };
+  return                { label: 'Crítico',  color: 'text-red-700',    bg: 'bg-red-50' };
+}
 
 // ── Score Ring ────────────────────────────────────────────────
 
@@ -373,6 +396,11 @@ export default function DoraPage() {
     queryFn: () => doraApi.dashboard().then(r => r.data),
   });
 
+  const { data: registerDashboard } = useQuery({
+    queryKey: ['dora-register-dashboard'],
+    queryFn: () => doraRegisterApi.dashboard().then((r: any) => r.data),
+  });
+
   const { data: incidents = [] } = useQuery({
     queryKey: ['dora-incidents', incidentFilters],
     queryFn: () => doraApi.listIncidents(incidentFilters).then(r => r.data),
@@ -474,6 +502,66 @@ export default function DoraPage() {
                 <p className="text-sm text-gray-500 mt-1">{label}</p>
               </div>
             ))}
+          </div>
+
+          {/* ── Extra KPI row: Classification / ICT Risk / Critical Providers */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* DORA Classification level */}
+            {(() => {
+              const score = dashboard?.complianceScore ?? 0;
+              const cls = getDoraClassification(score);
+              return (
+                <div className={`rounded-xl p-4 border flex items-center gap-4 ${cls.bg}`}>
+                  <div className="p-2 bg-white/60 rounded-lg">
+                    <TrendingUp className={`w-5 h-5 ${cls.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Nível DORA</p>
+                    <p className={`text-lg font-bold ${cls.color}`}>{cls.label}</p>
+                    <p className="text-xs text-gray-500">Score {score}/100</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ICT Risk Score */}
+            {(() => {
+              const riskScore = getIctRiskScore(
+                dashboard?.openIncidents ?? 0,
+                dashboard?.majorIncidents ?? 0,
+                dashboard?.overdueTests ?? 0,
+              );
+              const risk = getRiskLabel(riskScore);
+              return (
+                <div className={`rounded-xl p-4 border flex items-center gap-4 ${risk.bg}`}>
+                  <div className="p-2 bg-white/60 rounded-lg">
+                    <AlertTriangle className={`w-5 h-5 ${risk.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Risco TIC</p>
+                    <p className={`text-lg font-bold ${risk.color}`}>{risk.label}</p>
+                    <p className="text-xs text-gray-500">Índice {riskScore}/100</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Critical providers count */}
+            <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex items-center gap-4">
+              <div className="p-2 bg-white/60 rounded-lg">
+                <Building2 className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium">Prestadores Críticos</p>
+                <p className="text-lg font-bold text-purple-700">
+                  {registerDashboard?.critical ?? '—'}
+                  {registerDashboard?.total != null && (
+                    <span className="text-sm font-normal text-gray-500"> / {registerDashboard.total}</span>
+                  )}
+                </p>
+                <p className="text-xs text-gray-500">Art. 28 DORA</p>
+              </div>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">

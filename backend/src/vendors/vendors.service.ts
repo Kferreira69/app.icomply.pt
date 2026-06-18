@@ -180,4 +180,73 @@ export class VendorsService {
 
     return assessment;
   }
+
+  // ── Assessment CRUD (tab) ─────────────────────────────────────
+
+  async listAllAssessments(organizationId: string) {
+    return this.prisma.vendorAssessment.findMany({
+      where: { vendor: { organizationId } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        assessedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+  }
+
+  async createAssessment(organizationId: string, assessedById: string, data: {
+    vendorId: string; score: number; riskLevel?: VendorRiskLevel; findings?: string;
+  }) {
+    const vendor = await this.prisma.vendor.findFirst({ where: { id: data.vendorId, organizationId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const riskLevel = data.riskLevel ?? (
+      data.score >= 80 ? VendorRiskLevel.LOW
+      : data.score >= 60 ? VendorRiskLevel.MEDIUM
+      : data.score >= 40 ? VendorRiskLevel.HIGH
+      : VendorRiskLevel.CRITICAL
+    );
+
+    const [assessment] = await Promise.all([
+      this.prisma.vendorAssessment.create({
+        data: { vendorId: data.vendorId, assessedById, score: data.score, riskLevel, findings: data.findings },
+        include: {
+          vendor: { select: { id: true, name: true } },
+          assessedBy: { select: { id: true, firstName: true, lastName: true } },
+        },
+      }),
+      this.prisma.vendor.update({
+        where: { id: data.vendorId },
+        data: { riskScore: data.score, riskLevel, lastAssessedAt: new Date() },
+      }),
+    ]);
+
+    return assessment;
+  }
+
+  async updateAssessment(id: string, organizationId: string, data: {
+    score?: number; riskLevel?: VendorRiskLevel; findings?: string;
+  }) {
+    const existing = await this.prisma.vendorAssessment.findFirst({
+      where: { id, vendor: { organizationId } },
+    });
+    if (!existing) throw new NotFoundException('Assessment not found');
+
+    const score = data.score ?? existing.score;
+    const riskLevel = data.riskLevel ?? (
+      score >= 80 ? VendorRiskLevel.LOW
+      : score >= 60 ? VendorRiskLevel.MEDIUM
+      : score >= 40 ? VendorRiskLevel.HIGH
+      : VendorRiskLevel.CRITICAL
+    );
+
+    return this.prisma.vendorAssessment.update({
+      where: { id },
+      data: { score, riskLevel, findings: data.findings },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        assessedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+  }
 }

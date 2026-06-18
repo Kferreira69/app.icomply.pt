@@ -18,6 +18,37 @@ export class VendorsController {
     return this.service.getDashboard(user.organizationId);
   }
 
+  @Get('export/csv')
+  @ApiOperation({ summary: 'Export all vendors as CSV (UTF-8 BOM)' })
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportCsv(@CurrentUser() user: any, @Res() res: Response) {
+    const csv = await this.service.exportCsv(user.organizationId);
+    res.setHeader('Content-Disposition', 'attachment; filename="vendors.csv"');
+    res.send(csv);
+  }
+
+  // ── Assessment CRUD endpoints (must be before :id routes) ─────
+
+  @Get('assessments')
+  @ApiOperation({ summary: 'List all vendor assessments' })
+  listAllAssessments(@CurrentUser() user: any) {
+    return this.service.listAllAssessments(user.organizationId);
+  }
+
+  @Post('assessments')
+  @ApiOperation({ summary: 'Create a vendor assessment' })
+  createAssessment(@Body() dto: any, @CurrentUser() user: any) {
+    return this.service.createAssessment(user.organizationId, user.id, dto);
+  }
+
+  @Patch('assessments/:id')
+  @ApiOperation({ summary: 'Update a vendor assessment' })
+  updateAssessment(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
+    return this.service.updateAssessment(id, user.organizationId, dto);
+  }
+
+  // ── Vendor CRUD ───────────────────────────────────────────────
+
   @Post()
   @ApiOperation({ summary: 'Register a new vendor' })
   create(@Body() dto: any, @CurrentUser() user: any) {
@@ -28,15 +59,6 @@ export class VendorsController {
   @ApiOperation({ summary: 'List all vendors' })
   findAll(@CurrentUser() user: any, @Query() query: any) {
     return this.service.findAll(user.organizationId, query);
-  }
-
-  @Get('export/csv')
-  @ApiOperation({ summary: 'Export all vendors as CSV (UTF-8 BOM)' })
-  @Header('Content-Type', 'text/csv; charset=utf-8')
-  async exportCsv(@CurrentUser() user: any, @Res() res: Response) {
-    const csv = await this.service.exportCsv(user.organizationId);
-    res.setHeader('Content-Disposition', 'attachment; filename="vendors.csv"');
-    res.send(csv);
   }
 
   @Get(':id')

@@ -6,10 +6,10 @@ import { gdprApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   Plus, ShieldCheck, Database, AlertOctagon, ClipboardList,
-  Pencil, Trash2, Eye, CheckCircle2, Clock, XCircle,
-  Mail, ToggleLeft,
+  Pencil, Trash2, CheckCircle2, Clock, XCircle,
+  Mail, ToggleLeft, CheckSquare, UserCheck,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays, addDays, isAfter } from 'date-fns';
 import { useTranslations } from 'next-intl';
 
 // ── Dashboard stats panel ─────────────────────────────────────
@@ -415,7 +415,7 @@ function RopaTab() {
           </Button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
@@ -442,7 +442,7 @@ function RopaTab() {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{a.retentionPeriod}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
@@ -528,7 +528,7 @@ function DpiasTab() {
           </Button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
@@ -550,7 +550,7 @@ function DpiasTab() {
                       <div className="text-xs text-gray-400 truncate max-w-xs">{d.description}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{d.outcome ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
@@ -647,7 +647,7 @@ function BreachesTab() {
           <p className="text-gray-400 text-sm mt-1">{t('noBreachesDesc')}</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
@@ -675,10 +675,10 @@ function BreachesTab() {
                       {over72h && <div className="text-xs text-red-600 font-medium mt-0.5">⚠ {t('over72h', { h: hoursElapsed })}</div>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sev.bg} ${sev.text}`}>{sev.label}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${sev.bg} ${sev.text}`}>{sev.label}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.bg} ${st.text}`}>{st.label}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${st.bg} ${st.text}`}>{st.label}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{b.affectedDataSubjects ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-500">{format(discovered, 'dd/MM/yyyy HH:mm')}</td>
@@ -721,7 +721,134 @@ function BreachesTab() {
   );
 }
 
-// ── Modal: DSAR ───────────────────────────────────────────────
+// ── Modal: Consent (enhanced) ─────────────────────────────────
+function ConsentModal({ onClose, onSave, initial, onRevoke }: {
+  onClose: () => void;
+  onSave: (d: any) => void;
+  initial?: any;
+  onRevoke?: (id: string) => void;
+}) {
+  const tCommon = useTranslations('common');
+
+  const LEGAL_BASIS_LABELS: Record<string, string> = {
+    CONSENT:              'Consentimento',
+    CONTRACT:             'Contrato',
+    LEGAL_OBLIGATION:     'Obrigação Legal',
+    VITAL_INTERESTS:      'Interesses Vitais',
+    PUBLIC_TASK:          'Tarefa de Interesse Público',
+    LEGITIMATE_INTERESTS: 'Interesses Legítimos',
+  };
+
+  const CONSENT_METHOD_LABELS: Record<string, string> = {
+    'web-form': 'Formulário Web',
+    'email':    'Email',
+    'verbal':   'Verbal',
+    'paper':    'Papel',
+  };
+
+  const [form, setForm] = useState({
+    subjectEmail:  initial?.subjectEmail  ?? '',
+    subjectName:   initial?.subjectName   ?? '',
+    purpose:       initial?.purpose       ?? '',
+    legalBasis:    initial?.legalBasis    ?? 'CONSENT',
+    consentMethod: initial?.consentMethod ?? 'web-form',
+    consentedAt:   initial?.consentedAt   ? initial.consentedAt.slice(0, 16) : new Date().toISOString().slice(0, 16),
+    expiresAt:     initial?.expiresAt     ? initial.expiresAt.slice(0, 10) : '',
+    notes:         initial?.notes         ?? '',
+  });
+  const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  function handleSave() {
+    if (!form.subjectEmail || !form.purpose) return;
+    onSave({
+      ...form,
+      consentedAt: new Date(form.consentedAt).toISOString(),
+      expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined,
+      notes: form.notes || undefined,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{initial ? 'Editar Consentimento' : 'Novo Consentimento'}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <div className="p-6 space-y-4">
+          {initial?.status && (
+            <div className={`rounded-lg px-3 py-2 text-sm font-medium ${
+              initial.status === 'ACTIVE' ? 'bg-green-50 text-green-700' :
+              initial.status === 'WITHDRAWN' ? 'bg-red-50 text-red-700' :
+              'bg-gray-50 text-gray-600'
+            }`}>
+              Estado atual: {initial.status === 'ACTIVE' ? 'Ativo' : initial.status === 'WITHDRAWN' ? 'Revogado' : 'Expirado'}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input type="email" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.subjectEmail} onChange={e => set('subjectEmail', e.target.value)} placeholder="email@exemplo.com" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.subjectName} onChange={e => set('subjectName', e.target.value)} placeholder="Nome completo" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Finalidade *</label>
+            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.purpose} onChange={e => set('purpose', e.target.value)} placeholder="Ex: Marketing, Newsletters..." />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Base Legal</label>
+            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.legalBasis} onChange={e => set('legalBasis', e.target.value)}>
+              {Object.entries(LEGAL_BASIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Método de Recolha</label>
+            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.consentMethod} onChange={e => set('consentMethod', e.target.value)}>
+              {Object.entries(CONSENT_METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data do Consentimento</label>
+              <input type="datetime-local" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.consentedAt} onChange={e => set('consentedAt', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Expira Em</label>
+              <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} placeholder="Opcional" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Observações adicionais..." />
+          </div>
+        </div>
+        <div className="p-6 border-t flex justify-between gap-3">
+          <div>
+            {initial?.status === 'ACTIVE' && onRevoke && (
+              <Button
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => { if (confirm('Revogar este consentimento?')) { onRevoke(initial.id); onClose(); } }}
+              >
+                Revogar
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
+            <Button onClick={handleSave}>{initial ? tCommon('save') : 'Registar Consentimento'}</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal: DSAR (enhanced) ────────────────────────────────────
 function DsarModal({ onClose, onSave, initial }: { onClose: () => void; onSave: (d: any) => void; initial?: any }) {
   const tCommon = useTranslations('common');
 
@@ -735,20 +862,39 @@ function DsarModal({ onClose, onSave, initial }: { onClose: () => void; onSave: 
     AUTOMATED:    'Decisão Automatizada (Art.22)',
   };
 
+  const DSAR_STATUS_LABELS: Record<string, string> = {
+    RECEIVED:             'Recebido',
+    IN_REVIEW:            'Em Análise',
+    PENDING_VERIFICATION: 'Verificação Identidade',
+    IN_PROGRESS:          'Em Curso',
+    COMPLETED:            'Concluído',
+    REJECTED:             'Rejeitado',
+    ESCALATED:            'Escalado',
+  };
+
   const defaultDueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const [form, setForm] = useState({
-    requestType:  initial?.requestType  ?? 'ACCESS',
-    subjectName:  initial?.subjectName  ?? '',
-    subjectEmail: initial?.subjectEmail ?? '',
-    description:  initial?.description  ?? '',
-    dueAt:        initial?.dueAt        ? initial.dueAt.slice(0, 10) : defaultDueAt,
+    requestType:   initial?.requestType   ?? 'ACCESS',
+    subjectName:   initial?.subjectName   ?? '',
+    subjectEmail:  initial?.subjectEmail  ?? '',
+    description:   initial?.description   ?? '',
+    dueAt:         initial?.dueAt         ? initial.dueAt.slice(0, 10) : defaultDueAt,
+    status:        initial?.status        ?? 'RECEIVED',
+    responseNotes: initial?.responseNotes ?? '',
   });
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
   function handleSave() {
     if (!form.subjectName || !form.subjectEmail) return;
-    onSave({ ...form, dueAt: new Date(form.dueAt).toISOString() });
+    onSave({
+      requestType:   form.requestType,
+      subjectName:   form.subjectName,
+      subjectEmail:  form.subjectEmail,
+      description:   form.description || undefined,
+      dueAt:         new Date(form.dueAt).toISOString(),
+      ...(initial && { status: form.status, responseNotes: form.responseNotes || undefined }),
+    });
   }
 
   return (
@@ -776,13 +922,27 @@ function DsarModal({ onClose, onSave, initial }: { onClose: () => void; onSave: 
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas / Descrição</label>
             <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Descreva o pedido..." />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
             <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.dueAt} onChange={e => set('dueAt', e.target.value)} />
           </div>
+          {initial && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.status} onChange={e => set('status', e.target.value)}>
+                  {Object.entries(DSAR_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notas de Resposta</label>
+                <textarea className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} value={form.responseNotes} onChange={e => set('responseNotes', e.target.value)} placeholder="Informação sobre a resposta dada..." />
+              </div>
+            </>
+          )}
         </div>
         <div className="p-6 border-t flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
@@ -793,104 +953,191 @@ function DsarModal({ onClose, onSave, initial }: { onClose: () => void; onSave: 
   );
 }
 
-// ── Modal: Consent ────────────────────────────────────────────
-function ConsentModal({ onClose, onSave, initial }: { onClose: () => void; onSave: (d: any) => void; initial?: any }) {
-  const tCommon = useTranslations('common');
+// ── Tab: Consentimentos ───────────────────────────────────────
+function ConsentTab() {
+  const qc = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
-  const CONSENT_METHOD_LABELS: Record<string, string> = {
-    'web-form': 'Formulário Web',
-    'email':    'Email',
-    'verbal':   'Verbal',
-    'paper':    'Papel',
+  const CONSENT_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    ACTIVE:    { bg: 'bg-green-100', text: 'text-green-800', label: 'Ativo' },
+    WITHDRAWN: { bg: 'bg-red-100',   text: 'text-red-800',   label: 'Revogado' },
+    EXPIRED:   { bg: 'bg-gray-100',  text: 'text-gray-700',  label: 'Expirado' },
   };
 
-  const [form, setForm] = useState({
-    subjectEmail:  initial?.subjectEmail  ?? '',
-    subjectName:   initial?.subjectName   ?? '',
-    purpose:       initial?.purpose       ?? '',
-    consentMethod: initial?.consentMethod ?? 'web-form',
-    consentedAt:   initial?.consentedAt   ? initial.consentedAt.slice(0, 16) : new Date().toISOString().slice(0, 16),
-    expiresAt:     initial?.expiresAt     ? initial.expiresAt.slice(0, 10) : '',
-  });
-  const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+  const LEGAL_BASIS_SHORT: Record<string, string> = {
+    CONSENT:              'Consentimento',
+    CONTRACT:             'Contrato',
+    LEGAL_OBLIGATION:     'Obrigação Legal',
+    VITAL_INTERESTS:      'Interesses Vitais',
+    PUBLIC_TASK:          'Interesse Público',
+    LEGITIMATE_INTERESTS: 'Int. Legítimos',
+  };
 
-  function handleSave() {
-    if (!form.subjectEmail || !form.purpose) return;
-    onSave({
-      ...form,
-      consentedAt: new Date(form.consentedAt).toISOString(),
-      expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined,
-    });
-  }
+  const { data: consentList = [], isLoading } = useQuery({
+    queryKey: ['gdpr-consent'],
+    queryFn: () => gdprApi.consent.list().then(r => r.data),
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['gdpr-consent'] });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => gdprApi.consent.create(data),
+    onSuccess: () => { invalidate(); setShowCreate(false); },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: any) => gdprApi.consent.update(id, data),
+    onSuccess: () => { invalidate(); setEditing(null); },
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: (id: string) => gdprApi.consent.withdraw(id),
+    onSuccess: invalidate,
+  });
+
+  // ── KPI calculations ──────────────────────────────────────────
+  const now = new Date();
+  const in30Days = addDays(now, 30);
+  const kpiActive = consentList.filter((c: any) => c.status === 'ACTIVE').length;
+  const kpiExpiringSoon = consentList.filter((c: any) =>
+    c.status === 'ACTIVE' && c.expiresAt && isAfter(in30Days, new Date(c.expiresAt))
+  ).length;
+  const kpiRevoked = consentList.filter((c: any) => c.status === 'WITHDRAWN').length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{initial ? 'Editar Consentimento' : 'Novo Consentimento'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    <div className="space-y-4">
+      {/* KPI cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-green-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-green-600 uppercase tracking-wide mb-2">Consentimentos Ativos</div>
+          <div className="text-3xl font-bold text-green-700">{kpiActive}</div>
+          <div className="text-sm text-green-600 mt-1">titulares com consentimento</div>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-              <input type="email" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.subjectEmail} onChange={e => set('subjectEmail', e.target.value)} placeholder="email@exemplo.com" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-              <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.subjectName} onChange={e => set('subjectName', e.target.value)} placeholder="Nome completo" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Finalidade *</label>
-            <input className="w-full border rounded-lg px-3 py-2 text-sm" value={form.purpose} onChange={e => set('purpose', e.target.value)} placeholder="Ex: Marketing, Newsletters..." />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Método de Recolha</label>
-            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.consentMethod} onChange={e => set('consentMethod', e.target.value)}>
-              {Object.entries(CONSENT_METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data do Consentimento</label>
-              <input type="datetime-local" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.consentedAt} onChange={e => set('consentedAt', e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Expira Em</label>
-              <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} placeholder="Opcional" />
-            </div>
-          </div>
+        <div className="bg-amber-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-amber-600 uppercase tracking-wide mb-2">A Expirar (30 dias)</div>
+          <div className="text-3xl font-bold text-amber-700">{kpiExpiringSoon}</div>
+          <div className="text-sm text-amber-600 mt-1">requerem renovação</div>
         </div>
-        <div className="p-6 border-t flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>{tCommon('cancel')}</Button>
-          <Button onClick={handleSave}>{initial ? tCommon('save') : 'Registar Consentimento'}</Button>
+        <div className="bg-red-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-2">Revogados</div>
+          <div className="text-3xl font-bold text-red-700">{kpiRevoked}</div>
+          <div className="text-sm text-red-600 mt-1">consentimentos retirados</div>
         </div>
       </div>
+
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-gray-500">Registe e gira consentimentos dos titulares de dados nos termos do RGPD.</p>
+        <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
+          <Plus className="w-4 h-4" /> Novo Consentimento
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-8 text-gray-400">A carregar...</div>
+      ) : consentList.length === 0 ? (
+        <div className="text-center py-12">
+          <CheckSquare className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">Sem consentimentos registados</p>
+          <p className="text-gray-400 text-sm mt-1">Registe consentimentos para manter conformidade com o RGPD.</p>
+          <Button className="mt-4 gap-2" size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="w-4 h-4" /> Novo Consentimento
+          </Button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+                <th className="text-left px-4 py-3 font-medium">Titular</th>
+                <th className="text-left px-4 py-3 font-medium">Finalidade</th>
+                <th className="text-left px-4 py-3 font-medium">Base Legal</th>
+                <th className="text-left px-4 py-3 font-medium">Estado</th>
+                <th className="text-left px-4 py-3 font-medium">Recolhido Em</th>
+                <th className="text-left px-4 py-3 font-medium">Expira Em</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {consentList.map((c: any) => {
+                const st = CONSENT_STATUS_STYLES[c.status] ?? CONSENT_STATUS_STYLES.ACTIVE;
+                const expiringSoon = c.status === 'ACTIVE' && c.expiresAt && isAfter(in30Days, new Date(c.expiresAt));
+                return (
+                  <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${expiringSoon ? 'bg-amber-50/20' : ''}`}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{c.subjectEmail}</div>
+                      {c.subjectName && <div className="text-xs text-gray-400">{c.subjectName}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{c.purpose}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{LEGAL_BASIS_SHORT[c.legalBasis] ?? c.legalBasis ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${st.bg} ${st.text}`}>{st.label}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {c.consentedAt ? format(new Date(c.consentedAt), 'dd/MM/yyyy') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.expiresAt ? (
+                        <span className={expiringSoon ? 'text-amber-600 font-medium' : 'text-gray-500'}>
+                          {format(new Date(c.expiresAt), 'dd/MM/yyyy')}
+                          {expiringSoon && <span className="ml-1 text-xs">⚠</span>}
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setEditing(c)}
+                        className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showCreate && (
+        <ConsentModal
+          onClose={() => setShowCreate(false)}
+          onSave={(data) => createMutation.mutate(data)}
+        />
+      )}
+      {editing && (
+        <ConsentModal
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSave={(data) => updateMutation.mutate({ id: editing.id, data })}
+          onRevoke={(id) => withdrawMutation.mutate(id)}
+        />
+      )}
     </div>
   );
 }
 
-// ── Tab: DSAR ─────────────────────────────────────────────────
+// ── Tab: DSAR — Pedidos ───────────────────────────────────────
 function DsarTab() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
-  const DSAR_TYPE_LABELS: Record<string, string> = {
-    ACCESS:        'Acesso (Art.15)',
-    RECTIFICATION: 'Retificação (Art.16)',
-    ERASURE:       'Apagamento (Art.17)',
-    RESTRICTION:   'Limitação (Art.18)',
-    PORTABILITY:   'Portabilidade (Art.20)',
-    OBJECTION:     'Oposição (Art.21)',
-    AUTOMATED:     'Decisão Automatizada (Art.22)',
+  const DSAR_TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    ACCESS:        { bg: 'bg-blue-100',   text: 'text-blue-800',   label: 'Acesso' },
+    RECTIFICATION: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Retificação' },
+    ERASURE:       { bg: 'bg-red-100',    text: 'text-red-800',    label: 'Apagamento' },
+    RESTRICTION:   { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Limitação' },
+    PORTABILITY:   { bg: 'bg-green-100',  text: 'text-green-800',  label: 'Portabilidade' },
+    OBJECTION:     { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Oposição' },
+    AUTOMATED:     { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Dec. Automatizada' },
   };
 
   const DSAR_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
     RECEIVED:             { bg: 'bg-blue-100',   text: 'text-blue-800',   label: 'Recebido' },
     IN_REVIEW:            { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Em Análise' },
-    PENDING_VERIFICATION: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Verificação Identidade' },
+    PENDING_VERIFICATION: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Verif. Identidade' },
     IN_PROGRESS:          { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Em Curso' },
     COMPLETED:            { bg: 'bg-green-100',  text: 'text-green-800',  label: 'Concluído' },
     REJECTED:             { bg: 'bg-red-100',    text: 'text-red-800',    label: 'Rejeitado' },
@@ -902,7 +1149,15 @@ function DsarTab() {
     queryFn: () => gdprApi.dsar.list().then(r => r.data),
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['gdpr-dsar'] });
+  const { data: dsarStats } = useQuery({
+    queryKey: ['gdpr-dsar-stats'],
+    queryFn: () => gdprApi.dsar.stats().then(r => r.data),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['gdpr-dsar'] });
+    qc.invalidateQueries({ queryKey: ['gdpr-dsar-stats'] });
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) => gdprApi.dsar.create(data),
@@ -914,10 +1169,49 @@ function DsarTab() {
     onSuccess: () => { invalidate(); setEditing(null); },
   });
 
+  // ── KPI calculations ──────────────────────────────────────────
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const kpiPending = dsarList.filter((d: any) =>
+    ['RECEIVED', 'IN_REVIEW', 'PENDING_VERIFICATION', 'IN_PROGRESS'].includes(d.status)
+  ).length;
+
+  const kpiUrgent = dsarList.filter((d: any) => {
+    if (!d.dueAt || ['COMPLETED', 'REJECTED'].includes(d.status)) return false;
+    const daysLeft = differenceInDays(new Date(d.dueAt), now);
+    return daysLeft >= 0 && daysLeft <= 5;
+  }).length;
+
+  const kpiCompletedThisMonth = dsarList.filter((d: any) =>
+    d.status === 'COMPLETED' &&
+    d.respondedAt &&
+    isAfter(new Date(d.respondedAt), currentMonthStart)
+  ).length;
+
   return (
     <div className="space-y-4">
+      {/* KPI cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-blue-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-2">Pendentes</div>
+          <div className="text-3xl font-bold text-blue-700">{kpiPending}</div>
+          <div className="text-sm text-blue-600 mt-1">pedidos em aberto</div>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-orange-600 uppercase tracking-wide mb-2">Prazo Urgente</div>
+          <div className="text-3xl font-bold text-orange-700">{kpiUrgent}</div>
+          <div className="text-sm text-orange-600 mt-1">prazo inferior a 5 dias</div>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-green-600 uppercase tracking-wide mb-2">Concluídos (Mês)</div>
+          <div className="text-3xl font-bold text-green-700">{kpiCompletedThisMonth}</div>
+          <div className="text-sm text-green-600 mt-1">no mês atual</div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Gerencie pedidos de titulares de dados (DSAR) nos termos do RGPD.</p>
+        <p className="text-sm text-gray-500">Gerencie pedidos de titulares de dados (DSAR) nos termos do RGPD. Prazo legal: 30 dias (Art.12).</p>
         <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
           <Plus className="w-4 h-4" /> Novo DSAR
         </Button>
@@ -927,7 +1221,7 @@ function DsarTab() {
         <div className="text-center py-8 text-gray-400">A carregar...</div>
       ) : dsarList.length === 0 ? (
         <div className="text-center py-12">
-          <Mail className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+          <UserCheck className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Sem pedidos DSAR</p>
           <p className="text-gray-400 text-sm mt-1">Registe pedidos de acesso, apagamento e outros direitos RGPD.</p>
           <Button className="mt-4 gap-2" size="sm" onClick={() => setShowCreate(true)}>
@@ -935,43 +1229,62 @@ function DsarTab() {
           </Button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Tipo</th>
-                <th className="text-left px-4 py-3 font-medium">Nome</th>
+                <th className="text-left px-4 py-3 font-medium">ID</th>
+                <th className="text-left px-4 py-3 font-medium">Titular</th>
                 <th className="text-left px-4 py-3 font-medium">Email</th>
+                <th className="text-left px-4 py-3 font-medium">Tipo</th>
+                <th className="text-left px-4 py-3 font-medium">Estado</th>
                 <th className="text-left px-4 py-3 font-medium">Recebido</th>
                 <th className="text-left px-4 py-3 font-medium">Prazo</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {dsarList.map((d: any) => {
+                const typ = DSAR_TYPE_STYLES[d.requestType] ?? DSAR_TYPE_STYLES.ACCESS;
                 const st = DSAR_STATUS_STYLES[d.status] ?? DSAR_STATUS_STYLES.RECEIVED;
                 const dueDate = d.dueAt ? new Date(d.dueAt) : null;
-                const overdue = dueDate && dueDate < new Date() && d.status !== 'COMPLETED' && d.status !== 'REJECTED';
+                const isDone = ['COMPLETED', 'REJECTED'].includes(d.status);
+                const daysLeft = dueDate ? differenceInDays(dueDate, now) : null;
+                const overdue = dueDate && !isDone && daysLeft !== null && daysLeft < 0;
+                const urgent = dueDate && !isDone && daysLeft !== null && daysLeft >= 0 && daysLeft <= 5;
                 return (
-                  <tr key={d.id} className={`hover:bg-gray-50 transition-colors ${overdue ? 'bg-red-50/30' : ''}`}>
-                    <td className="px-4 py-3 text-gray-700 text-xs">{DSAR_TYPE_LABELS[d.requestType] ?? d.requestType}</td>
+                  <tr key={d.id} className={`hover:bg-gray-50 transition-colors ${overdue ? 'bg-red-50/30' : urgent ? 'bg-orange-50/20' : ''}`}>
+                    <td className="px-4 py-3 text-gray-400 text-xs font-mono">{d.id.slice(0, 8)}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{d.subjectName}</td>
                     <td className="px-4 py-3 text-gray-500">{d.subjectEmail}</td>
-                    <td className="px-4 py-3 text-gray-500">{d.createdAt ? format(new Date(d.createdAt), 'dd/MM/yyyy') : '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${typ.bg} ${typ.text}`}>{typ.label}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${st.bg} ${st.text}`}>{st.label}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {d.receivedAt ? format(new Date(d.receivedAt), 'dd/MM/yyyy') : d.createdAt ? format(new Date(d.createdAt), 'dd/MM/yyyy') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
                       {dueDate ? (
-                        <span className={overdue ? 'text-red-600 font-medium' : ''}>
+                        <span className={overdue ? 'text-red-600 font-semibold' : urgent ? 'text-orange-600 font-medium' : 'text-gray-500'}>
                           {format(dueDate, 'dd/MM/yyyy')}
-                          {overdue && ' ⚠'}
+                          {!isDone && daysLeft !== null && (
+                            <span className="block text-xs">
+                              {overdue
+                                ? `${Math.abs(daysLeft)}d em atraso`
+                                : `${daysLeft}d restante${daysLeft !== 1 ? 's' : ''}`}
+                            </span>
+                          )}
                         </span>
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.bg} ${st.text}`}>{st.label}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => setEditing(d)} className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors">
+                      <button
+                        onClick={() => setEditing(d)}
+                        className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700 transition-colors"
+                      >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
                     </td>
@@ -989,120 +1302,17 @@ function DsarTab() {
   );
 }
 
-// ── Tab: Consent ──────────────────────────────────────────────
-function ConsentTab() {
-  const qc = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
-
-  const CONSENT_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-    ACTIVE:    { bg: 'bg-green-100', text: 'text-green-800', label: 'Ativo' },
-    WITHDRAWN: { bg: 'bg-red-100',   text: 'text-red-800',   label: 'Retirado' },
-    EXPIRED:   { bg: 'bg-gray-100',  text: 'text-gray-700',  label: 'Expirado' },
-  };
-
-  const { data: consentList = [], isLoading } = useQuery({
-    queryKey: ['gdpr-consent'],
-    queryFn: () => gdprApi.consent.list().then(r => r.data),
-  });
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['gdpr-consent'] });
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => gdprApi.consent.create(data),
-    onSuccess: () => { invalidate(); setShowCreate(false); },
-  });
-
-  const withdrawMutation = useMutation({
-    mutationFn: (id: string) => gdprApi.consent.withdraw(id),
-    onSuccess: invalidate,
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Registe e gira consentimentos dos titulares de dados.</p>
-        <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
-          <Plus className="w-4 h-4" /> Novo Consentimento
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="text-center py-8 text-gray-400">A carregar...</div>
-      ) : consentList.length === 0 ? (
-        <div className="text-center py-12">
-          <ToggleLeft className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Sem consentimentos registados</p>
-          <p className="text-gray-400 text-sm mt-1">Registe consentimentos para manter conformidade com o RGPD.</p>
-          <Button className="mt-4 gap-2" size="sm" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4" /> Novo Consentimento
-          </Button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="text-left px-4 py-3 font-medium">Email</th>
-                <th className="text-left px-4 py-3 font-medium">Finalidade</th>
-                <th className="text-left px-4 py-3 font-medium">Consentido</th>
-                <th className="text-left px-4 py-3 font-medium">Expira</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {consentList.map((c: any) => {
-                const st = CONSENT_STATUS_STYLES[c.status] ?? CONSENT_STATUS_STYLES.ACTIVE;
-                return (
-                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{c.subjectEmail}</div>
-                      {c.subjectName && <div className="text-xs text-gray-400">{c.subjectName}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{c.purpose}</td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {c.consentedAt ? format(new Date(c.consentedAt), 'dd/MM/yyyy') : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {c.expiresAt ? format(new Date(c.expiresAt), 'dd/MM/yyyy') : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.bg} ${st.text}`}>{st.label}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.status === 'ACTIVE' && (
-                        <button
-                          onClick={() => { if (confirm('Retirar consentimento?')) withdrawMutation.mutate(c.id); }}
-                          className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          Retirar
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showCreate && <ConsentModal onClose={() => setShowCreate(false)} onSave={(data) => createMutation.mutate(data)} />}
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────
 export default function GdprPage() {
   const t = useTranslations('gdpr');
   const [activeTab, setActiveTab] = useState('ropa');
 
   const TABS = [
-    { id: 'ropa',     label: t('tabRopa'),     icon: Database },
-    { id: 'dpias',    label: t('tabDpias'),    icon: ClipboardList },
-    { id: 'breaches', label: t('tabBreaches'), icon: AlertOctagon },
-    { id: 'dsar',     label: 'DSAR',           icon: Mail },
-    { id: 'consent',  label: 'Consentimento',  icon: ToggleLeft },
+    { id: 'ropa',       label: t('tabRopa'),     icon: Database },
+    { id: 'dpias',      label: t('tabDpias'),    icon: ClipboardList },
+    { id: 'breaches',   label: t('tabBreaches'), icon: AlertOctagon },
+    { id: 'consent',    label: 'Consentimentos', icon: CheckSquare },
+    { id: 'dsar',       label: 'DSAR — Pedidos', icon: UserCheck },
   ];
 
   const { data: stats } = useQuery({
@@ -1150,8 +1360,8 @@ export default function GdprPage() {
           {activeTab === 'ropa'     && <RopaTab />}
           {activeTab === 'dpias'    && <DpiasTab />}
           {activeTab === 'breaches' && <BreachesTab />}
-          {activeTab === 'dsar'     && <DsarTab />}
           {activeTab === 'consent'  && <ConsentTab />}
+          {activeTab === 'dsar'     && <DsarTab />}
         </div>
       </div>
     </div>

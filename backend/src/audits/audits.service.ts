@@ -89,6 +89,20 @@ export class AuditsService {
     });
   }
 
+  async listFindings(organizationId: string, auditId?: string, status?: string) {
+    return this.prisma.finding.findMany({
+      where: {
+        audit: { organizationId },
+        ...(auditId && { auditId }),
+        ...(status && { status: status as any }),
+      },
+      orderBy: [{ severity: 'desc' }, { createdAt: 'asc' }],
+      include: {
+        audit: { select: { id: true, title: true } },
+      },
+    });
+  }
+
   async createFinding(auditId: string, dto: CreateFindingDto, organizationId: string, userId?: string) {
     await this.findOne(auditId, organizationId);
     const finding = await this.prisma.finding.create({

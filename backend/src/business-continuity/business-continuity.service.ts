@@ -100,6 +100,14 @@ export class BusinessContinuityService {
 
   // ── Tests ─────────────────────────────────────────────────────
 
+  async listTests(organizationId: string) {
+    return this.prisma.bcpTest.findMany({
+      where: { organizationId },
+      orderBy: { testedAt: 'desc' },
+      include: { plan: { select: { id: true, name: true, rtoTarget: true, rpoTarget: true } } },
+    });
+  }
+
   async addTest(planId: string, organizationId: string, dto: any, conductedBy: string) {
     const plan = await this.prisma.bcpPlan.findFirst({ where: { id: planId, organizationId } });
     if (!plan) throw new NotFoundException('BCP Plan not found');
@@ -108,6 +116,7 @@ export class BusinessContinuityService {
         data: {
           ...dto,
           planId,
+          organizationId,
           conductedBy,
           testedAt: dto.testedAt ? new Date(dto.testedAt) : new Date(),
         },

@@ -6,8 +6,8 @@ import { bcpApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   ShieldAlert, Plus, Pencil, Trash2, X, ChevronDown, ChevronRight,
-  CheckCircle2, AlertCircle, Clock, PlayCircle, Server,
-  Users, Database, Building, TrendingUp, Calendar,
+  PlayCircle, Server,
+  Users, Database, Building,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -28,10 +28,17 @@ const TEST_TYPES: Record<string, string> = {
   DR_TEST:         'Teste DR',
 };
 
-const RESULT_CONFIG: Record<string, { label: string; color: string }> = {
-  PASSED:  { label: 'Aprovado', color: 'text-green-600' },
-  PARTIAL: { label: 'Parcial',  color: 'text-yellow-600' },
-  FAILED:  { label: 'Falhou',   color: 'text-red-600' },
+const TEST_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  PLANNED:     { label: 'Planeado',    color: 'text-blue-700',   bg: 'bg-blue-100' },
+  IN_PROGRESS: { label: 'Em Curso',    color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  COMPLETED:   { label: 'Concluído',   color: 'text-green-700',  bg: 'bg-green-100' },
+  FAILED:      { label: 'Falhado',     color: 'text-red-700',    bg: 'bg-red-100' },
+};
+
+const RESULT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  PASSED:  { label: 'Aprovado', color: 'text-green-700', bg: 'bg-green-100' },
+  PARTIAL: { label: 'Parcial',  color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  FAILED:  { label: 'Falhou',   color: 'text-red-700',   bg: 'bg-red-100' },
 };
 
 const ASSET_TYPES: Record<string, { label: string; icon: React.ElementType }> = {
@@ -49,6 +56,15 @@ const CRITICALITY_CONFIG: Record<string, { label: string; color: string; bg: str
   MEDIUM:   { label: 'Médio',    color: 'text-yellow-700', bg: 'bg-yellow-100' },
   LOW:      { label: 'Baixo',    color: 'text-gray-600',   bg: 'bg-gray-100' },
 };
+
+function fmtMinutes(mins: number | null | undefined): string {
+  if (!mins) return '—';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
 
 // ── Plan Modal ────────────────────────────────────────────────
 
@@ -124,7 +140,7 @@ function PlanModal({ initial, onClose, onSave }: { initial?: any; onClose: () =>
   );
 }
 
-// ── Test Modal ────────────────────────────────────────────────
+// ── Old Test Modal (used inside PlanCard) ─────────────────────
 
 function TestModal({ planId, onClose, onSave }: { planId: string; onClose: () => void; onSave: (d: any) => void }) {
   const [form, setForm] = useState({
@@ -194,6 +210,114 @@ function TestModal({ planId, onClose, onSave }: { planId: string; onClose: () =>
             findings: form.findings || undefined,
             correctiveActions: form.correctiveActions || undefined,
           })}>Registar Teste</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── BCP Test Exercise Modal (create/edit from Exercises tab) ──
+
+function ExerciseModal({
+  plans,
+  initial,
+  onClose,
+  onSave,
+}: {
+  plans: any[];
+  initial?: any;
+  onClose: () => void;
+  onSave: (planId: string, data: any) => void;
+}) {
+  const [form, setForm] = useState({
+    planId: initial?.planId ?? (plans[0]?.id ?? ''),
+    testType: initial?.testType ?? 'TABLETOP',
+    testedAt: initial?.testedAt ? initial.testedAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    rtoActual: initial?.rtoActual != null ? String(initial.rtoActual) : '',
+    rpoActual: initial?.rpoActual != null ? String(initial.rpoActual) : '',
+    result: initial?.result ?? 'PASSED',
+    findings: initial?.findings ?? '',
+    correctiveActions: initial?.correctiveActions ?? '',
+  });
+  const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  const isEdit = !!initial;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b flex items-center justify-between">
+          <h2 className="text-base font-semibold">{isEdit ? 'Editar Exercício BCP' : 'Novo Exercício / Teste BCP'}</h2>
+          <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Plano BCP *</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              value={form.planId}
+              onChange={e => set('planId', e.target.value)}
+              disabled={isEdit}
+            >
+              {plans.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Teste *</label>
+              <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.testType} onChange={e => set('testType', e.target.value)}>
+                {Object.entries(TEST_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data do Teste *</label>
+              <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.testedAt} onChange={e => set('testedAt', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">RTO Real (minutos)</label>
+              <input type="number" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.rtoActual} onChange={e => set('rtoActual', e.target.value)} placeholder="ex: 270" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">RPO Real (minutos)</label>
+              <input type="number" className="w-full border rounded-lg px-3 py-2 text-sm" value={form.rpoActual} onChange={e => set('rpoActual', e.target.value)} placeholder="ex: 60" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
+            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.result} onChange={e => set('result', e.target.value)}>
+              {Object.entries(RESULT_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lições Aprendidas</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm resize-none" rows={2} value={form.findings} onChange={e => set('findings', e.target.value)} placeholder="O que correu bem e o que pode ser melhorado..." />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ações Corretivas</label>
+            <textarea className="w-full border rounded-lg px-3 py-2 text-sm resize-none" rows={2} value={form.correctiveActions} onChange={e => set('correctiveActions', e.target.value)} placeholder="Medidas a implementar após o exercício..." />
+          </div>
+        </div>
+        <div className="p-5 border-t flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button
+            size="sm"
+            disabled={!form.planId || !form.testedAt}
+            onClick={() => onSave(form.planId, {
+              testType: form.testType,
+              testedAt: new Date(form.testedAt).toISOString(),
+              result: form.result,
+              rtoActual: form.rtoActual ? parseInt(form.rtoActual) : undefined,
+              rpoActual: form.rpoActual ? parseInt(form.rpoActual) : undefined,
+              findings: form.findings || undefined,
+              correctiveActions: form.correctiveActions || undefined,
+            })}
+          >
+            {isEdit ? 'Guardar Alterações' : 'Registar Exercício'}
+          </Button>
         </div>
       </div>
     </div>
@@ -383,13 +507,13 @@ function PlanCard({ plan, onEdit }: { plan: any; onEdit: (p: any) => void }) {
             ) : (
               <div className="space-y-2">
                 {(detail?.tests || []).map((test: any) => {
-                  const result = RESULT_CONFIG[test.result] || { label: test.result, color: 'text-gray-500' };
+                  const result = RESULT_CONFIG[test.result] || { label: test.result, color: 'text-gray-500', bg: 'bg-gray-100' };
                   return (
                     <div key={test.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border text-sm">
                       <span className="text-gray-500">{TEST_TYPES[test.testType] || test.testType}</span>
                       <span className="text-gray-400 text-xs">{format(new Date(test.testedAt), 'dd/MM/yyyy')}</span>
                       <span className="flex-1" />
-                      {test.rtoActual && <span className="text-xs text-gray-400">RTO {test.rtoActual}h</span>}
+                      {test.rtoActual && <span className="text-xs text-gray-400">RTO {fmtMinutes(test.rtoActual)}</span>}
                       <span className={`text-xs font-semibold ${result.color}`}>{result.label}</span>
                       <button
                         onClick={() => removeTestMut.mutate(test.id)}
@@ -424,10 +548,207 @@ function PlanCard({ plan, onEdit }: { plan: any; onEdit: (p: any) => void }) {
   );
 }
 
+// ── Exercises Tab ─────────────────────────────────────────────
+
+function ExercisesTab({ plans }: { plans: any[] }) {
+  const qc = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [editTest, setEditTest] = useState<any>(null);
+
+  const { data: tests = [], isLoading } = useQuery({
+    queryKey: ['bcp-tests'],
+    queryFn: () => bcpApi.listTests().then(r => r.data),
+  });
+
+  const createMut = useMutation({
+    mutationFn: ({ planId, data }: { planId: string; data: any }) => bcpApi.addTest(planId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bcp-tests'] });
+      qc.invalidateQueries({ queryKey: ['bcp-dashboard'] });
+      setShowModal(false);
+    },
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ planId, testId, data }: { planId: string; testId: string; data: any }) =>
+      bcpApi.updateTest(planId, testId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bcp-tests'] });
+      setEditTest(null);
+    },
+  });
+
+  const testsArr = tests as any[];
+  const thisYear = new Date().getFullYear();
+  const testsThisYear = testsArr.filter(t => new Date(t.testedAt).getFullYear() === thisYear).length;
+  const completed = testsArr.filter(t => t.result === 'PASSED');
+  const successRate = testsArr.length > 0 ? Math.round((completed.length / testsArr.length) * 100) : 0;
+
+  const nextTest = testsArr
+    .filter(t => new Date(t.testedAt) >= new Date())
+    .sort((a, b) => new Date(a.testedAt).getTime() - new Date(b.testedAt).getTime())[0];
+
+  const plansWithTests = new Set(
+    testsArr.filter(t => t.result === 'PASSED').map(t => t.planId)
+  );
+  const plansWithoutTest = plans.filter(p => !plansWithTests.has(p.id)).length;
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Row */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-blue-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-2">Testes Este Ano</div>
+          <div className="text-3xl font-bold text-blue-700">{testsThisYear}</div>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-green-600 uppercase tracking-wide mb-2">Taxa de Sucesso</div>
+          <div className="text-3xl font-bold text-green-700">{successRate}%</div>
+        </div>
+        <div className="bg-amber-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-amber-600 uppercase tracking-wide mb-2">Próximo Teste</div>
+          <div className="text-lg font-bold text-amber-700">
+            {nextTest ? format(new Date(nextTest.testedAt), 'dd/MM/yy') : '—'}
+          </div>
+          {nextTest && (
+            <div className="text-xs text-amber-500 mt-0.5 truncate">{nextTest.plan?.name}</div>
+          )}
+        </div>
+        <div className="bg-red-50 rounded-xl p-4">
+          <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-2">Planos sem Teste</div>
+          <div className="text-3xl font-bold text-red-700">{plansWithoutTest}</div>
+        </div>
+      </div>
+
+      {/* Table Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-gray-700">Exercícios e Testes BCP Registados</h2>
+        <Button onClick={() => setShowModal(true)}>
+          <Plus className="w-4 h-4 mr-1.5" /> Novo Exercício
+        </Button>
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="text-center py-12 text-gray-400">A carregar...</div>
+      ) : testsArr.length === 0 ? (
+        <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+          <PlayCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-1">Sem exercícios registados</h3>
+          <p className="text-sm text-gray-400 mb-4">Registe o primeiro exercício ou teste BCP da sua organização.</p>
+          <Button onClick={() => setShowModal(true)}>
+            <Plus className="w-4 h-4 mr-1.5" /> Novo Exercício
+          </Button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Plano BCP</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Data</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">RTO Alvo → Real</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">RPO Alvo → Real</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Resultado</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {testsArr.map((test: any) => {
+                const testDate = new Date(test.testedAt);
+                const now = new Date();
+                const derivedStatus = testDate > now ? 'PLANNED' : (test.result === 'FAILED' ? 'FAILED' : 'COMPLETED');
+                const statusCfg = TEST_STATUS_CONFIG[derivedStatus] || TEST_STATUS_CONFIG.COMPLETED;
+                const resultCfg = RESULT_CONFIG[test.result] || { label: test.result, color: 'text-gray-600', bg: 'bg-gray-100' };
+                const rtoTargetMins = test.plan?.rtoTarget ? test.plan.rtoTarget * 60 : null;
+                const rpoTargetMins = test.plan?.rpoTarget ? test.plan.rpoTarget * 60 : null;
+                return (
+                  <tr key={test.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-900">{test.plan?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{TEST_TYPES[test.testType] ?? test.testType}</td>
+                    <td className="px-4 py-3 text-gray-600">{format(new Date(test.testedAt), 'dd/MM/yyyy')}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusCfg.bg} ${statusCfg.color}`}>
+                        {statusCfg.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">
+                      {rtoTargetMins ? (
+                        <span>
+                          {fmtMinutes(rtoTargetMins)}
+                          <span className="text-gray-400 mx-1">→</span>
+                          {test.rtoActual ? (
+                            <span className={test.rtoActual > rtoTargetMins ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                              {fmtMinutes(test.rtoActual)}
+                            </span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </span>
+                      ) : (
+                        test.rtoActual ? fmtMinutes(test.rtoActual) : '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">
+                      {rpoTargetMins ? (
+                        <span>
+                          {fmtMinutes(rpoTargetMins)}
+                          <span className="text-gray-400 mx-1">→</span>
+                          {test.rpoActual ? (
+                            <span className={test.rpoActual > rpoTargetMins ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                              {fmtMinutes(test.rpoActual)}
+                            </span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </span>
+                      ) : (
+                        test.rpoActual ? fmtMinutes(test.rpoActual) : '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${resultCfg.bg} ${resultCfg.color}`}>
+                        {resultCfg.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setEditTest(test)}
+                        className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showModal && (
+        <ExerciseModal
+          plans={plans}
+          onClose={() => setShowModal(false)}
+          onSave={(planId, data) => createMut.mutate({ planId, data })}
+        />
+      )}
+      {editTest && (
+        <ExerciseModal
+          plans={plans}
+          initial={editTest}
+          onClose={() => setEditTest(null)}
+          onSave={(_planId, data) => updateMut.mutate({ planId: editTest.planId, testId: editTest.id, data })}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 
 export default function BusinessContinuityPage() {
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'plans' | 'exercises'>('plans');
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [editPlan, setEditPlan] = useState<any>(null);
 
@@ -451,6 +772,11 @@ export default function BusinessContinuityPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bcp-plans'] }); setEditPlan(null); },
   });
 
+  const tabs = [
+    { id: 'plans' as const,     label: 'Planos BCP',              icon: ShieldAlert },
+    { id: 'exercises' as const, label: 'Exercícios / Testes BCP', icon: PlayCircle },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -464,13 +790,15 @@ export default function BusinessContinuityPage() {
             <p className="text-sm text-gray-500">ISO 22301 · BCP · Recuperação de Desastres</p>
           </div>
         </div>
-        <Button onClick={() => setShowPlanModal(true)}>
-          <Plus className="w-4 h-4 mr-1.5" /> Novo Plano BCP
-        </Button>
+        {activeTab === 'plans' && (
+          <Button onClick={() => setShowPlanModal(true)}>
+            <Plus className="w-4 h-4 mr-1.5" /> Novo Plano BCP
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
-      {dashboard && (
+      {dashboard && activeTab === 'plans' && (
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-amber-50 rounded-xl p-4">
             <div className="text-xs font-medium text-amber-600 uppercase tracking-wide mb-2">Total Planos</div>
@@ -493,28 +821,55 @@ export default function BusinessContinuityPage() {
         </div>
       )}
 
-      {/* Plans list */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Planos de Continuidade de Negócio</h2>
-        {isLoading ? (
-          <div className="text-center py-12 text-gray-400">A carregar...</div>
-        ) : (plans as any[]).length === 0 ? (
-          <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-            <ShieldAlert className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-1">Sem planos BCP</h3>
-            <p className="text-sm text-gray-400 mb-4">Crie o primeiro plano de continuidade de negócio da sua organização.</p>
-            <Button onClick={() => setShowPlanModal(true)}>
-              <Plus className="w-4 h-4 mr-1.5" /> Criar Plano BCP
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {(plans as any[]).map((plan: any) => (
-              <PlanCard key={plan.id} plan={plan} onEdit={setEditPlan} />
-            ))}
-          </div>
-        )}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-amber-600 text-amber-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Tab content */}
+      {activeTab === 'plans' && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Planos de Continuidade de Negócio</h2>
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-400">A carregar...</div>
+          ) : (plans as any[]).length === 0 ? (
+            <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+              <ShieldAlert className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-1">Sem planos BCP</h3>
+              <p className="text-sm text-gray-400 mb-4">Crie o primeiro plano de continuidade de negócio da sua organização.</p>
+              <Button onClick={() => setShowPlanModal(true)}>
+                <Plus className="w-4 h-4 mr-1.5" /> Criar Plano BCP
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(plans as any[]).map((plan: any) => (
+                <PlanCard key={plan.id} plan={plan} onEdit={setEditPlan} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'exercises' && (
+        <ExercisesTab plans={plans as any[]} />
+      )}
 
       {/* ISO 22301 requirements reference */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">

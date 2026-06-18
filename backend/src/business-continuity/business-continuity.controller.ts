@@ -23,6 +23,11 @@ export class BusinessContinuityController {
     return this.service.listPlans(user.organizationId);
   }
 
+  @Get('tests')
+  listTests(@CurrentUser() user: any) {
+    return this.service.listTests(user.organizationId);
+  }
+
   @Post('plans')
   createPlan(@Body() dto: any, @CurrentUser() user: any) {
     return this.service.createPlan(user.organizationId, dto, user.id);

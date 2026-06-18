@@ -7,7 +7,8 @@ import { whistleblowApi } from '@/lib/api';
 import {
   Shield, AlertTriangle, Clock, CheckCircle, Search,
   Eye, ChevronRight, Users, BookOpen, FileBarChart2, GraduationCap,
-  XCircle, Copy, Check, ExternalLink,
+  XCircle, Copy, Check, ExternalLink, MessageSquare, PieChart,
+  TrendingUp, BarChart2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +31,7 @@ const CATEGORY_KEYS = [
   'SAFETY_VIOLATION', 'ENVIRONMENTAL_VIOLATION', 'OTHER',
 ];
 
-type TabKey = 'dashboard' | 'reports' | 'conduct' | 'training' | 'menac';
+type TabKey = 'dashboard' | 'reports' | 'analysis' | 'stats' | 'conduct' | 'training' | 'menac';
 
 export default function DenunciasPage() {
   const t = useTranslations('denuncias');
@@ -44,7 +45,7 @@ export default function DenunciasPage() {
   const { data: dash } = useQuery({
     queryKey: ['whistleblow-dashboard'],
     queryFn: () => whistleblowApi.dashboard().then(r => r.data),
-    enabled: tab === 'dashboard',
+    enabled: tab === 'dashboard' || tab === 'analysis' || tab === 'stats',
   });
 
   const { data: reportsData } = useQuery({
@@ -52,6 +53,21 @@ export default function DenunciasPage() {
     queryFn: () =>
       whistleblowApi.listReports(statusFilter ? { status: statusFilter } : {}).then(r => r.data),
     enabled: tab === 'reports',
+  });
+
+  // All open reports for analysis tab
+  const { data: openReportsData } = useQuery({
+    queryKey: ['whistleblow-reports-open'],
+    queryFn: () =>
+      whistleblowApi.listReports({}).then(r => r.data),
+    enabled: tab === 'analysis',
+  });
+
+  const currentYear = new Date().getFullYear();
+  const { data: statsData } = useQuery({
+    queryKey: ['whistleblow-menac-stats', currentYear],
+    queryFn: () => whistleblowApi.menacReport(currentYear).then(r => r.data),
+    enabled: tab === 'stats',
   });
 
   const { data: selectedReport } = useQuery({
@@ -80,6 +96,8 @@ export default function DenunciasPage() {
   const TABS: { key: TabKey; labelKey: string; icon: any }[] = [
     { key: 'dashboard', labelKey: 'tabDashboard', icon: Shield },
     { key: 'reports',   labelKey: 'tabReports',   icon: Eye },
+    { key: 'analysis',  labelKey: 'tabAnalysis',  icon: MessageSquare },
+    { key: 'stats',     labelKey: 'tabStats',     icon: PieChart },
     { key: 'conduct',   labelKey: 'tabConduct',   icon: BookOpen },
     { key: 'training',  labelKey: 'tabTraining',  icon: GraduationCap },
     { key: 'menac',     labelKey: 'tabMenac',     icon: FileBarChart2 },
@@ -392,6 +410,20 @@ export default function DenunciasPage() {
         />
       )}
 
+      {/* ── Analysis & Follow-up Tab ── */}
+      {tab === 'analysis' && (
+        <AnalysisTab
+          reports={openReportsData?.reports ?? []}
+          dash={dash}
+          onUpdate={(id: string, data: any) => updateMutation.mutate({ id, data })}
+        />
+      )}
+
+      {/* ── Estatísticas Tab ── */}
+      {tab === 'stats' && (
+        <StatsTab dash={dash} statsData={statsData} currentYear={currentYear} />
+      )}
+
       {/* ── Code of Conduct Tab ── */}
       {tab === 'conduct' && <ConductTab />}
 
@@ -663,6 +695,410 @@ function NotePanel({ reportId, onAdded }: { reportId: string; onAdded: () => voi
       >
         {saving ? t('saving') : t('addNote')}
       </button>
+    </div>
+  );
+}
+
+// ── Analysis & Follow-up Tab ─────────────────────────────────
+
+const OPEN_STATUSES = ['RECEIVED', 'ACKNOWLEDGED', 'UNDER_INVESTIGATION'];
+
+function daysOpen(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
+}
+
+function AnalysisTab({ reports, dash, onUpdate }: {
+  reports: any[];
+  dash: any;
+  onUpdate: (id: string, data: any) => void;
+}) {
+  const t = useTranslations('denuncias');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [statusEdits, setStatusEdits] = useState<Record<string, string>>({});
+  const [notesEdits, setNotesEdits] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const qc = useQueryClient();
+
+  const openReports = reports.filter((r: any) => OPEN_STATUSES.includes(r.status));
+
+  // KPI calculations
+  const avgResolutionDays = (() => {
+    const concluded = reports.filter((r: any) => r.status === 'CONCLUDED' && r.concludedAt);
+    if (!concluded.length) return 0;
+    const sum = concluded.reduce((acc: number, r: any) =>
+      acc + Math.floor((new Date(r.concludedAt).getTime() - new Date(r.createdAt).getTime()) / 86400000), 0);
+    return Math.round(sum / concluded.length);
+  })();
+
+  const over30 = openReports.filter((r: any) => daysOpen(r.createdAt) > 30).length;
+
+  const quarterStart = (() => {
+    const now = new Date();
+    const q = Math.floor(now.getMonth() / 3);
+    return new Date(now.getFullYear(), q * 3, 1);
+  })();
+  const resolvedThisQuarter = reports.filter((r: any) =>
+    ['CONCLUDED', 'UNFOUNDED'].includes(r.status) &&
+    r.concludedAt && new Date(r.concludedAt) >= quarterStart,
+  ).length;
+
+  const saveUpdate = async (id: string) => {
+    setSaving(id);
+    try {
+      const payload: any = {};
+      if (statusEdits[id]) payload.status = statusEdits[id];
+      if (notesEdits[id] !== undefined) payload.internalNotes = notesEdits[id];
+      await onUpdate(id, payload);
+      qc.invalidateQueries({ queryKey: ['whistleblow-reports-open'] });
+      setStatusEdits(p => { const n = { ...p }; delete n[id]; return n; });
+    } catch {}
+    setSaving(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-blue-50 rounded-xl p-4">
+          <p className="text-xs text-blue-600 font-medium mb-1">Tempo Médio Resolução</p>
+          <p className="text-2xl font-bold text-blue-900">{avgResolutionDays}<span className="text-sm font-normal ml-1">dias</span></p>
+        </div>
+        <div className={cn('rounded-xl p-4', over30 > 0 ? 'bg-red-50' : 'bg-gray-50')}>
+          <p className={cn('text-xs font-medium mb-1', over30 > 0 ? 'text-red-600' : 'text-gray-500')}>
+            Relatórios Abertos &gt;30 dias
+          </p>
+          <p className={cn('text-2xl font-bold', over30 > 0 ? 'text-red-700' : 'text-gray-700')}>
+            {over30}
+          </p>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4">
+          <p className="text-xs text-green-600 font-medium mb-1">Resolvidos Este Trimestre</p>
+          <p className="text-2xl font-bold text-green-800">{resolvedThisQuarter}</p>
+        </div>
+      </div>
+
+      {/* Open reports */}
+      <div>
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-gray-400" />
+          Relatórios em Aberto ({openReports.length})
+        </h3>
+
+        {openReports.length === 0 ? (
+          <div className="bg-white border rounded-xl p-10 text-center text-gray-400">
+            <CheckCircle className="w-10 h-10 mx-auto mb-2 text-green-400" />
+            <p className="font-medium text-gray-600">Sem relatórios em aberto</p>
+            <p className="text-sm mt-1">Todos os relatórios foram tratados.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {openReports.map((r: any) => {
+              const days = daysOpen(r.createdAt);
+              const isExpanded = expandedId === r.id;
+              return (
+                <div key={r.id} className="bg-white border rounded-xl overflow-hidden">
+                  {/* Card header */}
+                  <div
+                    className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50"
+                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-mono text-sm font-semibold text-blue-700">{r.referenceCode}</span>
+                        <span className={cn('text-xs px-2 py-0.5 rounded-full', STATUS_COLORS[r.status])}>
+                          {t(`status.${r.status}`)}
+                        </span>
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          {t(`category.${r.category}`)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Recebido: {new Date(r.createdAt).toLocaleDateString('pt-PT')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={cn(
+                        'text-xs font-bold px-2.5 py-1.5 rounded-lg',
+                        days > 30 ? 'bg-red-100 text-red-700' :
+                        days > 14 ? 'bg-amber-100 text-amber-700' :
+                        'bg-gray-100 text-gray-600',
+                      )}>
+                        {days} dias
+                      </span>
+                      <ChevronRight className={cn('w-4 h-4 text-gray-400 transition-transform', isExpanded && 'rotate-90')} />
+                    </div>
+                  </div>
+
+                  {/* Expanded follow-up panel */}
+                  {isExpanded && (
+                    <div className="border-t bg-gray-50 p-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Status update */}
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1 font-medium">Atualizar Estado</label>
+                          <select
+                            value={statusEdits[r.id] ?? r.status}
+                            onChange={e => setStatusEdits(p => ({ ...p, [r.id]: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                          >
+                            {STATUS_KEYS.map(k => (
+                              <option key={k} value={k}>{t(`status.${k}`)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Assignment info */}
+                        <div className="flex flex-col justify-end">
+                          {r.assignedTo ? (
+                            <p className="text-xs text-gray-500">
+                              Responsável: <span className="font-medium text-gray-800">
+                                {r.assignedTo.firstName} {r.assignedTo.lastName}
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="text-xs text-gray-400 italic">Sem responsável atribuído</p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Resolution notes (internal, not shown to reporter) */}
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1 font-medium">
+                          Notas de Resolução <span className="text-gray-400 font-normal">(apenas administradores)</span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={notesEdits[r.id] ?? r.internalNotes ?? ''}
+                          onChange={e => setNotesEdits(p => ({ ...p, [r.id]: e.target.value }))}
+                          placeholder="Adicionar notas internas sobre o progresso da investigação..."
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none bg-white"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => saveUpdate(r.id)}
+                          disabled={saving === r.id}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+                        >
+                          {saving === r.id ? 'A guardar...' : 'Guardar Alterações'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Estatísticas Tab ──────────────────────────────────────────
+
+const CATEGORY_COLORS: string[] = [
+  'bg-blue-500', 'bg-purple-500', 'bg-red-500', 'bg-amber-500',
+  'bg-green-500', 'bg-cyan-500', 'bg-rose-500', 'bg-indigo-500',
+  'bg-orange-500', 'bg-teal-500', 'bg-pink-500', 'bg-gray-400',
+];
+
+const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function StatsTab({ dash, statsData, currentYear }: { dash: any; statsData: any; currentYear: number }) {
+  const t = useTranslations('denuncias');
+
+  if (!dash) {
+    return <p className="text-sm text-gray-400 py-8 text-center">A carregar estatísticas...</p>;
+  }
+
+  const total = dash.total ?? 0;
+  const byCategory: { category: string; count: number }[] = dash.byCategory ?? [];
+  const byStatus: { status: string; count: number }[] = dash.byStatus ?? [];
+
+  // Status distribution
+  const statusGroups = [
+    { label: 'Recebidos', statuses: ['RECEIVED'], color: 'bg-amber-400' },
+    { label: 'Em Investigação', statuses: ['ACKNOWLEDGED', 'UNDER_INVESTIGATION'], color: 'bg-blue-400' },
+    { label: 'Concluídos', statuses: ['CONCLUDED'], color: 'bg-green-500' },
+    { label: 'Infundados / Arquivados', statuses: ['UNFOUNDED', 'ARCHIVED'], color: 'bg-gray-400' },
+  ].map(g => ({
+    ...g,
+    count: g.statuses.reduce((s, st) => s + (byStatus.find(b => b.status === st)?.count ?? 0), 0),
+  }));
+
+  // Monthly trend (last 6 months)
+  const now = new Date();
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { month: d.getMonth() + 1, year: d.getFullYear(), label: MONTHS_PT[d.getMonth()] };
+  });
+
+  const byMonth: { month: number; count: number }[] = statsData?.byMonth ?? [];
+
+  return (
+    <div className="space-y-6">
+      {/* Header KPIs */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-gray-50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-gray-900">{total}</p>
+          <p className="text-xs text-gray-500 mt-1">Total de Denúncias</p>
+        </div>
+        <div className="bg-amber-50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-amber-700">{dash.open ?? 0}</p>
+          <p className="text-xs text-gray-500 mt-1">Em Aberto</p>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-green-700">
+            {byStatus.find(s => s.status === 'CONCLUDED')?.count ?? 0}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Concluídas</p>
+        </div>
+        <div className="bg-red-50 rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-red-700">{dash.resolutionOverdue ?? 0}</p>
+          <p className="text-xs text-gray-500 mt-1">Prazo Excedido</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Breakdown by category */}
+        <div className="bg-white border rounded-xl p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-gray-400" /> Por Categoria
+          </h3>
+          {byCategory.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">Sem dados</p>
+          ) : (
+            <div className="space-y-2.5">
+              {byCategory
+                .sort((a, b) => b.count - a.count)
+                .map((c, i) => {
+                  const pct = total > 0 ? Math.round((c.count / total) * 100) : 0;
+                  return (
+                    <div key={c.category} className="flex items-center gap-3">
+                      <span className="text-xs text-gray-600 w-36 flex-shrink-0 truncate">
+                        {t(`category.${c.category}`)}
+                      </span>
+                      <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={cn('h-full rounded-full', CATEGORY_COLORS[i % CATEGORY_COLORS.length])}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700 w-6 text-right">{c.count}</span>
+                      <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+
+        {/* Status distribution */}
+        <div className="bg-white border rounded-xl p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <PieChart className="w-4 h-4 text-gray-400" /> Distribuição por Estado
+          </h3>
+          <div className="space-y-3">
+            {statusGroups.map(g => {
+              const pct = total > 0 ? Math.round((g.count / total) * 100) : 0;
+              return (
+                <div key={g.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', g.color)} />
+                      <span className="text-xs text-gray-600">{g.label}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700">{g.count} <span className="text-gray-400 font-normal">({pct}%)</span></span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={cn('h-full rounded-full', g.color)} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Simple donut visual */}
+          {total > 0 && (() => {
+            const colorMap: Record<string, string> = {
+              'bg-amber-400': '#fbbf24',
+              'bg-blue-400': '#60a5fa',
+              'bg-green-500': '#22c55e',
+              'bg-gray-400': '#9ca3af',
+            };
+            let cumOffset = 0;
+            return (
+              <div className="mt-4 flex items-center justify-center">
+                <div className="relative w-24 h-24">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    {statusGroups.map(g => {
+                      const pct = total > 0 ? (g.count / total) * 100 : 0;
+                      const dashOffset = -cumOffset;
+                      cumOffset += pct;
+                      return (
+                        <circle
+                          key={g.label}
+                          cx="18" cy="18" r="15.915"
+                          fill="none"
+                          stroke={colorMap[g.color] ?? '#9ca3af'}
+                          strokeWidth="3.5"
+                          strokeDasharray={`${pct} ${100 - pct}`}
+                          strokeDashoffset={dashOffset}
+                        />
+                      );
+                    })}
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold text-gray-700">{total}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Monthly trend */}
+      <div className="bg-white border rounded-xl p-5">
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-gray-400" /> Tendência Mensal — Últimos 6 Meses ({currentYear})
+        </h3>
+        {!statsData ? (
+          <p className="text-sm text-gray-400 text-center py-4">A carregar tendência...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-500 border-b">
+                <th className="py-2 text-left">Mês</th>
+                <th className="py-2 text-right">Denúncias</th>
+                <th className="py-2 pl-4">Volume</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {last6Months.map(({ month, year: mYear, label }) => {
+                // Only use current year data since statsData is for currentYear
+                const count = mYear === currentYear
+                  ? (byMonth.find(bm => bm.month === month)?.count ?? 0)
+                  : 0;
+                const maxCount = Math.max(...byMonth.map(bm => bm.count), 1);
+                const barWidth = Math.max((count / maxCount) * 100, count > 0 ? 5 : 0);
+                return (
+                  <tr key={`${mYear}-${month}`}>
+                    <td className="py-2.5 text-gray-700 font-medium">{label} {mYear}</td>
+                    <td className="py-2.5 text-right font-semibold text-gray-900">{count}</td>
+                    <td className="py-2.5 pl-4">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full min-w-[80px]">
+                        <div
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

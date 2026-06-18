@@ -241,10 +241,12 @@ export const auditsApi = {
   create: (data: any) => api.post('/audits', data),
   update: (id: string, data: any) => api.patch(`/audits/${id}`, data),
   updateStatus: (id: string, data: any) => api.patch(`/audits/${id}/status`, data),
+  listFindings: (params?: { auditId?: string; status?: string }) =>
+    api.get('/audits/findings', { params }),
   createFinding: (auditId: string, data: any) =>
     api.post(`/audits/${auditId}/findings`, data),
-  updateFinding: (auditId: string, findingId: string, data: any) =>
-    api.patch(`/audits/${auditId}/findings/${findingId}`, data),
+  updateFinding: (id: string, data: any) =>
+    api.patch(`/audits/findings/${id}`, data),
 };
 
 export const capaApi = {
@@ -402,6 +404,11 @@ export const vendorsApi = {
   addAssessment: (id: string, data: { score: number; findings?: string }) =>
     api.post(`/vendors/${id}/assessments`, data),
   exportCsv: () => api.get('/vendors/export/csv', { responseType: 'blob' }),
+  listAssessments: () => api.get('/vendors/assessments'),
+  createAssessment: (data: { vendorId: string; score: number; riskLevel?: string; findings?: string }) =>
+    api.post('/vendors/assessments', data),
+  updateAssessment: (id: string, data: { score?: number; riskLevel?: string; findings?: string }) =>
+    api.patch(`/vendors/assessments/${id}`, data),
 };
 
 export const soaApi = {
@@ -802,6 +809,7 @@ export const bcpApi = {
     api.patch(`/business-continuity/plans/${planId}/assets/${assetId}`, data),
   removeAsset: (planId: string, assetId: string) =>
     api.delete(`/business-continuity/plans/${planId}/assets/${assetId}`),
+  listTests:   ()                          => api.get('/business-continuity/tests'),
   addTest:     (planId: string, data: any) => api.post(`/business-continuity/plans/${planId}/tests`, data),
   updateTest:  (planId: string, testId: string, data: any) =>
     api.patch(`/business-continuity/plans/${planId}/tests/${testId}`, data),
@@ -924,6 +932,9 @@ export const qualityApi = {
   updateCapa:    (id: string, data: any)                         => api.patch(`/quality/capa/${id}`, data),
   removeCapa:    (id: string)                                    => api.delete(`/quality/capa/${id}`),
   updateControl: (id: string, data: any)                         => api.patch(`/quality/controls/${id}`, data),
+  listNCs:       (params?: { status?: string })                  => api.get('/quality/nonconformances', { params }),
+  createNC:      (data: any)                                     => api.post('/quality/nonconformances', data),
+  updateNC:      (id: string, data: any)                         => api.patch(`/quality/nonconformances/${id}`, data),
 };
 
 // ── Regulatory Change Governance ──────────────────────────────

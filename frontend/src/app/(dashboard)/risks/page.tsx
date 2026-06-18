@@ -8,6 +8,7 @@ import {
   Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield,
   CheckCircle2, History,
   ChevronUp, ChevronDown, ChevronsUpDown, FileQuestion,
+  LayoutGrid, ShieldCheck,
 } from 'lucide-react';
 import { RiskTreatmentModal } from '@/components/risks/risk-treatment-modal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -19,6 +20,7 @@ import { HelpButton } from '@/components/help/HelpButton';
 type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 type RiskSortKey = 'title' | 'score' | 'status' | 'dueDate';
 type SortDir = 'asc' | 'desc';
+type MainTab = 'list' | 'heatmap' | 'treatments';
 
 const RISK_LEVELS: RiskLevel[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
@@ -35,6 +37,14 @@ function scoreToLevel(score: number): RiskLevel {
   if (score >= 6)  return 'MEDIUM';
   return 'LOW';
 }
+
+// ── Helpers ────────────────────────────────────────────────────
+const LIKELIHOOD_NUM: Record<string, number> = {
+  RARE: 1, UNLIKELY: 2, POSSIBLE: 3, LIKELY: 4, ALMOST_CERTAIN: 5,
+};
+const IMPACT_NUM: Record<string, number> = {
+  NEGLIGIBLE: 1, MINOR: 2, MODERATE: 3, MAJOR: 4, CATASTROPHIC: 5,
+};
 
 // ── Level badge ────────────────────────────────────────────────
 function LevelBadge({ score }: { score: number | null | undefined }) {
@@ -56,60 +66,371 @@ function SortIcon({ col, sortKey, sortDir }: { col: RiskSortKey; sortKey: RiskSo
     : <ChevronDown className="w-3 h-3 text-primary inline ml-1" />;
 }
 
-function RiskHeatmap({ data }: { data: any }) {
-  const t = useTranslations('risks');
+// ── Heatmap cell score → color ─────────────────────────────────
+function heatmapCellColor(score: number): string {
+  if (score >= 20) return 'bg-red-500';
+  if (score >= 15) return 'bg-orange-400';
+  if (score >= 10) return 'bg-amber-400';
+  if (score >= 5)  return 'bg-yellow-300';
+  return 'bg-green-300';
+}
 
-  if (!data) return null;
-  const impacts = ['NEGLIGIBLE', 'MINOR', 'MODERATE', 'MAJOR', 'CATASTROPHIC'];
-  const likelihoods = ['ALMOST_CERTAIN', 'LIKELY', 'POSSIBLE', 'UNLIKELY', 'RARE'];
+// ── Treatment type badge ───────────────────────────────────────
+const TREATMENT_TYPE_STYLES: Record<string, string> = {
+  ACCEPT:   'bg-blue-100 text-blue-700',
+  MITIGATE: 'bg-green-100 text-green-700',
+  TRANSFER: 'bg-purple-100 text-purple-700',
+  AVOID:    'bg-red-100 text-red-700',
+};
+const TREATMENT_TYPE_LABELS: Record<string, string> = {
+  ACCEPT:   'Aceitar',
+  MITIGATE: 'Mitigar',
+  TRANSFER: 'Transferir',
+  AVOID:    'Evitar',
+};
+
+const TREATMENT_STATUS_STYLES: Record<string, string> = {
+  PLANNED:     'bg-gray-100 text-gray-700',
+  IN_PROGRESS: 'bg-blue-100 text-blue-700',
+  COMPLETED:   'bg-green-100 text-green-700',
+};
+const TREATMENT_STATUS_LABELS: Record<string, string> = {
+  PLANNED:     'Planeado',
+  IN_PROGRESS: 'Em Curso',
+  COMPLETED:   'Concluído',
+};
+
+// ── Heatmap tab ────────────────────────────────────────────────
+function HeatmapTab({ risks }: { risks: any[] }) {
+  const [selectedCell, setSelectedCell] = useState<{ l: number; i: number } | null>(null);
+
+  const LIKELIHOOD_LABELS_PT = ['Rara', 'Improvável', 'Possível', 'Provável', 'Quase Certa'];
+  const IMPACT_LABELS_PT = ['Negligível', 'Menor', 'Moderado', 'Maior', 'Catastrófico'];
+
+  // Build matrix: matrix[likelihood 1-5][impact 1-5] = risk[]
+  const matrix = useMemo(() => {
+    const m: Record<number, Record<number, any[]>> = {};
+    for (let l = 1; l <= 5; l++) {
+      m[l] = {};
+      for (let i = 1; i <= 5; i++) m[l][i] = [];
+    }
+    risks.forEach(r => {
+      const l = LIKELIHOOD_NUM[r.likelihood];
+      const i = IMPACT_NUM[r.impact];
+      if (l && i) m[l][i].push(r);
+    });
+    return m;
+  }, [risks]);
+
+  const selectedRisks = selectedCell
+    ? (matrix[selectedCell.l]?.[selectedCell.i] ?? [])
+    : [];
+
+  // Rows top-to-bottom: likelihood 5 → 1
+  const likelihoodRows = [5, 4, 3, 2, 1];
+  const impactCols = [1, 2, 3, 4, 5];
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-      <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <Grid3X3 className="w-5 h-5 text-gray-500" />
-        {t('heatmap')}
-      </h3>
-      <div className="overflow-x-auto">
-        <div className="min-w-[400px]">
-          <div className="flex items-center mb-1">
-            <div className="w-24 text-xs text-gray-400 text-right pr-2">{t('heatmapAxis')}</div>
-            {impacts.map(i => (
-              <div key={i} className="flex-1 text-center text-xs text-gray-500 font-medium px-1">
-                {t(`impact_values.${i}`)?.slice(0, 3)}
+    <div className="space-y-6">
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+        {([
+          ['bg-green-300', 'Baixo (1-4)'],
+          ['bg-yellow-300', 'Médio (5-9)'],
+          ['bg-amber-400', 'Médio-Alto (10-14)'],
+          ['bg-orange-400', 'Alto (15-19)'],
+          ['bg-red-500', 'Crítico (20-25)'],
+        ] as [string, string][]).map(([c, l]) => (
+          <div key={l} className="flex items-center gap-1.5">
+            <div className={cn('w-3 h-3 rounded', c)} />
+            {l}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        {/* Matrix */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[520px]">
+            {/* Header row: Impact labels */}
+            <div className="flex items-end mb-1">
+              <div className="w-28 flex-shrink-0" />
+              {impactCols.map((i) => (
+                <div key={i} className="flex-1 text-center text-xs font-semibold text-gray-500 pb-1 px-1">
+                  {IMPACT_LABELS_PT[i - 1]}
+                </div>
+              ))}
+            </div>
+            {/* Axis label */}
+            <div className="flex items-center mb-0.5">
+              <div className="w-28 flex-shrink-0 text-xs text-gray-400 text-right pr-2 italic">
+                Prob. ↓ / Impacto →
+              </div>
+              {impactCols.map(i => (
+                <div key={i} className="flex-1 text-center text-xs text-gray-400 font-medium">{i}</div>
+              ))}
+            </div>
+
+            {likelihoodRows.map((l) => (
+              <div key={l} className="flex items-center mb-1">
+                <div className="w-28 flex-shrink-0 text-right pr-2">
+                  <span className="text-xs font-medium text-gray-600">{LIKELIHOOD_LABELS_PT[l - 1]}</span>
+                  <span className="text-xs text-gray-400 ml-1">({l})</span>
+                </div>
+                {impactCols.map((i) => {
+                  const score = l * i;
+                  const cellRisks = matrix[l][i] ?? [];
+                  const count = cellRisks.length;
+                  const isSelected = selectedCell?.l === l && selectedCell?.i === i;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedCell(isSelected ? null : { l, i })}
+                      className={cn(
+                        'flex-1 h-12 rounded-lg m-0.5 flex flex-col items-center justify-center transition-all',
+                        heatmapCellColor(score),
+                        count > 0 ? 'cursor-pointer shadow-sm hover:scale-105 hover:shadow-md' : 'opacity-40 cursor-default',
+                        isSelected && 'ring-2 ring-offset-1 ring-gray-800 scale-105',
+                      )}
+                    >
+                      {count > 0 && (
+                        <>
+                          <span className="text-sm font-bold text-white drop-shadow">{count}</span>
+                          <span className="text-xs text-white/80 leading-none">{score}</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             ))}
           </div>
-          {likelihoods.map((l, li) => (
-            <div key={l} className="flex items-center mb-1">
-              <div className="w-24 text-xs text-gray-500 text-right pr-2">{t(`likelihood_values.${l}`)?.slice(0, 6)}</div>
-              {impacts.map((_, ii) => {
-                const score = (5 - li) * (ii + 1);
-                const count = data.matrix?.[5 - li]?.[ii + 1] || 0;
-                const color = score >= 20 ? 'bg-red-500' : score >= 12 ? 'bg-orange-400' : score >= 6 ? 'bg-yellow-300' : 'bg-green-300';
-                return (
-                  <div key={ii} className={cn('flex-1 h-10 rounded m-0.5 flex items-center justify-center text-sm font-bold', color, count > 0 ? 'text-white shadow-inner' : 'opacity-30')}>
-                    {count > 0 ? count : ''}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
         </div>
-      </div>
-      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-        {([
-          ['bg-green-300', t('level.LOW')],
-          ['bg-yellow-300', t('level.MEDIUM')],
-          ['bg-orange-400', t('level.HIGH')],
-          ['bg-red-500', t('level.CRITICAL')],
-        ] as [string, string][]).map(([c, l]) => (
-          <div key={l} className="flex items-center gap-1"><div className={cn('w-3 h-3 rounded', c)} />{l}</div>
-        ))}
+
+        {/* Selected cell detail */}
+        {selectedCell && selectedRisks.length > 0 && (
+          <div className="mt-6 border-t border-gray-100 pt-4">
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              Riscos em Probabilidade {selectedCell.l} × Impacto {selectedCell.i} (score {selectedCell.l * selectedCell.i})
+            </p>
+            <div className="space-y-2">
+              {selectedRisks.map((r: any) => (
+                <div key={r.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{r.title}</p>
+                    {r.category && <p className="text-xs text-gray-400">{r.category}</p>}
+                  </div>
+                  <LevelBadge score={r.inherentScore} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+// ── Treatment edit modal ───────────────────────────────────────
+function TreatmentEditModal({ risk, onClose }: { risk: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+    defaultValues: {
+      treatmentType:   risk.treatmentType   || 'MITIGATE',
+      treatmentStatus: risk.treatmentStatus || 'PLANNED',
+      treatmentPlan:   risk.treatmentPlan   || '',
+      residualScore:   risk.residualScore   || '',
+      treatmentOwner:  risk.treatmentOwner  || '',
+      treatmentDueDate: risk.treatmentDueDate ? risk.treatmentDueDate.split('T')[0] : '',
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => risksApi.updateTreatment(risk.id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks'] }); onClose(); },
+  });
+
+  const inp = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900">Editar Tratamento</h3>
+          <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">{risk.title}</p>
+        </div>
+        <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="p-6 space-y-4">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+            <strong>Score inerente:</strong> {risk.inherentScore ?? '—'}
+            {risk.residualScore && <> → <strong>Score residual atual:</strong> {risk.residualScore}</>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Tratamento</label>
+              <select {...register('treatmentType')} className={inp}>
+                <option value="MITIGATE">Mitigar</option>
+                <option value="ACCEPT">Aceitar</option>
+                <option value="TRANSFER">Transferir</option>
+                <option value="AVOID">Evitar</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+              <select {...register('treatmentStatus')} className={inp}>
+                <option value="PLANNED">Planeado</option>
+                <option value="IN_PROGRESS">Em Curso</option>
+                <option value="COMPLETED">Concluído</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Score Residual (1-25)</label>
+              <input type="number" min={1} max={25} {...register('residualScore')} className={inp} placeholder="após controlos" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Prazo</label>
+              <input type="date" {...register('treatmentDueDate')} className={inp} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Plano de Tratamento</label>
+            <textarea {...register('treatmentPlan')} rows={4} className={inp + ' resize-none'} placeholder="Descreva as ações concretas para tratar este risco..." />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={mutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+              {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              <CheckCircle2 className="w-4 h-4" />
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Treatments tab ─────────────────────────────────────────────
+function TreatmentsTab({ risks }: { risks: any[] }) {
+  const [editingTreatment, setEditingTreatment] = useState<any | null>(null);
+
+  const treatmentRisks = useMemo(
+    () => risks.filter(r => r.treatmentType),
+    [risks],
+  );
+
+  const kpiCounts = useMemo(() => ({
+    ACCEPT:   treatmentRisks.filter(r => r.treatmentType === 'ACCEPT').length,
+    MITIGATE: treatmentRisks.filter(r => r.treatmentType === 'MITIGATE').length,
+    TRANSFER: treatmentRisks.filter(r => r.treatmentType === 'TRANSFER').length,
+    AVOID:    treatmentRisks.filter(r => r.treatmentType === 'AVOID').length,
+  }), [treatmentRisks]);
+
+  const KPI_CARDS = [
+    { key: 'MITIGATE', label: 'Mitigar',    color: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200' },
+    { key: 'ACCEPT',   label: 'Aceitar',    color: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200' },
+    { key: 'TRANSFER', label: 'Transferir', color: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+    { key: 'AVOID',    label: 'Evitar',     color: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-200' },
+  ] as const;
+
+  return (
+    <div className="space-y-6">
+      {/* KPI cards */}
+      <div className="grid grid-cols-4 gap-4">
+        {KPI_CARDS.map(({ key, label, color, text, border }) => (
+          <div key={key} className={cn('rounded-xl border p-4', color, border)}>
+            <p className={cn('text-xs uppercase font-semibold tracking-wide mb-1', text)}>{label}</p>
+            <p className={cn('text-3xl font-bold', text)}>{kpiCounts[key]}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Risco</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Score Residual</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Prazo</th>
+              <th className="px-4 py-3 w-16" />
+            </tr>
+          </thead>
+          <tbody>
+            {treatmentRisks.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-12 text-gray-400">
+                  <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Nenhum risco com tratamento definido</p>
+                  <p className="text-xs mt-1 text-gray-300">Use o botão "Tratar" na lista de riscos para adicionar planos</p>
+                </td>
+              </tr>
+            ) : (
+              treatmentRisks.map((r: any) => (
+                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900">{r.title}</p>
+                    {r.category && <p className="text-xs text-gray-400">{r.category}</p>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.treatmentType ? (
+                      <span className={cn('text-xs px-2 py-1 rounded-full font-medium', TREATMENT_TYPE_STYLES[r.treatmentType] ?? 'bg-gray-100 text-gray-600')}>
+                        {TREATMENT_TYPE_LABELS[r.treatmentType] ?? r.treatmentType}
+                      </span>
+                    ) : <span className="text-xs text-gray-400">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.treatmentStatus ? (
+                      <span className={cn('text-xs px-2 py-1 rounded-full font-medium', TREATMENT_STATUS_STYLES[r.treatmentStatus] ?? 'bg-gray-100 text-gray-600')}>
+                        {TREATMENT_STATUS_LABELS[r.treatmentStatus] ?? r.treatmentStatus}
+                      </span>
+                    ) : <span className="text-xs text-gray-400">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.residualScore != null ? (
+                      <LevelBadge score={r.residualScore} />
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-500">
+                    {r.treatmentDueDate ? formatDate(r.treatmentDueDate) : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setEditingTreatment(r)}
+                      className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100 transition-colors"
+                      title="Editar tratamento"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        {treatmentRisks.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
+            {treatmentRisks.length} risco{treatmentRisks.length !== 1 ? 's' : ''} com tratamento
+          </div>
+        )}
+      </div>
+
+      {editingTreatment && (
+        <TreatmentEditModal risk={editingTreatment} onClose={() => setEditingTreatment(null)} />
+      )}
+    </div>
+  );
+}
+
+// ── NewRiskModal ───────────────────────────────────────────────
 function NewRiskModal({ onClose }: { onClose: () => void }) {
   const t = useTranslations('risks');
   const tCommon = useTranslations('common');
@@ -183,6 +504,7 @@ function NewRiskModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── EditRiskModal ──────────────────────────────────────────────
 function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
   const t = useTranslations('risks');
   const tCommon = useTranslations('common');
@@ -408,13 +730,14 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
   );
 }
 
+// ── Page ───────────────────────────────────────────────────────
 export default function RisksPage() {
   const t = useTranslations('risks');
   const tCommon = useTranslations('common');
   const [showNew, setShowNew] = useState(false);
   const [editingRisk, setEditingRisk] = useState<any | null>(null);
   const [treatmentRisk, setTreatmentRisk] = useState<any | null>(null);
-  const [view, setView] = useState<'list' | 'heatmap'>('list');
+  const [view, setView] = useState<MainTab>('list');
   const [levelFilter, setLevelFilter] = useState<RiskLevel | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showNoTreatmentOnly, setShowNoTreatmentOnly] = useState(false);
@@ -509,67 +832,73 @@ export default function RisksPage() {
     LOW:      'border-green-500 bg-green-50 text-green-700',
   };
 
+  const VIEW_TABS = [
+    { value: 'list' as MainTab,       label: t('viewList'),        icon: Grid3X3 },
+    { value: 'heatmap' as MainTab,    label: 'Heatmap',            icon: LayoutGrid },
+    { value: 'treatments' as MainTab, label: 'Tratamentos',        icon: ShieldCheck },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* View toggles */}
-          {[
-            { value: 'list', label: t('viewList') },
-            { value: 'heatmap', label: t('viewHeatmap') },
-          ].map(v => (
+          {/* View tab toggles */}
+          {VIEW_TABS.map(({ value, label, icon: Icon }) => (
             <button
-              key={v.value}
-              onClick={() => setView(v.value as any)}
-              className={cn('px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                view === v.value ? 'bg-primary text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50')}
+              key={value}
+              onClick={() => setView(value)}
+              className={cn('flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                view === value ? 'bg-primary text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50')}
             >
-              {v.label}
+              <Icon className="w-3.5 h-3.5" />
+              {label}
             </button>
           ))}
 
-          {/* Level filter */}
-          <select
-            value={levelFilter}
-            onChange={e => setLevelFilter(e.target.value as RiskLevel | '')}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none bg-white"
-          >
-            <option value="">Todos os níveis</option>
-            {RISK_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
+          {/* Level filter — only relevant in list view */}
+          {view === 'list' && (
+            <>
+              <select
+                value={levelFilter}
+                onChange={e => setLevelFilter(e.target.value as RiskLevel | '')}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none bg-white"
+              >
+                <option value="">Todos os níveis</option>
+                {RISK_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
 
-          {/* Status filter */}
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
-          >
-            <option value="">Todos os estados</option>
-            {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+              >
+                <option value="">Todos os estados</option>
+                {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
 
-          {/* No treatment toggle */}
-          <button
-            onClick={() => setShowNoTreatmentOnly(v => !v)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors',
-              showNoTreatmentOnly
-                ? 'bg-amber-50 border-amber-300 text-amber-700'
-                : 'border-gray-300 text-gray-600 hover:bg-gray-50',
-            )}
-          >
-            <FileQuestion className="w-3.5 h-3.5" />
-            Sem tratamento
-            {noTreatmentCount > 0 && (
-              <span className={cn(
-                'text-xs px-1.5 py-0.5 rounded-full font-semibold',
-                showNoTreatmentOnly ? 'bg-amber-200 text-amber-800' : 'bg-amber-100 text-amber-700',
-              )}>
-                {noTreatmentCount}
-              </span>
-            )}
-          </button>
+              <button
+                onClick={() => setShowNoTreatmentOnly(v => !v)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors',
+                  showNoTreatmentOnly
+                    ? 'bg-amber-50 border-amber-300 text-amber-700'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+                )}
+              >
+                <FileQuestion className="w-3.5 h-3.5" />
+                Sem tratamento
+                {noTreatmentCount > 0 && (
+                  <span className={cn(
+                    'text-xs px-1.5 py-0.5 rounded-full font-semibold',
+                    showNoTreatmentOnly ? 'bg-amber-200 text-amber-800' : 'bg-amber-100 text-amber-700',
+                  )}>
+                    {noTreatmentCount}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
         </div>
 
         <button onClick={() => setShowNew(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
@@ -587,7 +916,10 @@ export default function RisksPage() {
         ]).map(({ level, count }) => (
           <button
             key={level}
-            onClick={() => setLevelFilter(levelFilter === level ? '' : level)}
+            onClick={() => {
+              setLevelFilter(levelFilter === level ? '' : level);
+              setView('list');
+            }}
             className={cn(
               'bg-white rounded-xl border-2 shadow-sm p-4 text-center transition-all hover:shadow-md',
               LEVEL_CARD_STYLES[level],
@@ -600,8 +932,13 @@ export default function RisksPage() {
         ))}
       </div>
 
-      {view === 'heatmap' && <RiskHeatmap data={heatmap} />}
+      {/* ── Heatmap tab ── */}
+      {view === 'heatmap' && <HeatmapTab risks={allRisks} />}
 
+      {/* ── Treatments tab ── */}
+      {view === 'treatments' && <TreatmentsTab risks={allRisks} />}
+
+      {/* ── List tab ── */}
       {view === 'list' && (
         isLoading ? (
           <div className="flex items-center justify-center h-48">

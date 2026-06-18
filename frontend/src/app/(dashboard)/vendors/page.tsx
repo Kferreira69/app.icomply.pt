@@ -7,6 +7,7 @@ import { vendorsApi, vendorQuestionnaireApi } from '@/lib/api';
 import {
   Building2, Plus, Search, X, ChevronRight, Star,
   ExternalLink, Trash2, Edit2, Download, ShieldCheck, AlertCircle, Send, Copy, CheckCircle2,
+  ClipboardCheck,
 } from 'lucide-react';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
   TERMINATED:   'bg-red-100 text-red-700',
 };
 
+
 const CATEGORIES = [
   'Technology', 'Cloud Services', 'Security', 'Legal', 'Finance',
   'HR', 'Marketing', 'Logistics', 'Consulting', 'Other',
@@ -36,6 +38,13 @@ const EMPTY_VENDOR = {
   dataShared: '', countries: '', notes: '',
 };
 
+function scoreColor(score: number) {
+  if (score >= 80) return 'text-green-700 bg-green-50';
+  if (score >= 60) return 'text-yellow-700 bg-yellow-50';
+  if (score >= 40) return 'text-orange-700 bg-orange-50';
+  return 'text-red-700 bg-red-50';
+}
+
 // ── Stat Card ─────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, color = 'blue' }: {
@@ -44,9 +53,10 @@ function StatCard({ label, value, sub, color = 'blue' }: {
   const ring: Record<string, string> = {
     blue: 'border-l-blue-500', red: 'border-l-red-500',
     yellow: 'border-l-yellow-500', green: 'border-l-green-500',
+    orange: 'border-l-orange-500',
   };
   return (
-    <div className={`bg-white rounded-xl p-5 shadow-sm border border-gray-100 border-l-4 ${ring[color]}`}>
+    <div className={`bg-white rounded-xl p-5 shadow-sm border border-gray-100 border-l-4 ${ring[color] ?? ring.blue}`}>
       <p className="text-sm text-gray-500 mb-1">{label}</p>
       <p className="text-3xl font-bold text-gray-900">{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
@@ -203,7 +213,7 @@ function VendorModal({ vendor, onClose }: { vendor?: any; onClose: () => void })
   );
 }
 
-// ── Assessment Modal ──────────────────────────────────────────────
+// ── Quick Assessment Modal (legacy — from vendor row) ─────────────
 
 function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void }) {
   const t = useTranslations('vendors');
@@ -216,6 +226,7 @@ function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendors'] });
       qc.invalidateQueries({ queryKey: ['vendors-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['vendor-assessments'] });
       onClose();
     },
   });
@@ -269,6 +280,296 @@ function AssessmentModal({ vendor, onClose }: { vendor: any; onClose: () => void
   );
 }
 
+// ── VendorAssessment Create/Edit Modal ────────────────────────────
+
+const EMPTY_ASSESSMENT = {
+  vendorId: '', score: 70, riskLevel: '', findings: '',
+};
+
+function VendorAssessmentModal({
+  assessment, vendors, onClose,
+}: {
+  assessment?: any; vendors: any[]; onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const isEdit = !!assessment?.id;
+
+  const [form, setForm] = useState(assessment ? {
+    vendorId: assessment.vendor?.id ?? assessment.vendorId ?? '',
+    score: assessment.score ?? 70,
+    riskLevel: assessment.riskLevel ?? '',
+    findings: assessment.findings ?? '',
+  } : { ...EMPTY_ASSESSMENT });
+
+  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+  const derivedRisk = form.score >= 80 ? 'LOW' : form.score >= 60 ? 'MEDIUM' : form.score >= 40 ? 'HIGH' : 'CRITICAL';
+  const displayRisk = form.riskLevel || derivedRisk;
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => isEdit
+      ? vendorsApi.updateAssessment(assessment.id, data)
+      : vendorsApi.createAssessment(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vendor-assessments'] });
+      qc.invalidateQueries({ queryKey: ['vendors'] });
+      qc.invalidateQueries({ queryKey: ['vendors-dashboard'] });
+      onClose();
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload: any = {
+      ...form,
+      score: Number(form.score),
+      riskLevel: form.riskLevel || undefined,
+    };
+    if (!payload.findings) delete payload.findings;
+    mutation.mutate(payload);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-lg font-bold text-gray-900">
+            {isEdit ? 'Editar Avaliação' : 'Nova Avaliação'}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor *</label>
+              <select
+                value={form.vendorId} required
+                onChange={e => set('vendorId', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Selecionar fornecedor...</option>
+                {vendors.map(v => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <div className="flex justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">Score (0–100) *</label>
+              <span className={`text-sm font-bold px-2 py-0.5 rounded ${scoreColor(Number(form.score))}`}>
+                {form.score}
+              </span>
+            </div>
+            <input
+              type="range" min={0} max={100} value={form.score}
+              onChange={e => set('score', Number(e.target.value))}
+              className="w-full accent-blue-600"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0 — Crítico</span>
+              <span>100 — Baixo Risco</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Risco</label>
+              <select
+                value={form.riskLevel}
+                onChange={e => set('riskLevel', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Auto ({derivedRisk})</option>
+                <option value="LOW">Baixo</option>
+                <option value="MEDIUM">Médio</option>
+                <option value="HIGH">Alto</option>
+                <option value="CRITICAL">Crítico</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <div className="w-full flex items-center justify-center p-2 rounded-lg bg-gray-50">
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[displayRisk]}`}>
+                  {displayRisk === 'LOW' ? 'Baixo' : displayRisk === 'MEDIUM' ? 'Médio' : displayRisk === 'HIGH' ? 'Alto' : 'Crítico'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas / Conclusões</label>
+            <textarea
+              value={form.findings} rows={4}
+              onChange={e => set('findings', e.target.value)}
+              placeholder="Descreva as conclusões da avaliação..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={mutation.isPending}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {mutation.isPending ? 'A guardar...' : isEdit ? 'Guardar' : 'Criar Avaliação'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Assessments Tab ───────────────────────────────────────────────
+
+function AssessmentsTab({ vendors }: { vendors: any[] }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editAssessment, setEditAssessment] = useState<any>(null);
+  const [searchA, setSearchA] = useState('');
+  const [filterRisk, setFilterRisk] = useState('');
+
+  const { data: assessments = [], isLoading } = useQuery<any[]>({
+    queryKey: ['vendor-assessments'],
+    queryFn: () => vendorsApi.listAssessments().then(r => r.data),
+  });
+
+  const filtered = assessments.filter((a: any) => {
+    const name = a.vendor?.name?.toLowerCase() ?? '';
+    const matchSearch = !searchA || name.includes(searchA.toLowerCase());
+    const matchRisk = !filterRisk || a.riskLevel === filterRisk;
+    return matchSearch && matchRisk;
+  });
+
+  const total = assessments.length;
+  const highRisk = assessments.filter((a: any) => a.riskLevel === 'HIGH' || a.riskLevel === 'CRITICAL').length;
+  const avgScore = assessments.length
+    ? Math.round(assessments.reduce((s: number, a: any) => s + (a.score ?? 0), 0) / assessments.length)
+    : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Total Avaliações" value={total} color="blue" />
+        <StatCard label="Alto Risco" value={highRisk} color="red" sub="HIGH + CRITICAL" />
+        <StatCard label="Score Médio" value={avgScore} color="green" sub="média global" />
+        <StatCard label="Fornecedores" value={vendors.length} color="blue" sub="avaliáveis" />
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex flex-wrap gap-3 items-center flex-1">
+          <div className="relative min-w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input value={searchA} onChange={e => setSearchA(e.target.value)}
+              placeholder="Pesquisar fornecedor..."
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todos os Riscos</option>
+            <option value="CRITICAL">Crítico</option>
+            <option value="HIGH">Alto</option>
+            <option value="MEDIUM">Médio</option>
+            <option value="LOW">Baixo</option>
+          </select>
+        </div>
+        <button
+          onClick={() => { setEditAssessment(null); setShowModal(true); }}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" /> Nova Avaliação
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-48 text-gray-400">A carregar...</div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+            <ClipboardCheck className="w-10 h-10 mb-2 opacity-30" />
+            <p>Nenhuma avaliação encontrada</p>
+            <button onClick={() => setShowModal(true)}
+              className="mt-3 text-sm text-blue-600 hover:underline">Criar primeira avaliação</button>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="text-left px-5 py-3 font-semibold text-gray-600">Fornecedor</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Data Avaliação</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Score</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Risco</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Avaliador</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Notas</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map((a: any) => {
+                const score = a.score ?? 0;
+                const scoreBar = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : score >= 40 ? 'bg-orange-500' : 'bg-red-500';
+                const assessorName = a.assessedBy
+                  ? `${a.assessedBy.firstName ?? ''} ${a.assessedBy.lastName ?? ''}`.trim()
+                  : '—';
+                return (
+                  <tr key={a.id} className="hover:bg-gray-50 group">
+                    <td className="px-5 py-3">
+                      <span className="font-medium text-gray-900">{a.vendor?.name ?? '—'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {a.createdAt ? new Date(a.createdAt).toLocaleDateString('pt-PT') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 bg-gray-100 rounded-full h-2">
+                          <div className={`h-2 rounded-full ${scoreBar}`} style={{ width: `${score}%` }} />
+                        </div>
+                        <span className="text-xs font-medium">{score}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[a.riskLevel] ?? ''}`}>
+                        {a.riskLevel === 'LOW' ? 'Baixo' : a.riskLevel === 'MEDIUM' ? 'Médio' : a.riskLevel === 'HIGH' ? 'Alto' : a.riskLevel === 'CRITICAL' ? 'Crítico' : '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{assessorName}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{a.findings ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => { setEditAssessment(a); setShowModal(true); }}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <VendorAssessmentModal
+          assessment={editAssessment}
+          vendors={vendors}
+          onClose={() => { setShowModal(false); setEditAssessment(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Vendor Detail Panel ───────────────────────────────────────────
 
 function SendQuestionnaireButton({ vendorId, vendorEmail }: { vendorId: string; vendorEmail?: string }) {
@@ -304,7 +605,7 @@ function SendQuestionnaireButton({ vendorId, vendorEmail }: { vendorId: string; 
           {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
         </button>
       </div>
-      {vendorEmail && <p className="text-xs text-green-600">✓ Email enviado para {vendorEmail}</p>}
+      {vendorEmail && <p className="text-xs text-green-600">Email enviado para {vendorEmail}</p>}
     </div>
   );
 
@@ -458,9 +759,12 @@ function VendorPanel({ vendor, onClose, onEdit, onAssess }: {
 
 // ── Main Page ─────────────────────────────────────────────────────
 
+type Tab = 'vendors' | 'assessments';
+
 export default function VendorsPage() {
   const t = useTranslations('vendors');
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<Tab>('vendors');
   const [search, setSearch] = useState('');
   const [filterRisk, setFilterRisk] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -521,6 +825,11 @@ export default function VendorsPage() {
 
   const d = dashboard ?? { total: 0, active: 0, highRisk: 0, expiring: 0, dataProcessors: 0 };
 
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'vendors', label: 'Fornecedores', icon: <Building2 className="w-4 h-4" /> },
+    { id: 'assessments', label: 'Avaliações', icon: <ClipboardCheck className="w-4 h-4" /> },
+  ];
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -533,185 +842,217 @@ export default function VendorsPage() {
           <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleExportCsv} disabled={exporting}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
-            <Download className="w-4 h-4" />
-            {exporting ? '...' : t('exportCsv')}
-          </button>
-          <button onClick={() => { setEditVendor(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-            <Plus className="w-4 h-4" /> {t('addVendor')}
-          </button>
+          {activeTab === 'vendors' && (
+            <>
+              <button onClick={handleExportCsv} disabled={exporting}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                <Download className="w-4 h-4" />
+                {exporting ? '...' : t('exportCsv')}
+              </button>
+              <button onClick={() => { setEditVendor(null); setShowModal(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                <Plus className="w-4 h-4" /> {t('addVendor')}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label={t('statTotal')} value={d.total} color="blue" />
-        <StatCard label={t('statActive')} value={d.active} color="green" />
-        <StatCard label={t('statHighRisk')} value={d.highRisk} color="red" sub="HIGH + CRITICAL" />
-        <StatCard label={t('statExpiring')} value={d.expiring} color="yellow" sub={t('statExpiringNote')} />
-        <StatCard label={t('statDataProcessors')} value={d.dataProcessors} color="blue" sub="Art. 28 RGPD" />
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-1">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+                activeTab === tab.id
+                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">{t('allRisks')}</option>
-          <option value="CRITICAL">{t('riskLevels.CRITICAL')}</option>
-          <option value="HIGH">{t('riskLevels.HIGH')}</option>
-          <option value="MEDIUM">{t('riskLevels.MEDIUM')}</option>
-          <option value="LOW">{t('riskLevels.LOW')}</option>
-        </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">{t('allStatuses')}</option>
-          <option value="ACTIVE">{t('status.ACTIVE')}</option>
-          <option value="INACTIVE">{t('status.INACTIVE')}</option>
-          <option value="UNDER_REVIEW">{t('status.UNDER_REVIEW')}</option>
-          <option value="TERMINATED">{t('status.TERMINATED')}</option>
-        </select>
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">{t('allCategories')}</option>
-          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-        </select>
-
-        {/* Toggle: Art. 28 data processors */}
-        <button
-          onClick={() => setFilterDataProcessor(v => !v)}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
-            filterDataProcessor
-              ? 'bg-purple-600 text-white border-purple-600'
-              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          {t('filterDataProcessor')}
-        </button>
-
-        {/* Toggle: without assessment */}
-        <button
-          onClick={() => setFilterUnassessed(v => !v)}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
-            filterUnassessed
-              ? 'bg-orange-500 text-white border-orange-500'
-              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          <AlertCircle className="w-3.5 h-3.5" />
-          {t('filterUnassessed')}
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-gray-400">{t('loading')}</div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-            <Building2 className="w-10 h-10 mb-2 opacity-30" />
-            <p>{t('notFound')}</p>
-            <button onClick={() => setShowModal(true)}
-              className="mt-3 text-sm text-blue-600 hover:underline">{t('registerFirst')}</button>
+      {/* Tab: Fornecedores */}
+      {activeTab === 'vendors' && (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <StatCard label={t('statTotal')} value={d.total} color="blue" />
+            <StatCard label={t('statActive')} value={d.active} color="green" />
+            <StatCard label={t('statHighRisk')} value={d.highRisk} color="red" sub="HIGH + CRITICAL" />
+            <StatCard label={t('statExpiring')} value={d.expiring} color="yellow" sub={t('statExpiringNote')} />
+            <StatCard label={t('statDataProcessors')} value={d.dataProcessors} color="blue" sub="Art. 28 RGPD" />
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">{t('colVendor')}</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('category')}</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('statusLabel')}</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('riskLevel')}</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('colScore')}</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('colAssessments')}</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">GDPR</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((v: any) => (
-                <tr key={v.id} className="hover:bg-gray-50 cursor-pointer group"
-                  onClick={() => setPanelVendor(v)}>
-                  <td className="px-5 py-3">
-                    <div className="font-medium text-gray-900">{v.name}</div>
-                    {v.website && (
-                      <a href={v.website} target="_blank" rel="noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-                        <ExternalLink className="w-3 h-3" />{v.website}
-                      </a>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{v.category}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLORS[v.status]}`}>
-                      {v.status && t(`status.${v.status}`)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[v.riskLevel]}`}>
-                      {v.riskLevel && t(`riskLevels.${v.riskLevel}`)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {v.riskScore !== null ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 bg-gray-100 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${v.riskScore >= 80 ? 'bg-green-500' : v.riskScore >= 60 ? 'bg-yellow-500' : v.riskScore >= 40 ? 'bg-orange-500' : 'bg-red-500'}`}
-                            style={{ width: `${v.riskScore}%` }}
-                          />
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder={t('searchPlaceholder')}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">{t('allRisks')}</option>
+              <option value="CRITICAL">{t('riskLevels.CRITICAL')}</option>
+              <option value="HIGH">{t('riskLevels.HIGH')}</option>
+              <option value="MEDIUM">{t('riskLevels.MEDIUM')}</option>
+              <option value="LOW">{t('riskLevels.LOW')}</option>
+            </select>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">{t('allStatuses')}</option>
+              <option value="ACTIVE">{t('status.ACTIVE')}</option>
+              <option value="INACTIVE">{t('status.INACTIVE')}</option>
+              <option value="UNDER_REVIEW">{t('status.UNDER_REVIEW')}</option>
+              <option value="TERMINATED">{t('status.TERMINATED')}</option>
+            </select>
+            <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">{t('allCategories')}</option>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+
+            <button
+              onClick={() => setFilterDataProcessor(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                filterDataProcessor
+                  ? 'bg-purple-600 text-white border-purple-600'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {t('filterDataProcessor')}
+            </button>
+
+            <button
+              onClick={() => setFilterUnassessed(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                filterUnassessed
+                  ? 'bg-orange-500 text-white border-orange-500'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              {t('filterUnassessed')}
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-48 text-gray-400">{t('loading')}</div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                <Building2 className="w-10 h-10 mb-2 opacity-30" />
+                <p>{t('notFound')}</p>
+                <button onClick={() => setShowModal(true)}
+                  className="mt-3 text-sm text-blue-600 hover:underline">{t('registerFirst')}</button>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600">{t('colVendor')}</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('category')}</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('statusLabel')}</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('riskLevel')}</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('colScore')}</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">{t('colAssessments')}</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">GDPR</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filtered.map((v: any) => (
+                    <tr key={v.id} className="hover:bg-gray-50 cursor-pointer group"
+                      onClick={() => setPanelVendor(v)}>
+                      <td className="px-5 py-3">
+                        <div className="font-medium text-gray-900">{v.name}</div>
+                        {v.website && (
+                          <a href={v.website} target="_blank" rel="noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-xs text-blue-500 hover:underline flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />{v.website}
+                          </a>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{v.category}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLORS[v.status]}`}>
+                          {v.status && t(`status.${v.status}`)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${RISK_COLORS[v.riskLevel]}`}>
+                          {v.riskLevel && t(`riskLevels.${v.riskLevel}`)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {v.riskScore !== null ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 bg-gray-100 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${v.riskScore >= 80 ? 'bg-green-500' : v.riskScore >= 60 ? 'bg-yellow-500' : v.riskScore >= 40 ? 'bg-orange-500' : 'bg-red-500'}`}
+                                style={{ width: `${v.riskScore}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium">{v.riskScore}</span>
+                          </div>
+                        ) : <span className="text-xs text-gray-400">{t('noAssessment')}</span>}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-gray-600">{v._count?.assessments ?? 0}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {v.dataProcessor && (
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-800">
+                            Art. 28
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={e => e.stopPropagation()}>
+                          <button onClick={() => { setEditVendor(v); setShowModal(true); }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setAssessVendor(v)}
+                            className="p-1.5 text-gray-400 hover:text-green-600 rounded hover:bg-green-50"
+                            title={t('addAssessment')}>
+                            <Star className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => { if (confirm(t('deleteConfirm'))) deleteMutation.mutate(v.id); }}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
                         </div>
-                        <span className="text-xs font-medium">{v.riskScore}</span>
-                      </div>
-                    ) : <span className="text-xs text-gray-400">{t('noAssessment')}</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-gray-600">{v._count?.assessments ?? 0}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {v.dataProcessor && (
-                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-800">
-                        Art. 28
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={e => e.stopPropagation()}>
-                      <button onClick={() => { setEditVendor(v); setShowModal(true); }}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setAssessVendor(v)}
-                        className="p-1.5 text-gray-400 hover:text-green-600 rounded hover:bg-green-50"
-                        title={t('addAssessment')}>
-                        <Star className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => { if (confirm(t('deleteConfirm'))) deleteMutation.mutate(v.id); }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Tab: Avaliações */}
+      {activeTab === 'assessments' && (
+        <AssessmentsTab vendors={vendors} />
+      )}
 
       {/* Modals */}
-      {showModal && (
+      {showModal && activeTab === 'vendors' && (
         <VendorModal
           vendor={editVendor}
           onClose={() => { setShowModal(false); setEditVendor(null); }}
