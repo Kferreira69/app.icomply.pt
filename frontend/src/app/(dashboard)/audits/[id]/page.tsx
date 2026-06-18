@@ -557,7 +557,7 @@ export default function AuditDetailPage() {
 
   const updateFindingMutation = useMutation({
     mutationFn: ({ findingId, status }: { findingId: string; status: string }) =>
-      auditsApi.updateFinding(id, findingId, { status }),
+      auditsApi.updateFinding(findingId, { status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['audit', id] }),
   });
 
