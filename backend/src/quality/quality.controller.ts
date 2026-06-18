@@ -33,6 +33,22 @@ export class QualityController {
     return this.qualityService.removeCapa(req.user.organizationId, id);
   }
 
+  // Non-Conformances
+  @Get('nonconformances')
+  listNCs(@Req() req: any) {
+    return this.qualityService.listNCs(req.user.organizationId);
+  }
+
+  @Post('nonconformances')
+  createNC(@Req() req: any, @Body() dto: any) {
+    return this.qualityService.createNC(req.user.organizationId, dto);
+  }
+
+  @Patch('nonconformances/:id')
+  updateNC(@Req() req: any, @Param('id') id: string, @Body() dto: any) {
+    return this.qualityService.updateNC(req.user.organizationId, id, dto);
+  }
+
   // Controls
   @Patch('controls/:id')
   updateControl(@Req() req: any, @Param('id') id: string, @Body() dto: any) {

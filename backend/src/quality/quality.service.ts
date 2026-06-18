@@ -95,6 +95,29 @@ export class QualityService {
     return (this.prisma as any).capaRecord.delete({ where: { id } });
   }
 
+  // Non-Conformances
+  async listNCs(organizationId: string) {
+    return (this.prisma as any).nonConformance.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createNC(organizationId: string, dto: any) {
+    const ncId = 'NC-' + Date.now().toString().slice(-6);
+    return (this.prisma as any).nonConformance.create({
+      data: { organizationId, ncId, ...dto },
+    });
+  }
+
+  async updateNC(organizationId: string, id: string, dto: any) {
+    const nc = await (this.prisma as any).nonConformance.findFirst({ where: { id, organizationId } });
+    if (!nc) throw new NotFoundException('Non-conformance not found');
+    const data: any = { ...dto };
+    if (dto.status === 'CLOSED' && !nc.closedAt) data.closedAt = new Date();
+    return (this.prisma as any).nonConformance.update({ where: { id }, data });
+  }
+
   // Controls
   async updateControl(organizationId: string, id: string, dto: any) {
     const control = await (this.prisma as any).qualityControl.findFirst({ where: { id, organizationId } });
