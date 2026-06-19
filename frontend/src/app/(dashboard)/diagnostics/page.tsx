@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { diagnosticsApi } from '@/lib/api';
 import {
@@ -373,7 +373,7 @@ function QuestionnaireTab({
   onCompleted,
 }: {
   activeRun: DiagnosticRun | null;
-  onCompleted: () => void;
+  onCompleted: (completedRunId: string) => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -417,8 +417,8 @@ function QuestionnaireTab({
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['diagnostic-runs'] });
       queryClient.invalidateQueries({ queryKey: ['diagnostic-run', activeRun?.id] });
-      if (variables.complete) {
-        onCompleted();
+      if (variables.complete && activeRun) {
+        onCompleted(activeRun.id);
       }
     },
   });
@@ -617,6 +617,15 @@ function ResultsTab({ preselectedRunId }: { preselectedRunId?: string }) {
   });
 
   const completedRuns = runs.filter((r) => r.status === 'COMPLETED');
+
+  useEffect(() => {
+    if (preselectedRunId) {
+      setSelectedRunId(preselectedRunId);
+    } else if (!selectedRunId && completedRuns.length > 0) {
+      setSelectedRunId(completedRuns[0].id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedRunId, completedRuns.length]);
 
   const { data: runDetail, isLoading: detailLoading } = useQuery<DiagnosticRun>({
     queryKey: ['diagnostic-run', selectedRunId],
@@ -894,7 +903,8 @@ export default function DiagnosticsPage() {
     setActiveTab('questionnaire');
   }
 
-  function handleQuestionnaireDone() {
+  function handleQuestionnaireDone(completedRunId: string) {
+    setSelectedRunId(completedRunId);
     setActiveTab('results');
   }
 

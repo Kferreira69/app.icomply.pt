@@ -63,8 +63,8 @@ function ProToast({ plan, onDismiss }: { plan: string; onDismiss: () => void }) 
           <p className="text-sm font-semibold">Plano {planLabel} necessário</p>
           <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">
             Esta funcionalidade requer o plano {planLabel} ou superior.{' '}
-            <a href="mailto:comercial@icomply.pt" className="text-amber-400 hover:underline">
-              Contacte comercial@icomply.pt
+            <a href="mailto:info@icomply.pt" className="text-amber-400 hover:underline">
+              Contacte info@icomply.pt
             </a>
           </p>
         </div>
