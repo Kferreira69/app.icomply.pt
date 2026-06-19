@@ -199,7 +199,7 @@ export class LicensingService {
       autoRenew, gracePeriodDays, aiProvider, aiModel, maxUsers, maxStorageGb,
       maxAiCredits, maxApiCalls, contactName, contactEmail, notes,
       moloniClientId, moloniCustomerId, stripeCustomerId, stripeSubscriptionId,
-      modules, addons,
+      modules, addons, isDemoMode,
     } = dto;
 
     const existing = await this.prisma.license.findUnique({ where: { organizationId } });
@@ -266,7 +266,10 @@ export class LicensingService {
     // Sync org
     await this.prisma.organization.update({
       where: { id: organizationId },
-      data: { aiProvider: aiProvider || 'AUTO', aiModel, maxUsers: maxUsers || 5, plan: plan || 'FREE' },
+      data: {
+        aiProvider: aiProvider || 'AUTO', aiModel, maxUsers: maxUsers || 5, plan: plan || 'FREE',
+        ...(isDemoMode !== undefined && { isDemoMode }),
+      },
     });
 
     // Sync modules

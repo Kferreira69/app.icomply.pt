@@ -87,22 +87,23 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
   const [moduleMap, setModMap] = useState<Record<string, any>>({});
   const [invoiceForm, setInvoiceForm] = useState({ description: '', dueDate: '', sendToMoloni: true });
 
-  // Init form once
-  if (licence && !form) {
+  // Init form — works for both new orgs (no licence yet) and existing ones
+  if (!form && (licence !== undefined)) {
     setForm({
-      plan:         licence.plan         || 'FREE',
-      status:       licence.status       || 'ACTIVE',
-      billingCycle: licence.billingCycle || 'MONTHLY',
-      aiProvider:   licence.aiProvider   || 'AUTO',
-      aiModel:      licence.aiModel      || '',
-      maxUsers:     licence.maxUsers     || 5,
-      maxStorageGb: licence.maxStorageGb || 5,
-      maxAiCredits: licence.maxAiCredits || 100,
-      contactEmail: licence.contactEmail || '',
-      notes:        licence.notes        || '',
-      autoRenew:    licence.autoRenew    ?? true,
-      moloniCustomerId:  licence.moloniCustomerId  || '',
-      stripeCustomerId:  licence.stripeCustomerId  || '',
+      plan:         licence?.plan         || 'FREE',
+      status:       licence?.status       || 'ACTIVE',
+      billingCycle: licence?.billingCycle || 'MONTHLY',
+      aiProvider:   licence?.aiProvider   || 'AUTO',
+      aiModel:      licence?.aiModel      || '',
+      maxUsers:     licence?.maxUsers     || 5,
+      maxStorageGb: licence?.maxStorageGb || 5,
+      maxAiCredits: licence?.maxAiCredits || 100,
+      contactEmail: licence?.contactEmail || '',
+      notes:        licence?.notes        || '',
+      autoRenew:    licence?.autoRenew    ?? true,
+      isDemoMode:   (org as any).isDemoMode ?? false,
+      moloniCustomerId:  licence?.moloniCustomerId  || '',
+      stripeCustomerId:  licence?.stripeCustomerId  || '',
     });
     const map: Record<string, any> = {};
     for (const m of licence?.modules || []) map[m.module] = { ...m };
@@ -234,6 +235,35 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
                   <label className="block text-xs font-medium text-gray-500 mb-1">Notas internas</label>
                   <textarea value={form.notes} rows={2} onChange={e => setForm((p: any) => ({ ...p, notes: e.target.value }))}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
+                </div>
+                {/* Demo Mode */}
+                <div className="col-span-2">
+                  <div className={cn(
+                    'flex items-center justify-between p-3 rounded-xl border-2 transition-colors',
+                    form.isDemoMode ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50',
+                  )}>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                        <Zap className={cn('w-4 h-4', form.isDemoMode ? 'text-amber-500' : 'text-gray-400')} />
+                        Modo Demo
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Activa todas as funcionalidades ENTERPRISE para demonstrações. Não substitui o plano real.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setForm((p: any) => ({ ...p, isDemoMode: !p.isDemoMode }))}
+                      className={cn(
+                        'relative w-11 h-6 rounded-full transition-colors flex-shrink-0',
+                        form.isDemoMode ? 'bg-amber-500' : 'bg-gray-300',
+                      )}
+                    >
+                      <span className={cn(
+                        'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                        form.isDemoMode ? 'translate-x-5' : 'translate-x-0.5',
+                      )} />
+                    </button>
+                  </div>
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
                   <input type="checkbox" id="autoRenew" checked={form.autoRenew} onChange={e => setForm((p: any) => ({ ...p, autoRenew: e.target.checked }))} />

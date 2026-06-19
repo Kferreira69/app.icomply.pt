@@ -278,6 +278,7 @@ model Organization {
   phone        String?
   billingEmail String?
   plan         String   @default("FREE") // FREE, STARTER, PROFESSIONAL, ENTERPRISE
+  isDemoMode   Boolean  @default(false) // When true, org has access to all ENTERPRISE features for demos
   maxUsers     Int      @default(5)
   isActive     Boolean  @default(true)
   aiProvider   String   @default("AUTO") // ANTHROPIC, OPENAI, AUTO

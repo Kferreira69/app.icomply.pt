@@ -504,7 +504,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
 
-  const userPlan: string = (user?.organization as any)?.plan ?? 'FREE';
+  const isDemoMode: boolean = (user?.organization as any)?.isDemoMode ?? false;
+  const userPlan: string = isDemoMode ? 'ENTERPRISE' : ((user?.organization as any)?.plan ?? 'FREE');
 
   // Load feature flag plan requirements from DB
   const { data: flagsMap = {} } = useQuery<Record<string, string>>({
