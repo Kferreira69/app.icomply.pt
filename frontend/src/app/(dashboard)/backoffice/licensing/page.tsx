@@ -75,7 +75,7 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: licence } = useQuery({
     queryKey: ['license', org.id],
-    queryFn: () => licensingApi.getClient(org.id).then(r => r.data?.license),
+    queryFn: () => licensingApi.getClient(org.id).then(r => r.data ?? null),
   });
   const { data: catalogue } = useQuery({
     queryKey: ['licence-catalogue'],
