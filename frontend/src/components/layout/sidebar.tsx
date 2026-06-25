@@ -544,7 +544,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
       type: 'flat',
       items: [
         { href: '/dashboard',   label: t('dashboard'),  icon: LayoutDashboard },
-        { href: '/diagnostics', label: t('diagnostic'), icon: ClipboardCheck, flagKey: 'diagnostic' },
+        { href: '/diagnostic', label: t('diagnostic'), icon: ClipboardCheck, flagKey: 'diagnostic' },
         { href: '/tasks',       label: t('tasks'),       icon: CheckSquare,   flagKey: 'tasks' },
         { href: '/risks',       label: t('risks'),       icon: AlertTriangle, flagKey: 'risks_basic' },
       ],
