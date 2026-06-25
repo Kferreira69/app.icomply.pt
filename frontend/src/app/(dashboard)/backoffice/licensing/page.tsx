@@ -416,11 +416,30 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
 
 // ── Main page ──────────────────────────────────────────────────
 
+const EMPTY_NEW_CLIENT = {
+  name: '', industry: '', country: 'PT', vatNumber: '', website: '', billingEmail: '',
+  plan: 'FREE', isDemoMode: false,
+  adminEmail: '', adminFirstName: '', adminLastName: '',
+};
+
 export default function LicensingPage() {
   const { user } = useAuthStore();
-  const [selectedOrg, setSelectedOrg] = useState<any>(null);
-  const [search, setSearch]           = useState('');
-  const [planFilter, setPlanFilter]   = useState('ALL');
+  const qc = useQueryClient();
+  const [selectedOrg, setSelectedOrg]   = useState<any>(null);
+  const [search, setSearch]             = useState('');
+  const [planFilter, setPlanFilter]     = useState('ALL');
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [newForm, setNewForm]           = useState({ ...EMPTY_NEW_CLIENT });
+
+  const createClientMutation = useMutation({
+    mutationFn: (data: any) => licensingApi.createClient(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['license-clients'] });
+      qc.invalidateQueries({ queryKey: ['license-stats'] });
+      setShowNewModal(false);
+      setNewForm({ ...EMPTY_NEW_CLIENT });
+    },
+  });
 
   const { data: stats } = useQuery({
     queryKey: ['license-stats'],
@@ -500,6 +519,10 @@ export default function LicensingPage() {
             </select>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar..."
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-48 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+            <button onClick={() => setShowNewModal(true)}
+              className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 whitespace-nowrap">
+              <Plus className="w-4 h-4" /> Nova Organização
+            </button>
           </div>
         </div>
 
@@ -522,7 +545,7 @@ export default function LicensingPage() {
                   const lic = org.license;
                   const enabledModules = lic?.modules?.filter((m: any) => m.enabled) || [];
                   const enabledAddons  = lic?.addons?.filter((a: any) => a.enabled) || [];
-                  const orgMrr = enabledModules.reduce((s: number, m: any) => s + Number(m.monthlyPrice), 0);
+                  const orgMrr = enabledModules.reduce((s: number, m: any) => s + parseFloat(String(m.monthlyPrice ?? 0)), 0);
                   const hasStripe = !!lic?.stripeCustomerId;
                   const hasMoloni = !!lic?.moloniCustomerId;
                   return (
@@ -572,6 +595,110 @@ export default function LicensingPage() {
 
       {/* Drawer */}
       {selectedOrg && <ClientDrawer org={selectedOrg} onClose={() => setSelectedOrg(null)} />}
+
+      {/* ── Nova Organização Modal ──────────────────────────────── */}
+      {showNewModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setShowNewModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Nova Organização</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Criar tenant + convidar primeiro administrador</p>
+              </div>
+              <button onClick={() => setShowNewModal(false)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none px-1">×</button>
+            </div>
+            <div className="p-6 space-y-5">
+              {/* Org info */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Dados da Organização</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Nome da empresa *</label>
+                    <input value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      placeholder="Ex: Empresa ABC, Lda" />
+                  </div>
+                  {[
+                    { l: 'Sector', f: 'industry', ph: 'TECHNOLOGY, FINANCE, HEALTH...' },
+                    { l: 'País', f: 'country', ph: 'PT' },
+                    { l: 'NIF/VAT', f: 'vatNumber', ph: '123456789' },
+                    { l: 'Website', f: 'website', ph: 'https://...' },
+                  ].map(({ l, f, ph }) => (
+                    <div key={f}>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">{l}</label>
+                      <input value={(newForm as any)[f]} onChange={e => setNewForm(p => ({ ...p, [f]: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder={ph} />
+                    </div>
+                  ))}
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Email de faturação</label>
+                    <input type="email" value={newForm.billingEmail} onChange={e => setNewForm(p => ({ ...p, billingEmail: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="billing@empresa.pt" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Plano inicial</label>
+                    <select value={newForm.plan} onChange={e => setNewForm(p => ({ ...p, plan: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                      {['FREE','STARTER','PROFESSIONAL','ENTERPRISE'].map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-3 pt-5">
+                    <button onClick={() => setNewForm(p => ({ ...p, isDemoMode: !p.isDemoMode }))}
+                      className={cn('relative w-10 h-5 rounded-full transition-colors', newForm.isDemoMode ? 'bg-amber-500' : 'bg-gray-300')}>
+                      <span className={cn('absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform', newForm.isDemoMode ? 'translate-x-5' : 'translate-x-0.5')} />
+                    </button>
+                    <label className="text-sm text-gray-700">Modo Demo</label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin user */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Primeiro Administrador <span className="text-gray-400 font-normal">(opcional)</span></p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                    <input type="email" value={newForm.adminEmail} onChange={e => setNewForm(p => ({ ...p, adminEmail: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="admin@empresa.pt" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Primeiro nome</label>
+                    <input value={newForm.adminFirstName} onChange={e => setNewForm(p => ({ ...p, adminFirstName: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Último nome</label>
+                    <input value={newForm.adminLastName} onChange={e => setNewForm(p => ({ ...p, adminLastName: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                {newForm.adminEmail && (
+                  <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Será enviado convite por email para <strong>{newForm.adminEmail}</strong>
+                  </p>
+                )}
+              </div>
+
+              {createClientMutation.isError && (
+                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                  {(createClientMutation.error as any)?.response?.data?.message || 'Erro ao criar organização'}
+                </p>
+              )}
+            </div>
+            <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+              <button onClick={() => setShowNewModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancelar</button>
+              <button
+                onClick={() => createClientMutation.mutate(newForm)}
+                disabled={!newForm.name.trim() || createClientMutation.isPending}
+                className="flex items-center gap-1.5 bg-primary text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                {createClientMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Criar Organização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

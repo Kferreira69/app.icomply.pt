@@ -1,8 +1,10 @@
 import {
-  Injectable, NotFoundException, ForbiddenException, BadRequestException,
+  Injectable, NotFoundException, ForbiddenException, BadRequestException, ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { MailService } from '../common/mail/mail.service';
+import { v4 as uuid } from 'uuid';
 
 // ── Module catalogue ─────────────────────────────────────────
 
@@ -133,6 +135,7 @@ export class LicensingService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   // ── Guard ────────────────────────────────────────────────────
@@ -176,6 +179,71 @@ export class LicensingService {
       orderBy: { createdAt: 'desc' },
     });
     return orgs;
+  }
+
+  // ── Create new client org + optional first admin ──────────────
+
+  async createClient(dto: {
+    name: string; industry?: string; country?: string; vatNumber?: string;
+    website?: string; billingEmail?: string; plan?: string; isDemoMode?: boolean;
+    adminEmail?: string; adminFirstName?: string; adminLastName?: string;
+  }, actorId?: string) {
+    const slug = dto.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const slugBase = slug || 'org';
+    let finalSlug = slugBase;
+    let suffix = 0;
+    while (await this.prisma.organization.findUnique({ where: { slug: finalSlug } })) {
+      suffix++;
+      finalSlug = `${slugBase}-${suffix}`;
+    }
+
+    const org = await this.prisma.organization.create({
+      data: {
+        name: dto.name, slug: finalSlug,
+        industry: dto.industry, country: dto.country || 'PT',
+        vatNumber: dto.vatNumber, website: dto.website,
+        billingEmail: dto.billingEmail,
+        plan: dto.plan || 'FREE',
+        isDemoMode: dto.isDemoMode ?? false,
+      },
+    });
+
+    // Create initial license
+    const license = await this.prisma.license.create({
+      data: {
+        organizationId: org.id,
+        plan:   dto.plan || 'FREE',
+        status: 'ACTIVE',
+      },
+    });
+
+    await (this.prisma as any).subscriptionEvent.create({
+      data: { licenseId: license.id, type: 'CREATED', toPlan: dto.plan || 'FREE', createdById: actorId },
+    });
+
+    let adminUser: any = null;
+    if (dto.adminEmail) {
+      const existing = await this.prisma.user.findUnique({ where: { email: dto.adminEmail.toLowerCase() } });
+      if (existing) throw new ConflictException(`Email ${dto.adminEmail} já está em uso`);
+
+      const inviteToken = uuid();
+      adminUser = await this.prisma.user.create({
+        data: {
+          email:          dto.adminEmail.toLowerCase(),
+          firstName:      dto.adminFirstName || '',
+          lastName:       dto.adminLastName  || '',
+          role:           'ADMIN',
+          organizationId: org.id,
+          inviteToken,
+          inviteExpiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+          status: 'INVITED',
+        },
+      });
+
+      await this.mail.sendInvite(adminUser.email, inviteToken, dto.adminFirstName || adminUser.email, org.name);
+    }
+
+    return { org, license, adminUser };
   }
 
   async getByOrg(organizationId: string) {

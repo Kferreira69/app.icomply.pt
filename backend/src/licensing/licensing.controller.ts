@@ -68,6 +68,12 @@ export class LicensingController {
     return this.svc.listAll();
   }
 
+  @Post('clients')
+  async createClient(@Body() dto: any, @Request() req: any) {
+    await this.svc.assertSuperAdmin(req.user.userId);
+    return this.svc.createClient(dto, req.user.userId);
+  }
+
   @Get('clients/:orgId')
   async getByOrg(@Param('orgId') orgId: string, @Request() req: any) {
     await this.svc.assertSuperAdmin(req.user.userId);

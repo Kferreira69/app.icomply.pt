@@ -526,6 +526,7 @@ export const licensingApi = {
   stripePortal:    ()                               => api.post('/licensing/stripe/portal', {}),
   stats:           ()                               => api.get('/licensing/stats'),
   listClients:     ()                               => api.get('/licensing/clients'),
+  createClient:    (data: any)                      => api.post('/licensing/clients', data),
   getClient:       (orgId: string)                  => api.get(`/licensing/clients/${orgId}`),
   upsert:          (orgId: string, data: any)       => api.put(`/licensing/clients/${orgId}`, data),
   createInvoice:   (orgId: string, data: any)       => api.post(`/licensing/clients/${orgId}/invoices`, data),
