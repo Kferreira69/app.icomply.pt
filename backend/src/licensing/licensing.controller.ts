@@ -80,6 +80,18 @@ export class LicensingController {
     return this.svc.getByOrg(orgId);
   }
 
+  @Get('clients/:orgId/users')
+  async listOrgUsers(@Param('orgId') orgId: string, @Request() req: any) {
+    await this.svc.assertSuperAdmin(req.user.userId);
+    return this.svc.listOrgUsers(orgId);
+  }
+
+  @Post('clients/:orgId/users')
+  async inviteUser(@Param('orgId') orgId: string, @Body() dto: any, @Request() req: any) {
+    await this.svc.assertSuperAdmin(req.user.userId);
+    return this.svc.inviteUserToOrg(orgId, dto);
+  }
+
   @Put('clients/:orgId')
   async upsert(@Param('orgId') orgId: string, @Body() dto: any, @Request() req: any) {
     await this.svc.assertSuperAdmin(req.user.userId);

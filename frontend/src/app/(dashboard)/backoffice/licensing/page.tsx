@@ -82,10 +82,19 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
     queryFn: () => licensingApi.catalogue().then(r => r.data),
   });
 
-  const [tab, setTab]         = useState<'license' | 'addons' | 'invoices' | 'events'>('license');
+  const { data: orgUsers, refetch: refetchUsers } = useQuery({
+    queryKey: ['org-users', org.id],
+    queryFn: () => licensingApi.listOrgUsers(org.id).then(r => r.data ?? []),
+    enabled: false, // loaded lazily when tab selected
+  });
+
+  const [tab, setTab]         = useState<'license' | 'addons' | 'invoices' | 'events' | 'users'>('license');
   const [form, setForm]       = useState<any>(null);
   const [moduleMap, setModMap] = useState<Record<string, any>>({});
   const [invoiceForm, setInvoiceForm] = useState({ description: '', dueDate: '', sendToMoloni: true });
+  const [inviteForm, setInviteForm]   = useState({ email: '', firstName: '', lastName: '', role: 'ADMIN' });
+  const [inviting, setInviting]       = useState(false);
+  const [inviteError, setInviteError] = useState('');
 
   // Init form — works for both new orgs (no licence yet) and existing ones
   if (!form && (licence !== undefined)) {
@@ -136,10 +145,11 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
     .reduce((s: number, m: any) => s + Number(form?.billingCycle === 'ANNUAL' ? m.annualPrice : m.monthlyPrice), 0);
 
   const tabs = [
-    { key: 'license',  label: 'Licença',   icon: Settings },
-    { key: 'addons',   label: 'Add-ons',   icon: Package  },
-    { key: 'invoices', label: 'Faturas',   icon: FileText },
-    { key: 'events',   label: 'Histórico', icon: Activity },
+    { key: 'license',  label: 'Licença',       icon: Settings },
+    { key: 'addons',   label: 'Add-ons',        icon: Package  },
+    { key: 'invoices', label: 'Faturas',        icon: FileText },
+    { key: 'users',    label: 'Utilizadores',   icon: Users    },
+    { key: 'events',   label: 'Histórico',      icon: Activity },
   ] as const;
 
   return (
@@ -175,7 +185,7 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
         {/* Tabs */}
         <div className="border-b px-6 flex gap-1">
           {tabs.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setTab(key as any)}
+            <button key={key} onClick={() => { setTab(key as any); if (key === 'users') refetchUsers(); }}
               className={cn('flex items-center gap-1.5 px-3 py-3 text-sm border-b-2 -mb-px transition-colors',
                 tab === key ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-500 hover:text-gray-700')}>
               <Icon className="w-3.5 h-3.5" />{label}
@@ -239,12 +249,12 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
                 {/* Demo Mode */}
                 <div className="col-span-2">
                   <div className={cn(
-                    'flex items-center justify-between p-3 rounded-xl border-2 transition-colors',
+                    'flex items-start gap-3 p-3 rounded-xl border-2 transition-colors',
                     form.isDemoMode ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50',
                   )}>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                        <Zap className={cn('w-4 h-4', form.isDemoMode ? 'text-amber-500' : 'text-gray-400')} />
+                        <Zap className={cn('w-4 h-4 flex-shrink-0', form.isDemoMode ? 'text-amber-500' : 'text-gray-400')} />
                         Modo Demo
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -254,13 +264,13 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
                     <button
                       onClick={() => setForm((p: any) => ({ ...p, isDemoMode: !p.isDemoMode }))}
                       className={cn(
-                        'relative w-11 h-6 rounded-full transition-colors flex-shrink-0',
+                        'relative w-11 h-6 rounded-full transition-colors flex-shrink-0 mt-0.5',
                         form.isDemoMode ? 'bg-amber-500' : 'bg-gray-300',
                       )}
                     >
                       <span className={cn(
-                        'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
-                        form.isDemoMode ? 'translate-x-5' : 'translate-x-0.5',
+                        'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                        form.isDemoMode ? 'translate-x-5' : 'translate-x-0',
                       )} />
                     </button>
                   </div>
@@ -383,6 +393,89 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
                 ))}
               </div>
             </>
+          )}
+
+          {/* ── Users tab ──────────────────────────────────── */}
+          {tab === 'users' && (
+            <div className="space-y-4">
+              {/* Invite form */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-blue-900">Convidar utilizador</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Email *</label>
+                    <input value={inviteForm.email} onChange={e => setInviteForm(p => ({ ...p, email: e.target.value }))}
+                      placeholder="email@empresa.pt" type="email"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Função</label>
+                    <select value={inviteForm.role} onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                      {['ADMIN','MANAGER','USER','AUDITOR','VIEWER'].map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Primeiro nome</label>
+                    <input value={inviteForm.firstName} onChange={e => setInviteForm(p => ({ ...p, firstName: e.target.value }))}
+                      placeholder="João" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Apelido</label>
+                    <input value={inviteForm.lastName} onChange={e => setInviteForm(p => ({ ...p, lastName: e.target.value }))}
+                      placeholder="Silva" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                {inviteError && <p className="text-xs text-red-600">{inviteError}</p>}
+                <button
+                  disabled={!inviteForm.email || inviting}
+                  onClick={async () => {
+                    if (!inviteForm.email) return;
+                    setInviting(true); setInviteError('');
+                    try {
+                      await licensingApi.inviteOrgUser(org.id, inviteForm);
+                      setInviteForm({ email: '', firstName: '', lastName: '', role: 'ADMIN' });
+                      refetchUsers();
+                    } catch (e: any) {
+                      setInviteError(e?.response?.data?.message || 'Erro ao convidar');
+                    } finally { setInviting(false); }
+                  }}
+                  className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Enviar convite
+                </button>
+              </div>
+
+              {/* User list */}
+              <div className="space-y-2">
+                {!orgUsers ? (
+                  <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+                ) : orgUsers.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-6">Sem utilizadores nesta organização</p>
+                ) : orgUsers.map((u: any) => (
+                  <div key={u.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary flex-shrink-0">
+                      {(u.firstName?.[0] || u.email[0]).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {u.firstName || u.lastName ? `${u.firstName} ${u.lastName}`.trim() : u.email}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{u.role}</span>
+                      <span className={cn('text-xs px-2 py-0.5 rounded font-medium',
+                        u.status === 'ACTIVE'   ? 'bg-green-100 text-green-700' :
+                        u.status === 'INVITED'  ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-500'
+                      )}>{u.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* ── Events tab ─────────────────────────────────── */}

@@ -246,6 +246,48 @@ export class LicensingService {
     return { org, license, adminUser };
   }
 
+  // ── Invite user to any org (backoffice) ──────────────────────
+
+  async inviteUserToOrg(organizationId: string, dto: {
+    email: string; firstName?: string; lastName?: string; role?: string;
+  }) {
+    const org = await this.prisma.organization.findUnique({ where: { id: organizationId } });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
+    if (existing) throw new ConflictException(`Email ${dto.email} já está em uso`);
+
+    const inviteToken = uuid();
+    const user = await this.prisma.user.create({
+      data: {
+        email:           dto.email.toLowerCase(),
+        firstName:       dto.firstName || '',
+        lastName:        dto.lastName  || '',
+        role:            (dto.role as any) || 'ADMIN',
+        organizationId,
+        inviteToken,
+        inviteExpiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+        status:          'INVITED',
+      },
+    });
+
+    await this.mail.sendInvite(user.email, inviteToken, dto.firstName || user.email, org.name);
+    return user;
+  }
+
+  // ── List users of an org (backoffice) ────────────────────────
+
+  async listOrgUsers(organizationId: string) {
+    return this.prisma.user.findMany({
+      where: { organizationId },
+      select: {
+        id: true, email: true, firstName: true, lastName: true,
+        role: true, status: true, createdAt: true, lastLoginAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getByOrg(organizationId: string) {
     const license = await this.prisma.license.findUnique({
       where: { organizationId },
