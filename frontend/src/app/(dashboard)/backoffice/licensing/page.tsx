@@ -412,7 +412,14 @@ function ClientDrawer({ org, onClose }: { org: any; onClose: () => void }) {
                     <label className="block text-xs font-medium text-gray-500 mb-1">Função</label>
                     <select value={inviteForm.role} onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                      {['ADMIN','MANAGER','USER','AUDITOR','VIEWER'].map(r => <option key={r} value={r}>{r}</option>)}
+                      {[
+                        { v: 'ADMIN',              l: 'Administrador' },
+                        { v: 'COMPLIANCE_MANAGER', l: 'Compliance Manager' },
+                        { v: 'CONSULTANT',         l: 'Consultor / Implementador' },
+                        { v: 'INTERNAL_AUDITOR',   l: 'Auditor Interno' },
+                        { v: 'EXTERNAL_AUDITOR',   l: 'Auditor Externo' },
+                        { v: 'VIEWER',             l: 'Observador (só leitura)' },
+                      ].map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
                     </select>
                   </div>
                   <div>
