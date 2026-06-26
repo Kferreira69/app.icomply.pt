@@ -6,10 +6,12 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 // Role hierarchy: higher index = more permissions
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   VIEWER: 0,
-  CONSULTANT: 1,
-  COMPLIANCE_MANAGER: 2,
-  ADMIN: 3,
-  SUPER_ADMIN: 4,
+  EXTERNAL_AUDITOR: 1,
+  INTERNAL_AUDITOR: 2,
+  CONSULTANT: 3,
+  COMPLIANCE_MANAGER: 4,
+  ADMIN: 5,
+  SUPER_ADMIN: 6,
 };
 
 @Injectable()
