@@ -13,13 +13,11 @@ export class TasksService {
   ) {}
 
   async create(dto: CreateTaskDto, createdById: string, organizationId: string) {
-    // Verify project belongs to organization (only if projectId provided)
-    if (dto.projectId) {
-      const project = await this.prisma.project.findFirst({
-        where: { id: dto.projectId, organizationId },
-      });
-      if (!project) throw new NotFoundException('Project not found');
-    }
+    // Verify project belongs to organization
+    const project = await this.prisma.project.findFirst({
+      where: { id: dto.projectId, organizationId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
 
     const task = await this.prisma.task.create({
       data: { ...dto, createdById },
@@ -31,12 +29,13 @@ export class TasksService {
 
     // Notify assignee (if different from creator)
     if (task.assigneeId && task.assigneeId !== createdById) {
+      const taskWithProject = task as typeof task & { project?: { name: string } | null };
       await this.notifications.create({
         organizationId,
         userId: task.assigneeId,
         type: NotificationType.TASK_ASSIGNED,
         title: 'Nova tarefa atribuída',
-        message: `Foi-lhe atribuída a tarefa "${task.title}" no projecto "${task.project?.name}".`,
+        message: `Foi-lhe atribuída a tarefa "${task.title}" no projecto "${taskWithProject.project?.name}".`,
         entityType: 'Task',
         entityId: task.id,
         sendEmail: false,

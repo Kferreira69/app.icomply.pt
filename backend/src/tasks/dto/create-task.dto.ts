@@ -7,11 +7,9 @@ const emptyToUndefined = ({ value }: { value: any }) =>
   value === '' || value === null ? undefined : value;
 
 export class CreateTaskDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(emptyToUndefined)
+  @ApiProperty()
   @IsUUID()
-  projectId?: string;
+  projectId: string;
 
   @ApiProperty()
   @IsString()
