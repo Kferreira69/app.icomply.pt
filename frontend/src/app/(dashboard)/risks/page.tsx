@@ -16,6 +16,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import { cn, getStatusColor, formatDate, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { HelpButton } from '@/components/help/HelpButton';
+import { ModuleGuard } from '@/components/module-guard';
 
 // ── Types ──────────────────────────────────────────────────────
 type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -841,6 +842,7 @@ export default function RisksPage() {
   ];
 
   return (
+    <ModuleGuard moduleKey="risks">
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1061,5 +1063,6 @@ export default function RisksPage() {
       )}
       <HelpButton page="risks" />
     </div>
+    </ModuleGuard>
   );
 }

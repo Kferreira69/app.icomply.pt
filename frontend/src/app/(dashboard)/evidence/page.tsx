@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
 import { HelpButton } from '@/components/help/HelpButton';
 import { cn, formatDate, formatBytes, formatRelative, getStatusColor } from '@/lib/utils';
+import { ModuleGuard } from '@/components/module-guard';
 
 function StatusIcon({ status }: { status: string }) {
   if (status === 'APPROVED') return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -128,6 +129,7 @@ export default function EvidencePage() {
   const STATUS_KEYS = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
 
   return (
+    <ModuleGuard moduleKey="evidence">
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <select
@@ -245,5 +247,6 @@ export default function EvidencePage() {
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
       <HelpButton page="evidence" />
     </div>
+    </ModuleGuard>
   );
 }

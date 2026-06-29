@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays, addDays, isAfter } from 'date-fns';
 import { useTranslations } from 'next-intl';
+import { ModuleGuard } from '@/components/module-guard';
 
 // ── Dashboard stats panel ─────────────────────────────────────
 function GdprDashboard({ stats }: { stats: any }) {
@@ -1321,6 +1322,7 @@ export default function GdprPage() {
   });
 
   return (
+    <ModuleGuard moduleKey="gdpr">
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -1365,5 +1367,6 @@ export default function GdprPage() {
         </div>
       </div>
     </div>
+    </ModuleGuard>
   );
 }

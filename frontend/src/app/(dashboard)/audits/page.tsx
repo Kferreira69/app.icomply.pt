@@ -9,6 +9,7 @@ import { usePdfExport } from '@/hooks/usePdfExport';
 import { cn, formatDate, getStatusColor, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
+import { ModuleGuard } from '@/components/module-guard';
 
 const STATUS_COLORS: Record<string, string> = {
   PLANNED: 'bg-blue-50 text-blue-700',
@@ -351,6 +352,7 @@ export default function AuditsPage() {
   const allAudits: any[] = data?.data ?? [];
 
   return (
+    <ModuleGuard moduleKey="audits">
     <div className="space-y-4">
       {/* Summary Cards */}
       <div className={cn('grid gap-4', tab === 'findings' ? 'grid-cols-4' : 'grid-cols-3')}>
@@ -672,5 +674,6 @@ export default function AuditsPage() {
         />
       )}
     </div>
+    </ModuleGuard>
   );
 }

@@ -10,6 +10,7 @@ import {
   Shield, Zap, AlertCircle, BarChart2, X, Building2, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ModuleGuard } from '@/components/module-guard';
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -451,6 +452,7 @@ export default function DoraPage() {
   ];
 
   return (
+    <ModuleGuard moduleKey="dora">
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -832,5 +834,6 @@ export default function DoraPage() {
         <TestModal test={testModal.test} onClose={() => setTestModal({ open: false })} onSave={handleSaveTest} />
       )}
     </div>
+    </ModuleGuard>
   );
 }

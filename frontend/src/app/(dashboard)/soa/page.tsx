@@ -8,6 +8,7 @@ import {
   FileCheck2, ChevronDown, ChevronRight, X,
   CheckCircle, AlertCircle, Clock, XCircle, Download,
 } from 'lucide-react';
+import { ModuleGuard } from '@/components/module-guard';
 
 // ── Types / Constants ─────────────────────────────────────────────
 
@@ -320,6 +321,7 @@ export default function SoaPage() {
   const STATUS_KEYS = Object.keys(STATUS_META) as Status[];
 
   return (
+    <ModuleGuard moduleKey="soa">
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -417,5 +419,6 @@ export default function SoaPage() {
         <EditControlModal control={editControl} onClose={() => setEditControl(null)} />
       )}
     </div>
+    </ModuleGuard>
   );
 }
