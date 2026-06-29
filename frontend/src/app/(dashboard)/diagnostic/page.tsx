@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import {
   RadarChart,
@@ -27,9 +27,10 @@ import {
   Shield,
   ArrowRight,
   Layers,
+  Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { tasksApi } from '@/lib/api';
+import { tasksApi, projectsApi } from '@/lib/api';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1998,6 +1999,12 @@ function ActionPlanTab({
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [creatingTaskFor, setCreatingTaskFor] = useState<string | null>(null);
   const [createdTasks, setCreatedTasks] = useState<Set<string>>(new Set());
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-list-for-diagnostic'],
+    queryFn: () => projectsApi.list().then((r: any) => r.data ?? []),
+  });
 
   const activeQuestionIds = new Set(getAllFilteredQuestions(selectedFrameworks).map((q) => q.id));
 
@@ -2012,6 +2019,7 @@ function ActionPlanTab({
         title: rec.prefilledTitle,
         description: rec.prefilledDescription,
         priority: rec.priority === 'critica' ? 'HIGH' : rec.priority === 'alta' ? 'HIGH' : rec.priority === 'media' ? 'MEDIUM' : 'LOW',
+        projectId: selectedProjectId || undefined,
       }),
     onSuccess: (_, rec) => {
       setCreatedTasks((prev) => new Set([...prev, rec.id]));
@@ -2073,6 +2081,26 @@ function ActionPlanTab({
         </button>
       </div>
 
+      {/* Project selector — required to create tasks */}
+      <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+        <Briefcase className="w-4 h-4 text-blue-500 flex-shrink-0" />
+        <label className="text-sm font-medium text-blue-800 whitespace-nowrap">Adicionar tarefas ao projeto:</label>
+        {projects.length === 0 ? (
+          <span className="text-sm text-blue-600 italic">Sem projetos disponíveis — crie um projeto primeiro em <a href="/action-plans" className="underline">Planos de Ação</a></span>
+        ) : (
+          <select
+            value={selectedProjectId}
+            onChange={e => setSelectedProjectId(e.target.value)}
+            className="flex-1 border border-blue-200 bg-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            <option value="">— Selecionar projeto —</option>
+            {projects.map((p: any) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
       {visible.map((rec) => (
         <div
           key={rec.id}
@@ -2117,8 +2145,9 @@ function ActionPlanTab({
               ) : (
                 <button
                   onClick={() => createTask(rec)}
-                  disabled={creatingTaskFor === rec.id}
-                  className="flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors"
+                  disabled={creatingTaskFor === rec.id || !selectedProjectId}
+                  title={!selectedProjectId ? 'Selecione um projeto acima primeiro' : undefined}
+                  className="flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 >
                   {creatingTaskFor === rec.id ? (
                     <span className="animate-spin">⏳</span>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SubmitAnswersDto } from './dto/submit-answers.dto';
 
@@ -33,6 +33,13 @@ export class DiagnosticsService {
 
   // ── Start a new diagnostic run ───────────────────────────────
   async startRun(organizationId: string, sector?: string, country?: string) {
+    // If there's already an IN_PROGRESS run, resume it instead of creating a duplicate
+    const existingRun = await this.prisma.diagnosticRun.findFirst({
+      where: { organizationId, status: 'IN_PROGRESS' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existingRun) return existingRun;
+
     return this.prisma.diagnosticRun.create({
       data: {
         organizationId,
