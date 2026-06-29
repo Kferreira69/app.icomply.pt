@@ -10,6 +10,7 @@ import {
   Timer, Clock, CheckCheck, Hourglass, ChevronUp, AlertTriangle,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { ModuleGuard } from '@/components/module-guard';
 
 // ── Edit Measure Modal ────────────────────────────────────────
 function EditMeasureModal({
@@ -608,6 +609,7 @@ export default function Nis2Page() {
   ] as const;
 
   return (
+    <ModuleGuard moduleKey="nis2">
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -751,5 +753,6 @@ export default function Nis2Page() {
         />
       )}
     </div>
+    </ModuleGuard>
   );
 }

@@ -12,7 +12,7 @@ export class PermissionsController {
   // GET /permissions/me  — own permissions
   @Get('me')
   getMyPermissions(@Request() req: any) {
-    return this.service.getUserPermissions(req.user.id);
+    return this.service.getUserPermissions(req.user.userId);
   }
 
   // GET /permissions/:userId  — another user's permissions (admin only)
