@@ -112,6 +112,9 @@ export class PoliciesService {
     if (policy.status !== PolicyStatus.IN_REVIEW) {
       throw new ForbiddenException('Policy must be IN_REVIEW to approve');
     }
+    if (policy.ownerId === approverId) {
+      throw new ForbiddenException('O criador da política não pode aprovar a sua própria política (separação de funções)');
+    }
     return this.prisma.policy.update({
       where: { id },
       data: { status: PolicyStatus.APPROVED, approverId, approvedAt: new Date() },

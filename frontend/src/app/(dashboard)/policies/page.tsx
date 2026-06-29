@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { policiesApi } from '@/lib/api';
+import { useAuthStore } from '@/store/auth-store';
 import { Button } from '@/components/ui/button';
 import {
   Plus, BookOpen, CheckCircle2, Archive,
@@ -129,8 +130,8 @@ function PolicyModal({
 
 // ── Modal: View Policy ────────────────────────────────────────
 function ViewPolicyModal({
-  policy, onClose, onAction,
-}: { policy: any; onClose: () => void; onAction: (action: string) => void }) {
+  policy, onClose, onAction, currentUserId,
+}: { policy: any; onClose: () => void; onAction: (action: string) => void; currentUserId?: string }) {
   const t = useTranslations('policies');
 
   const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -175,9 +176,15 @@ function ViewPolicyModal({
           )}
           {policy.status === 'IN_REVIEW' && (
             <>
-              <Button size="sm" onClick={() => onAction('approve')} className="gap-1 bg-green-600 hover:bg-green-700 text-white">
-                <ThumbsUp className="w-3 h-3" /> {t('approve')}
-              </Button>
+              {currentUserId && currentUserId === policy.owner?.id ? (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                  ⚠ Não pode aprovar a sua própria política (separação de funções)
+                </span>
+              ) : (
+                <Button size="sm" onClick={() => onAction('approve')} className="gap-1 bg-green-600 hover:bg-green-700 text-white">
+                  <ThumbsUp className="w-3 h-3" /> {t('approve')}
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={() => onAction('revert')} className="gap-1">
                 <RotateCcw className="w-3 h-3" /> {t('revertToDraft')}
               </Button>
@@ -252,6 +259,7 @@ export default function PoliciesPage() {
   const t = useTranslations('policies');
   const tCommon = useTranslations('common');
   const qc = useQueryClient();
+  const { user } = useAuthStore();
   const [showCreate, setShowCreate] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<any>(null);
   const [viewingPolicy, setViewingPolicy] = useState<any>(null);
@@ -475,6 +483,7 @@ export default function PoliciesPage() {
           policy={viewingPolicy}
           onClose={() => setViewingPolicy(null)}
           onAction={(action) => workflowMutation.mutate({ action, id: viewingPolicy.id })}
+          currentUserId={user?.id}
         />
       )}
     </div>
