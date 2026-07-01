@@ -20,7 +20,12 @@ export class TasksService {
     if (!project) throw new NotFoundException('Project not found');
 
     const task = await this.prisma.task.create({
-      data: { ...dto, createdById },
+      data: {
+        ...dto,
+        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        createdById,
+      },
       include: {
         assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
         project: { select: { id: true, name: true } },
@@ -114,7 +119,11 @@ export class TasksService {
   async update(id: string, organizationId: string, dto: UpdateTaskDto, userId: string) {
     await this.findOne(id, organizationId);
 
-    const updateData: any = { ...dto };
+    const updateData: any = {
+      ...dto,
+      startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+    };
 
     if (dto.status === TaskStatus.DONE) {
       // Transition TO done — stamp completedAt if not already set

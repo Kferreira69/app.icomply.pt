@@ -184,6 +184,7 @@ export const diagnosticsApi = {
   getRun: (id: string) => api.get(`/diagnostics/runs/${id}`),
   submitAnswers: (runId: string, data: any) =>
     api.post(`/diagnostics/runs/${runId}/answers`, data),
+  platformHealth: () => api.get('/diagnostics/platform-health'),
 };
 
 export const projectsApi = {

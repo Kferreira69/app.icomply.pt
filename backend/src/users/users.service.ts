@@ -22,9 +22,14 @@ export class UsersService {
     private storage: StorageService,
   ) {}
 
+  private roleOrder: UserRole[] = [
+    'VIEWER', 'EXTERNAL_AUDITOR', 'INTERNAL_AUDITOR', 'CONSULTANT', 'TECNICO_IT', 'HEAD_RH',
+    'LEGAL', 'COMPLIANCE_MANAGER', 'CISO', 'ADMIN', 'SUPER_ADMIN',
+  ];
+
   async create(dto: CreateUserDto, organizationId: string, creatorRole: UserRole) {
     // Role escalation protection
-    const roleOrder: UserRole[] = ['VIEWER', 'CONSULTANT', 'COMPLIANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN'];
+    const roleOrder = this.roleOrder;
     const creatorIdx = roleOrder.indexOf(creatorRole);
     const newRoleIdx = roleOrder.indexOf(dto.role || 'VIEWER');
     if (newRoleIdx > creatorIdx) {
@@ -99,8 +104,20 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, organizationId: string, dto: UpdateUserDto) {
+  async update(id: string, organizationId: string, dto: UpdateUserDto, requesterId: string, requesterRole: UserRole) {
     await this.findOne(id, organizationId);
+
+    if (dto.role && id === requesterId) {
+      throw new ForbiddenException('Não pode alterar a sua própria role. Peça a outro administrador.');
+    }
+    if (dto.role) {
+      const requesterIdx = this.roleOrder.indexOf(requesterRole);
+      const newRoleIdx = this.roleOrder.indexOf(dto.role);
+      if (newRoleIdx > requesterIdx) {
+        throw new ForbiddenException('Cannot assign a role higher than your own');
+      }
+    }
+
     return this.prisma.user.update({
       where: { id },
       data: dto,
@@ -108,7 +125,8 @@ export class UsersService {
     });
   }
 
-  async suspend(id: string, organizationId: string) {
+  async suspend(id: string, organizationId: string, requesterId: string) {
+    if (id === requesterId) throw new ForbiddenException('Não pode suspender a sua própria conta');
     await this.findOne(id, organizationId);
     return this.prisma.user.update({
       where: { id },

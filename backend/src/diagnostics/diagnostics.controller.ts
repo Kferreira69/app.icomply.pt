@@ -53,4 +53,10 @@ export class DiagnosticsController {
   ) {
     return this.service.submitAnswers(id, orgId, dto);
   }
+
+  @Get('platform-health')
+  @ApiOperation({ summary: 'Real compliance data snapshot — used to auto-populate diagnostic answers' })
+  platformHealth(@CurrentUser('organizationId') orgId: string) {
+    return this.service.getPlatformHealth(orgId);
+  }
 }

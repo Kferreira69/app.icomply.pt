@@ -24,8 +24,14 @@ function InviteModal({ onClose }: { onClose: () => void }) {
 
   const ROLE_LABELS: Record<string, string> = {
     ADMIN: t('roleAdmin'),
+    CISO: t('roleCiso'),
     COMPLIANCE_MANAGER: t('roleComplianceManager'),
     CONSULTANT: t('roleConsultant'),
+    INTERNAL_AUDITOR: t('roleInternalAuditor'),
+    EXTERNAL_AUDITOR: t('roleExternalAuditor'),
+    LEGAL: t('roleLegal'),
+    HEAD_RH: t('roleHeadRh'),
+    TECNICO_IT: t('roleTecnicoIt'),
     VIEWER: t('roleViewer'),
   };
 
@@ -323,8 +329,14 @@ export default function UsersSettingsPage() {
   const ROLE_LABELS: Record<string, string> = {
     SUPER_ADMIN: 'Super Admin',
     ADMIN: t('roleAdmin'),
+    CISO: t('roleCiso'),
     COMPLIANCE_MANAGER: t('roleComplianceManager'),
     CONSULTANT: t('roleConsultant'),
+    INTERNAL_AUDITOR: t('roleInternalAuditor'),
+    EXTERNAL_AUDITOR: t('roleExternalAuditor'),
+    LEGAL: t('roleLegal'),
+    HEAD_RH: t('roleHeadRh'),
+    TECNICO_IT: t('roleTecnicoIt'),
     VIEWER: t('roleViewer'),
   };
 

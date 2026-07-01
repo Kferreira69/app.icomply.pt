@@ -30,7 +30,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { tasksApi, projectsApi } from '@/lib/api';
+import { tasksApi, projectsApi, diagnosticsApi } from '@/lib/api';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -2003,7 +2003,7 @@ function ActionPlanTab({
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-list-for-diagnostic'],
-    queryFn: () => projectsApi.list().then((r: any) => r.data ?? []),
+    queryFn: () => projectsApi.list({ limit: 100 }).then((r: any) => r.data?.data ?? []),
   });
 
   const activeQuestionIds = new Set(getAllFilteredQuestions(selectedFrameworks).map((q) => q.id));
@@ -2185,6 +2185,63 @@ function ActionPlanTab({
 type Tab = 'wizard' | 'gaps' | 'frameworks' | 'plan';
 type Step = 'selector' | 'diagnostic';
 
+function platformHealthToAnswers(health: any): WizardAnswers {
+  const a: WizardAnswers = {};
+  const { risks, policies, evidence, tasks, audits, training } = health ?? {};
+
+  // ── Riscos ──────────────────────────────────────────────────
+  if (risks) {
+    if (risks.total > 0) a['r1'] = 'sim';
+    if (risks.total > 0 && risks.reviewedRecently > 0) a['r2'] = 'sim';
+    else if (risks.total > 0) a['r2'] = 'parcial';
+    if (risks.total > 0) {
+      const pct = risks.withMitigation / risks.total;
+      a['r3'] = pct >= 0.8 ? 'sim' : pct > 0 ? 'parcial' : 'nao';
+    }
+    if (risks.total > 0) {
+      a['r4'] = risks.withOwner / risks.total >= 0.8 ? 'sim' : risks.withOwner > 0 ? 'parcial' : 'nao';
+    }
+  }
+
+  // ── Evidências ───────────────────────────────────────────────
+  if (evidence) {
+    if (evidence.total > 5) a['e1'] = 'sim';
+    else if (evidence.total > 0) a['e1'] = 'parcial';
+    if (evidence.total > 0 && evidence.withExpiry > 0) a['e2'] = 'sim';
+    if (evidence.total > 0) a['e3'] = evidence.validPercent >= 80 ? 'sim' : evidence.validPercent >= 50 ? 'parcial' : 'nao';
+  }
+
+  // ── Tarefas ──────────────────────────────────────────────────
+  if (tasks) {
+    if (tasks.total > 0) a['t1'] = 'parcial';
+    if (tasks.completionRate >= 70) a['t2'] = 'sim';
+    else if (tasks.completionRate >= 40) a['t2'] = 'parcial';
+    else if (tasks.total > 0) a['t2'] = 'nao';
+  }
+
+  // ── Auditorias ───────────────────────────────────────────────
+  if (audits) {
+    if (audits.internal > 0) a['a1'] = 'sim';
+    if (audits.external > 0) a['a2'] = 'sim';
+    if (audits.internal > 0 && audits.open === 0) a['a3'] = 'sim';
+    else if (audits.internal > 0) a['a3'] = 'parcial';
+  }
+
+  // ── Políticas ────────────────────────────────────────────────
+  if (policies) {
+    if (policies.approved > 0) a['p1'] = 'sim';
+    else if (policies.total > 0) a['p1'] = 'parcial';
+    if (policies.reviewedRecently > 0) a['p2'] = 'sim';
+  }
+
+  // ── Formação ─────────────────────────────────────────────────
+  if (training) {
+    if (training.total > 0) { a['f1'] = 'sim'; a['f3'] = 'sim'; }
+  }
+
+  return a;
+}
+
 export default function DiagnosticPage() {
   const t = useTranslations('diagnostic');
   const [step, setStep] = useState<Step>(() =>
@@ -2196,6 +2253,29 @@ export default function DiagnosticPage() {
   const [activeTab, setActiveTab] = useState<Tab>('wizard');
   const [answers, setAnswers] = useState<WizardAnswers>(() => loadAnswersFromStorage() ?? {});
   const [wizardDone, setWizardDone] = useState(false);
+  const [autoFilledCount, setAutoFilledCount] = useState(0);
+
+  const { data: healthData } = useQuery({
+    queryKey: ['diagnostic-platform-health'],
+    queryFn: () => diagnosticsApi.platformHealth().then((r: any) => r.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!healthData) return;
+    const platformAnswers = platformHealthToAnswers(healthData);
+    setAnswers((prev) => {
+      const merged: WizardAnswers = { ...platformAnswers };
+      // Manual answers always override platform-derived ones
+      for (const [k, v] of Object.entries(prev)) {
+        merged[k] = v;
+      }
+      const newCount = Object.keys(platformAnswers).filter(k => !(k in prev)).length;
+      if (newCount > 0) setAutoFilledCount(newCount);
+      return merged;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [healthData]);
 
   const filteredCategories = getFilteredCategories(selectedFrameworks);
   const allFilteredQuestions = getAllFilteredQuestions(selectedFrameworks);
@@ -2285,6 +2365,18 @@ export default function DiagnosticPage() {
           )}
         </div>
       </div>
+
+      {/* Auto-fill notice */}
+      {autoFilledCount > 0 && step === 'diagnostic' && (
+        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+          <span className="text-blue-500 mt-0.5 flex-shrink-0">⚡</span>
+          <span>
+            <span className="font-semibold">{autoFilledCount} respostas pré-preenchidas automaticamente</span> com base nos dados reais da plataforma (riscos, políticas, evidências, tarefas, auditorias e formações).
+            As suas respostas manuais têm sempre prioridade.
+          </span>
+          <button onClick={() => setAutoFilledCount(0)} className="ml-auto text-blue-400 hover:text-blue-600 flex-shrink-0">✕</button>
+        </div>
+      )}
 
       {/* Step indicator — always visible */}
       <div className="flex items-center gap-3">

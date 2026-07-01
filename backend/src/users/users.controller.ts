@@ -53,15 +53,21 @@ export class UsersController {
   update(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
+    @CurrentUser('id') requesterId: string,
+    @CurrentUser('role') requesterRole: UserRole,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.service.update(id, orgId, dto);
+    return this.service.update(id, orgId, dto, requesterId, requesterRole);
   }
 
   @Patch(':id/suspend')
   @Roles(UserRole.ADMIN)
-  suspend(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.suspend(id, orgId);
+  suspend(
+    @Param('id') id: string,
+    @CurrentUser('organizationId') orgId: string,
+    @CurrentUser('id') requesterId: string,
+  ) {
+    return this.service.suspend(id, orgId, requesterId);
   }
 
   @Patch(':id/reactivate')

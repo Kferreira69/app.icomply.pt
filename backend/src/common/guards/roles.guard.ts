@@ -9,9 +9,13 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
   EXTERNAL_AUDITOR: 1,
   INTERNAL_AUDITOR: 2,
   CONSULTANT: 3,
+  TECNICO_IT: 3,
+  HEAD_RH: 3,
+  LEGAL: 4,
   COMPLIANCE_MANAGER: 4,
-  ADMIN: 5,
-  SUPER_ADMIN: 6,
+  CISO: 5,
+  ADMIN: 6,
+  SUPER_ADMIN: 7,
 };
 
 @Injectable()

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SubmitAnswersDto } from './dto/submit-answers.dto';
 
@@ -107,6 +107,77 @@ export class DiagnosticsService {
         _count: { select: { answers: true, projects: true } },
       },
     });
+  }
+
+  // ── Platform health snapshot ─────────────────────────────────
+  async getPlatformHealth(organizationId: string) {
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const twelveMonthsAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    const [
+      riskTotal, riskWithOwner, riskWithMitigation, riskReviewedRecently,
+      policyTotal, policyApproved, policyReviewedRecently,
+      evidenceTotal, evidenceWithExpiry, evidenceExpired,
+      taskTotal, taskCompleted,
+      auditInternal, auditExternal, auditOpen,
+      trainingTotal,
+    ] = await Promise.all([
+      this.prisma.risk.count({ where: { organizationId } }),
+      this.prisma.risk.count({ where: { organizationId, ownerId: { not: null } } }),
+      this.prisma.risk.count({ where: { organizationId, mitigationPlan: { not: null } } }),
+      this.prisma.risk.count({ where: { organizationId, updatedAt: { gte: ninetyDaysAgo } } }),
+      this.prisma.policy.count({ where: { organizationId } }),
+      this.prisma.policy.count({ where: { organizationId, status: 'APPROVED' } }),
+      this.prisma.policy.count({ where: { organizationId, status: 'APPROVED', approvedAt: { gte: twelveMonthsAgo } } }),
+      this.prisma.evidence.count({ where: { organizationId } }),
+      this.prisma.evidence.count({ where: { organizationId, expiresAt: { not: null } } }),
+      this.prisma.evidence.count({ where: { organizationId, expiresAt: { lt: now } } }),
+      this.prisma.task.count({ where: { project: { organizationId } } }),
+      this.prisma.task.count({ where: { project: { organizationId }, status: 'DONE' } }),
+      this.prisma.audit.count({ where: { organizationId, type: 'INTERNAL' } }),
+      this.prisma.audit.count({ where: { organizationId, type: 'EXTERNAL' } }),
+      this.prisma.audit.count({ where: { organizationId, status: { in: ['IN_PROGRESS', 'PLANNED'] } } }),
+      this.prisma.hrTraining.count({ where: { organizationId } }),
+    ]);
+
+    const taskCompletionRate = taskTotal > 0 ? Math.round((taskCompleted / taskTotal) * 100) : 0;
+    const evidenceValidPercent = evidenceTotal > 0
+      ? Math.round(((evidenceTotal - evidenceExpired) / evidenceTotal) * 100)
+      : 0;
+
+    return {
+      risks: {
+        total: riskTotal,
+        withOwner: riskWithOwner,
+        withMitigation: riskWithMitigation,
+        reviewedRecently: riskReviewedRecently,
+      },
+      policies: {
+        total: policyTotal,
+        approved: policyApproved,
+        reviewedRecently: policyReviewedRecently,
+      },
+      evidence: {
+        total: evidenceTotal,
+        withExpiry: evidenceWithExpiry,
+        expired: evidenceExpired,
+        validPercent: evidenceValidPercent,
+      },
+      tasks: {
+        total: taskTotal,
+        completed: taskCompleted,
+        completionRate: taskCompletionRate,
+      },
+      audits: {
+        internal: auditInternal,
+        external: auditExternal,
+        open: auditOpen,
+      },
+      training: {
+        total: trainingTotal,
+      },
+    };
   }
 
   // ── Recommendation engine ────────────────────────────────────

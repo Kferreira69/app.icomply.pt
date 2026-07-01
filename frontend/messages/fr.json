@@ -1051,7 +1051,13 @@
     "roleAdmin": "Administrateur",
     "roleComplianceManager": "Responsable conformité",
     "roleConsultant": "Consultant",
-    "roleViewer": "Lecteur"
+    "roleViewer": "Lecteur",
+    "roleCiso": "CISO",
+    "roleLegal": "Juridique",
+    "roleHeadRh": "Responsable RH",
+    "roleTecnicoIt": "Technicien IT",
+    "roleInternalAuditor": "Auditeur interne",
+    "roleExternalAuditor": "Auditeur externe"
   },
   "translations": {
     "title": "Gestion des traductions",
