@@ -16,7 +16,6 @@ export const ALL_MODULES = [
   'gdpr',
   'nis2',
   'dora',
-  'dora',
   'denuncias',
   'vendors',
   'soa',
@@ -41,6 +40,10 @@ export const ALL_MODULES = [
   'workforce',
   'quality',
   'regulatoryChange',
+  'iguard',
+  'governance',
+  'automation',
+  'approvals',
 ] as const;
 
 export type AppModule = (typeof ALL_MODULES)[number];
@@ -67,7 +70,7 @@ const MODULE_MATRIX: ModuleMatrix = {
   dora:              { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:1, LEGAL:1, HEAD_RH:0, TECNICO_IT:1, VIEWER:0 },
   gdpr:              { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:1, LEGAL:2, HEAD_RH:1, TECNICO_IT:0, VIEWER:0 },
   vendors:           { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:0, LEGAL:1, HEAD_RH:0, TECNICO_IT:1, VIEWER:0 },
-  iGuard:            { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:1, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:0, LEGAL:0, HEAD_RH:0, TECNICO_IT:2, VIEWER:0 },
+  iguard:            { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:1, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:0, LEGAL:0, HEAD_RH:0, TECNICO_IT:2, VIEWER:0 },
   aiAssistant:       { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:0, LEGAL:1, HEAD_RH:1, TECNICO_IT:1, VIEWER:1 },
   trustCenter:       { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:1, LEGAL:1, HEAD_RH:1, TECNICO_IT:1, VIEWER:1 },
   excelImport:       { SUPER_ADMIN:2, ADMIN:2, CISO:1, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:0, EXTERNAL_AUDITOR:0, LEGAL:0, HEAD_RH:0, TECNICO_IT:1, VIEWER:0 },
@@ -89,6 +92,9 @@ const MODULE_MATRIX: ModuleMatrix = {
   workforce:         { SUPER_ADMIN:2, ADMIN:2, CISO:0, COMPLIANCE_MANAGER:2, CONSULTANT:1, INTERNAL_AUDITOR:0, EXTERNAL_AUDITOR:0, LEGAL:0, HEAD_RH:2, TECNICO_IT:0, VIEWER:1 },
   quality:           { SUPER_ADMIN:2, ADMIN:2, CISO:1, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:1, LEGAL:0, HEAD_RH:1, TECNICO_IT:1, VIEWER:0 },
   regulatoryChange:  { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:2, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:1, LEGAL:2, HEAD_RH:0, TECNICO_IT:0, VIEWER:0 },
+  governance:        { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:1, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:0, LEGAL:2, HEAD_RH:0, TECNICO_IT:0, VIEWER:0 },
+  automation:        { SUPER_ADMIN:2, ADMIN:2, CISO:1, COMPLIANCE_MANAGER:2, CONSULTANT:1, INTERNAL_AUDITOR:0, EXTERNAL_AUDITOR:0, LEGAL:0, HEAD_RH:0, TECNICO_IT:2, VIEWER:0 },
+  approvals:         { SUPER_ADMIN:2, ADMIN:2, CISO:2, COMPLIANCE_MANAGER:2, CONSULTANT:1, INTERNAL_AUDITOR:1, EXTERNAL_AUDITOR:1, LEGAL:2, HEAD_RH:1, TECNICO_IT:1, VIEWER:1 },
 };
 
 @Injectable()
@@ -99,11 +105,25 @@ export class PermissionsService {
   async getUserPermissions(userId: string): Promise<Record<string, number>> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, permissions: true },
+      select: { role: true, permissions: true, orgRoleId: true, orgRole: { select: { permissions: true, isActive: true } } },
     });
     if (!user) return {};
 
     const role = user.role as RoleKey;
+
+    // If the user has an active custom org role assigned, its permissions
+    // JSON ({ module: 'none'|'read'|'write' }) fully replaces the base
+    // MODULE_MATRIX lookup for module access checks.
+    if (user.orgRoleId && user.orgRole?.isActive && user.orgRole.permissions) {
+      const customPerms = user.orgRole.permissions as Record<string, string>;
+      const LEVEL_MAP: Record<string, number> = { none: 0, read: 1, write: 2 };
+      const result: Record<string, number> = {};
+      for (const mod of ALL_MODULES) {
+        const val = customPerms[mod];
+        result[mod] = val !== undefined ? (LEVEL_MAP[val] ?? 0) : 0;
+      }
+      return result;
+    }
 
     // Build from matrix — fallback to 1 if module not in matrix
     const result: Record<string, number> = {};

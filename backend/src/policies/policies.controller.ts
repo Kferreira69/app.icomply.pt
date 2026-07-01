@@ -8,21 +8,25 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PoliciesService } from './policies.service';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { PolicyStatus } from '@prisma/client';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Policies')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('policies')
 export class PoliciesController {
   constructor(private readonly service: PoliciesService) {}
 
   @Post()
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Create a new policy' })
   create(@Body() dto: CreatePolicyDto, @CurrentUser() user: any) {
     return this.service.create(dto, user.id, user.organizationId);
   }
 
   @Get()
+  @RequireModule('policies', 1)
   @ApiOperation({ summary: 'List all policies' })
   findAll(
     @CurrentUser() user: any,
@@ -33,18 +37,21 @@ export class PoliciesController {
   }
 
   @Get('stats')
+  @RequireModule('policies', 1)
   @ApiOperation({ summary: 'Get policy statistics' })
   getStats(@CurrentUser() user: any) {
     return this.service.getStats(user.organizationId);
   }
 
   @Get(':id')
+  @RequireModule('policies', 1)
   @ApiOperation({ summary: 'Get policy detail with versions and acknowledgments' })
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.findOne(id, user.organizationId);
   }
 
   @Patch(':id')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Update policy content (auto-versions if content changes)' })
   update(
     @Param('id') id: string,
@@ -55,6 +62,7 @@ export class PoliciesController {
   }
 
   @Post(':id/submit')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Submit policy for review' })
   @HttpCode(200)
   submitForReview(@Param('id') id: string, @CurrentUser() user: any) {
@@ -62,6 +70,7 @@ export class PoliciesController {
   }
 
   @Post(':id/approve')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Approve policy' })
   @HttpCode(200)
   approve(@Param('id') id: string, @CurrentUser() user: any) {
@@ -69,6 +78,7 @@ export class PoliciesController {
   }
 
   @Post(':id/archive')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Archive policy' })
   @HttpCode(200)
   archive(@Param('id') id: string, @CurrentUser() user: any) {
@@ -76,6 +86,7 @@ export class PoliciesController {
   }
 
   @Post(':id/revert')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Revert policy to DRAFT' })
   @HttpCode(200)
   revertToDraft(@Param('id') id: string, @CurrentUser() user: any) {
@@ -83,6 +94,7 @@ export class PoliciesController {
   }
 
   @Post(':id/acknowledge')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Acknowledge that you have read this policy' })
   @HttpCode(200)
   acknowledge(@Param('id') id: string, @CurrentUser() user: any, @Req() req: any) {
@@ -91,12 +103,14 @@ export class PoliciesController {
   }
 
   @Get(':id/acknowledgment-status')
+  @RequireModule('policies', 1)
   @ApiOperation({ summary: 'Get acknowledgment statistics for a policy' })
   getAcknowledgmentStatus(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.getAcknowledgmentStatus(id, user.organizationId);
   }
 
   @Delete(':id')
+  @RequireModule('policies', 2)
   @ApiOperation({ summary: 'Delete a policy' })
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.remove(id, user.organizationId);

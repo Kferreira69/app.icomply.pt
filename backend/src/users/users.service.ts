@@ -10,7 +10,7 @@ import { MailService } from '../common/mail/mail.service';
 import { StorageService } from '../common/storage/storage.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 
@@ -125,23 +125,151 @@ export class UsersService {
     });
   }
 
-  async suspend(id: string, organizationId: string, requesterId: string) {
-    if (id === requesterId) throw new ForbiddenException('Não pode suspender a sua própria conta');
+  async setOrgRole(id: string, organizationId: string, orgRoleId: string | null) {
     await this.findOne(id, organizationId);
+
+    if (orgRoleId) {
+      const role = await this.prisma.orgRole.findFirst({ where: { id: orgRoleId, organizationId } });
+      if (!role) throw new NotFoundException('Role personalizado não encontrado');
+    }
+
     return this.prisma.user.update({
       where: { id },
-      data: { status: 'SUSPENDED' },
+      data: { orgRoleId },
       select: this.safeSelect(),
     });
   }
 
-  async reactivate(id: string, organizationId: string) {
+  async suspend(id: string, organizationId: string, requesterId: string) {
+    if (id === requesterId) throw new ForbiddenException('Não pode suspender a sua própria conta');
     await this.findOne(id, organizationId);
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { status: 'SUSPENDED' },
+      select: this.safeSelect(),
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        organizationId,
+        userId: requesterId,
+        action: 'USER_SUSPENDED',
+        entity: 'User',
+        entityId: id,
+        metadata: { targetUserId: id, targetEmail: updated.email },
+      },
+    });
+
+    return updated;
+  }
+
+  async reactivate(id: string, organizationId: string, requesterId?: string) {
+    await this.findOne(id, organizationId);
+    const updated = await this.prisma.user.update({
       where: { id },
       data: { status: 'ACTIVE' },
       select: this.safeSelect(),
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        organizationId,
+        userId: requesterId,
+        action: 'USER_REACTIVATED',
+        entity: 'User',
+        entityId: id,
+        metadata: { targetUserId: id, targetEmail: updated.email },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Permanently delete a user, but only if they have no meaningful activity
+   * (no assigned/created tasks, no owned risks, no evidence uploads, no CAPA
+   * items, no owned policies). This avoids breaking FK referential integrity
+   * or losing audit trail for users who've done real work — suspend should
+   * be used instead in that case.
+   */
+  async remove(id: string, organizationId: string, requesterId: string) {
+    if (id === requesterId) throw new ForbiddenException('Não pode eliminar a sua própria conta');
+    const user = await this.findOne(id, organizationId);
+
+    const [
+      assignedTasks,
+      createdTasks,
+      risks,
+      evidences,
+      capaItems,
+      createdCapas,
+      ownedPolicies,
+      taskComments,
+      auditParticipations,
+    ] = await Promise.all([
+      this.prisma.task.count({ where: { assigneeId: id } }),
+      this.prisma.task.count({ where: { createdById: id } }),
+      this.prisma.risk.count({ where: { ownerId: id } }),
+      this.prisma.evidence.count({ where: { uploadedById: id } }),
+      this.prisma.capa.count({ where: { assigneeId: id } }),
+      this.prisma.capa.count({ where: { createdById: id } }),
+      this.prisma.policy.count({ where: { ownerId: id } }),
+      this.prisma.taskComment.count({ where: { userId: id } }),
+      this.prisma.auditParticipant.count({ where: { userId: id } }),
+    ]);
+
+    const activity: Array<[string, number]> = [
+      ['tarefas atribuídas', assignedTasks],
+      ['tarefas criadas', createdTasks],
+      ['riscos', risks],
+      ['evidências carregadas', evidences],
+      ['itens CAPA atribuídos', capaItems],
+      ['itens CAPA criados', createdCapas],
+      ['políticas', ownedPolicies],
+      ['comentários em tarefas', taskComments],
+      ['participações em auditorias', auditParticipations],
+    ];
+
+    const blocking = activity.find(([, count]) => count > 0);
+    if (blocking) {
+      const [label, count] = blocking;
+      throw new ConflictException(
+        `Utilizador tem ${count} ${label} — não pode ser eliminado. Considere suspender.`,
+      );
+    }
+
+    // AuditLog rows where this user was the actor are historical trail, not
+    // "activity" that should block deletion — detach them (userId is nullable)
+    // instead of losing the log entries, then delete the user in the same transaction.
+    try {
+      await this.prisma.$transaction([
+        this.prisma.auditLog.updateMany({ where: { userId: id }, data: { userId: null } }),
+        this.prisma.user.delete({ where: { id } }),
+      ]);
+    } catch (e) {
+      // Any other FK reference we didn't explicitly count (e.g. policy
+      // acknowledgments, whistleblowing records, HR training) also counts
+      // as real activity — surface it as a conflict instead of a raw 500.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new ConflictException(
+          'Utilizador tem registos associados noutras áreas da plataforma — não pode ser eliminado. Considere suspender.',
+        );
+      }
+      throw e;
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        organizationId,
+        userId: requesterId,
+        action: 'USER_DELETED',
+        entity: 'User',
+        entityId: id,
+        metadata: { targetUserId: id, targetEmail: user.email },
+      },
+    });
+
+    return { success: true };
   }
 
   async adminSetPassword(id: string, organizationId: string, newPassword: string) {
@@ -219,6 +347,8 @@ export class UsersService {
       phone: true,
       lastLoginAt: true,
       organizationId: true,
+      orgRoleId: true,
+      orgRole: { select: { id: true, name: true } },
       createdAt: true,
       updatedAt: true,
     };

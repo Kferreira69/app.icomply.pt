@@ -2,24 +2,28 @@ import { Controller, Post, Get, Body, UseGuards, Request, Query } from '@nestjs/
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AiAssistantService } from './ai-assistant.service';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 interface ChatDto { messages: ChatMessage[]; currentModule?: string; }
 
 @ApiTags('AI Assistant')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('ai-assistant')
 export class AiAssistantController {
   constructor(private readonly service: AiAssistantService) {}
 
   @Post('chat')
+  @RequireModule('aiAssistant', 2)
   async chat(@Request() req: any, @Body() body: ChatDto) {
     const reply = await this.service.chat(req.user.organizationId, body.messages, body.currentModule);
     return { reply };
   }
 
   @Post('generate-policy')
+  @RequireModule('aiAssistant', 2)
   @ApiOperation({ summary: 'Generate a policy draft using AI' })
   async generatePolicy(@Request() req: any, @Body() body: { policyType: string; framework: string; language?: string }) {
     const prompt = `Gera um borrador completo de política de ${body.policyType} para conformidade com ${body.framework}.
@@ -40,6 +44,7 @@ Formate como documento de política profissional. Língua: ${body.language || 'p
   }
 
   @Post('gap-analysis')
+  @RequireModule('aiAssistant', 2)
   @ApiOperation({ summary: 'Generate a gap analysis against a framework' })
   async gapAnalysis(@Request() req: any, @Body() body: { framework: string }) {
     const prompt = `Faz uma análise de gap detalhada da nossa organização face ao ${body.framework}.
@@ -57,6 +62,7 @@ Termina com os TOP 5 próximos passos prioritários para atingir conformidade.`;
   }
 
   @Post('audit-prep')
+  @RequireModule('aiAssistant', 2)
   @ApiOperation({ summary: 'Generate audit preparation checklist' })
   async auditPrep(@Request() req: any, @Body() body: { framework: string; auditType: string }) {
     const prompt = `Prepara um checklist detalhado de preparação para auditoria ${body.auditType} do ${body.framework}.

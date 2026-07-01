@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query,
-  ParseIntPipe, DefaultValuePipe,
+  ParseIntPipe, DefaultValuePipe, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
@@ -9,14 +9,19 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { AddDependencyDto } from './dto/add-dependency.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TaskStatus, TaskPriority } from '@prisma/client';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Tasks')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('tasks')
 export class TasksController {
   constructor(private service: TasksService) {}
 
   @Post()
+  @RequireModule('tasks', 2)
   create(
     @Body() dto: CreateTaskDto,
     @CurrentUser('id') userId: string,
@@ -26,6 +31,7 @@ export class TasksController {
   }
 
   @Get()
+  @RequireModule('tasks', 1)
   @ApiQuery({ name: 'projectId', required: false })
   @ApiQuery({ name: 'assigneeId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: TaskStatus })
@@ -50,11 +56,13 @@ export class TasksController {
   }
 
   @Get(':id')
+  @RequireModule('tasks', 1)
   findOne(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.getWithDependencies(id, orgId);
   }
 
   @Patch(':id')
+  @RequireModule('tasks', 2)
   update(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
@@ -65,6 +73,7 @@ export class TasksController {
   }
 
   @Post(':id/comments')
+  @RequireModule('tasks', 2)
   addComment(
     @Param('id') taskId: string,
     @CurrentUser('organizationId') orgId: string,
@@ -75,6 +84,7 @@ export class TasksController {
   }
 
   @Patch('bulk/status')
+  @RequireModule('tasks', 2)
   bulkUpdateStatus(
     @Body('ids') ids: string[],
     @Body('status') status: TaskStatus,
@@ -86,6 +96,7 @@ export class TasksController {
   // ─── Dependencies ────────────────────────────────────────────
 
   @Post(':id/dependencies')
+  @RequireModule('tasks', 2)
   @ApiOperation({ summary: 'Add a blocking dependency to a task' })
   addDependency(
     @Param('id') dependentTaskId: string,
@@ -96,6 +107,7 @@ export class TasksController {
   }
 
   @Delete(':id/dependencies/:blockingTaskId')
+  @RequireModule('tasks', 2)
   @ApiOperation({ summary: 'Remove a blocking dependency from a task' })
   removeDependency(
     @Param('id') dependentTaskId: string,

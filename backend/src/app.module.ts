@@ -36,6 +36,7 @@ import { WhistleblowModule } from './whistleblow/whistleblow.module';
 import { TrustCenterModule } from './trust-center/trust-center.module';
 import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { OrgRolesModule } from './org-roles/org-roles.module';
 import { LicensingModule } from './licensing/licensing.module';
 import { HrComplianceModule } from './hr-compliance/hr-compliance.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
@@ -134,6 +135,7 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
     TrustCenterModule,
     AiAssistantModule,
     PermissionsModule,
+    OrgRolesModule,
     LicensingModule,
     HrComplianceModule,
     AiGovernanceModule,

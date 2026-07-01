@@ -20,8 +20,9 @@ interface DependencyTask {
 
 interface TaskWithDeps {
   id: string;
-  dependsOn?: DependencyTask[];   // tasks that block this one
-  blockedFor?: DependencyTask[];  // tasks that this one blocks
+  // Raw shape returned by GET /tasks/:id — join-table rows, not flat tasks
+  dependsOn?: Array<{ blockingTask: DependencyTask }>;
+  blockedFor?: Array<{ dependentTask: DependencyTask }>;
 }
 
 interface Props {
@@ -205,8 +206,8 @@ function AddDependencyInput({ taskId }: { taskId: string }) {
 export function TaskDependenciesPanel({ task }: Props) {
   const [addingDep, setAddingDep] = useState(false);
 
-  const dependsOn: DependencyTask[] = task.dependsOn ?? [];
-  const blockedFor: DependencyTask[] = task.blockedFor ?? [];
+  const dependsOn: DependencyTask[] = (task.dependsOn ?? []).map(d => d.blockingTask).filter(Boolean);
+  const blockedFor: DependencyTask[] = (task.blockedFor ?? []).map(d => d.dependentTask).filter(Boolean);
 
   return (
     <div>

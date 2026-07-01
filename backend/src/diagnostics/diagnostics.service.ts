@@ -96,7 +96,52 @@ export class DiagnosticsService {
       },
     });
     if (!run) throw new NotFoundException('Diagnostic run not found');
+
+    if (Array.isArray(run.recommendations) && run.recommendations.length > 0) {
+      const enriched = await this.attachSuggestedProjects(
+        run.recommendations as any[],
+        organizationId,
+      );
+      return { ...run, recommendations: enriched };
+    }
+
     return run;
+  }
+
+  // ── Suggest the most relevant existing project per recommendation ─
+  // Matches by exact frameworkId; if several projects share the framework,
+  // the most recently created one wins. No match → suggestedProjectId: null,
+  // leaving the choice to the user in the UI.
+  private async attachSuggestedProjects(
+    recommendations: any[],
+    organizationId: string,
+  ) {
+    const frameworkIds = [
+      ...new Set(recommendations.map((r) => r.frameworkId).filter(Boolean)),
+    ];
+    if (frameworkIds.length === 0) {
+      return recommendations.map((r) => ({ ...r, suggestedProjectId: null }));
+    }
+
+    const projects = await this.prisma.project.findMany({
+      where: { organizationId, frameworkId: { in: frameworkIds } },
+      select: { id: true, frameworkId: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const bestByFramework = new Map<string, string>();
+    for (const p of projects) {
+      if (!bestByFramework.has(p.frameworkId)) {
+        bestByFramework.set(p.frameworkId, p.id); // first hit = most recent, due to orderBy
+      }
+    }
+
+    return recommendations.map((r) => ({
+      ...r,
+      suggestedProjectId: r.frameworkId
+        ? bestByFramework.get(r.frameworkId) ?? null
+        : null,
+    }));
   }
 
   async findAllRuns(organizationId: string) {

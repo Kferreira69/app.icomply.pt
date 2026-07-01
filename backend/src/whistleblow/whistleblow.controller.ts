@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { WhistleblowService } from './whistleblow.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 // ─────────────────────────────────────────────────────────────
 // PUBLIC routes (no auth) — for anonymous/identified reporters
@@ -51,28 +53,32 @@ export class WhistleblowController {
 
   // GET /whistleblow/dashboard
   @Get('dashboard')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async dashboard(@Request() req: any) {
     return this.svc.getDashboard(req.user.organizationId);
   }
 
   // GET /whistleblow/reports
   @Get('reports')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async listReports(@Request() req: any, @Query() query: any) {
     return this.svc.listReports(req.user.organizationId, query);
   }
 
   // GET /whistleblow/reports/:id
   @Get('reports/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async getReport(@Request() req: any, @Param('id') id: string) {
     return this.svc.getReport(req.user.organizationId, id);
   }
 
   // PATCH /whistleblow/reports/:id
   @Patch('reports/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async updateReport(
     @Request() req: any,
     @Param('id') id: string,
@@ -83,7 +89,8 @@ export class WhistleblowController {
 
   // POST /whistleblow/reports/:id/notes
   @Post('reports/:id/notes')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async addNote(
     @Request() req: any,
     @Param('id') id: string,
@@ -94,7 +101,8 @@ export class WhistleblowController {
 
   // GET /whistleblow/menac?year=2024
   @Get('menac')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async menacReport(@Request() req: any, @Query('year') year?: string) {
     const y = year ? parseInt(year) : new Date().getFullYear();
     return this.svc.getMenacReport(req.user.organizationId, y);
@@ -104,28 +112,32 @@ export class WhistleblowController {
 
   // GET /whistleblow/conduct
   @Get('conduct')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async listConduct(@Request() req: any) {
     return this.svc.listCodesOfConduct(req.user.organizationId);
   }
 
   // GET /whistleblow/conduct/:id
   @Get('conduct/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async getConduct(@Request() req: any, @Param('id') id: string) {
     return this.svc.getCodeOfConduct(req.user.organizationId, id);
   }
 
   // POST /whistleblow/conduct
   @Post('conduct')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async createConduct(@Request() req: any, @Body() body: any) {
     return this.svc.upsertCodeOfConduct(req.user.organizationId, body);
   }
 
   // PATCH /whistleblow/conduct/:id
   @Patch('conduct/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async updateConduct(
     @Request() req: any,
     @Param('id') id: string,
@@ -136,7 +148,8 @@ export class WhistleblowController {
 
   // POST /whistleblow/conduct/:id/acknowledge
   @Post('conduct/:id/acknowledge')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async acknowledgeConduct(
     @Request() req: any,
     @Param('id') id: string,
@@ -149,21 +162,24 @@ export class WhistleblowController {
 
   // GET /whistleblow/trainings
   @Get('trainings')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 1)
   async listTrainings(@Request() req: any) {
     return this.svc.listTrainings(req.user.organizationId);
   }
 
   // POST /whistleblow/trainings
   @Post('trainings')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async createTraining(@Request() req: any, @Body() body: any) {
     return this.svc.createTraining(req.user.organizationId, body);
   }
 
   // PATCH /whistleblow/trainings/:id
   @Patch('trainings/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async updateTraining(
     @Request() req: any,
     @Param('id') id: string,
@@ -174,7 +190,8 @@ export class WhistleblowController {
 
   // PATCH /whistleblow/trainings/:id/attendance
   @Patch('trainings/:trainingId/attendance/:userId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('denuncias', 2)
   async markAttendance(
     @Param('trainingId') trainingId: string,
     @Param('userId') userId: string,

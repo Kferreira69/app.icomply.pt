@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Dispatch, SetStateAction } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { webhooksApi } from '@/lib/api';
 import {
@@ -31,38 +31,17 @@ const EVENT_LABELS: Record<string, string> = {
   'dsar.received': 'DSAR recebido', 'breach.reported': 'Violação de dados reportada',
 };
 
-export default function WebhooksPage() {
-  const qc = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', url: '', events: [] as string[] });
+const inp = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none';
 
-  const { data: webhooks = [], isLoading } = useQuery({
-    queryKey: ['webhooks'],
-    queryFn: () => webhooksApi.list().then(r => r.data),
-  });
-
-  const { data: events = [] } = useQuery({
-    queryKey: ['webhook-events'],
-    queryFn: () => webhooksApi.listEvents().then(r => r.data),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (d: any) => webhooksApi.create(d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); setShowForm(false); setForm({ name: '', url: '', events: [] }); },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, ...d }: any) => webhooksApi.update(id, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); setEditingId(null); },
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (id: string) => webhooksApi.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
-  });
-
+function WebhookForm({
+  form, setForm, onSubmit, onCancel, loading,
+}: {
+  form: { name: string; url: string; events: string[] };
+  setForm: Dispatch<SetStateAction<{ name: string; url: string; events: string[] }>>;
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
   const toggleEvent = (ev: string) => {
     setForm(p => ({
       ...p,
@@ -70,15 +49,7 @@ export default function WebhooksPage() {
     }));
   };
 
-  const copySecret = (secret: string) => {
-    navigator.clipboard.writeText(secret);
-    setCopied(secret.slice(0, 8));
-    setTimeout(() => setCopied(null), 2000);
-  };
-
-  const inp = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none';
-
-  const WebhookForm = ({ onSubmit, onCancel, loading }: { onSubmit: () => void; onCancel: () => void; loading: boolean }) => (
+  return (
     <div className="bg-gray-50 rounded-xl p-5 space-y-4 border border-gray-200">
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -118,6 +89,45 @@ export default function WebhooksPage() {
       </div>
     </div>
   );
+}
+
+export default function WebhooksPage() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: '', url: '', events: [] as string[] });
+
+  const { data: webhooks = [], isLoading } = useQuery({
+    queryKey: ['webhooks'],
+    queryFn: () => webhooksApi.list().then(r => r.data),
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ['webhook-events'],
+    queryFn: () => webhooksApi.listEvents().then(r => r.data),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (d: any) => webhooksApi.create(d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); setShowForm(false); setForm({ name: '', url: '', events: [] }); },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...d }: any) => webhooksApi.update(id, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['webhooks'] }); setEditingId(null); },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => webhooksApi.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
+  });
+
+  const copySecret = (secret: string) => {
+    navigator.clipboard.writeText(secret);
+    setCopied(secret.slice(0, 8));
+    setTimeout(() => setCopied(null), 2000);
+  };
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -141,6 +151,8 @@ export default function WebhooksPage() {
         {showForm && !editingId && (
           <div className="mb-4">
             <WebhookForm
+              form={form}
+              setForm={setForm}
               onSubmit={() => createMutation.mutate(form)}
               onCancel={() => { setShowForm(false); setForm({ name: '', url: '', events: [] }); }}
               loading={createMutation.isPending}
@@ -192,6 +204,8 @@ export default function WebhooksPage() {
                 {editingId === wh.id && (
                   <div className="border-t border-gray-100 p-4">
                     <WebhookForm
+                      form={form}
+                      setForm={setForm}
                       onSubmit={() => updateMutation.mutate({ id: wh.id, ...form })}
                       onCancel={() => setEditingId(null)}
                       loading={updateMutation.isPending}

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query,
+  Controller, Get, Post, Patch, Body, Param, Query, UseGuards,
   UploadedFile, UseInterceptors, ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -7,14 +7,19 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiQuery } from '@ne
 import { EvidenceService } from './evidence.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { EvidenceStatus } from '@prisma/client';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Evidence')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('evidence')
 export class EvidenceController {
   constructor(private service: EvidenceService) {}
 
   @Post('upload')
+  @RequireModule('evidence', 2)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload evidence file' })
@@ -28,6 +33,7 @@ export class EvidenceController {
   }
 
   @Get()
+  @RequireModule('evidence', 1)
   @ApiQuery({ name: 'projectId', required: false })
   @ApiQuery({ name: 'taskId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: EvidenceStatus })
@@ -43,6 +49,7 @@ export class EvidenceController {
   }
 
   @Get('gap-analysis')
+  @RequireModule('evidence', 1)
   @ApiOperation({ summary: 'Evidence gap analysis for a framework' })
   getGapAnalysis(
     @CurrentUser('organizationId') orgId: string,
@@ -52,11 +59,13 @@ export class EvidenceController {
   }
 
   @Get(':id')
+  @RequireModule('evidence', 1)
   findOne(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.findOne(id, orgId);
   }
 
   @Patch(':id/status')
+  @RequireModule('evidence', 2)
   updateStatus(
     @Param('id') id: string,
     @Body('status') status: EvidenceStatus,
@@ -66,6 +75,7 @@ export class EvidenceController {
   }
 
   @Patch('bulk/status')
+  @RequireModule('evidence', 2)
   @ApiOperation({ summary: 'Bulk update evidence status' })
   bulkUpdateStatus(
     @Body() body: { ids: string[]; status: EvidenceStatus },

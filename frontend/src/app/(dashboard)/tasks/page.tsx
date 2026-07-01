@@ -272,6 +272,7 @@ export default function TasksPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<Priority | ''>('');
+  const [projectFilter, setProjectFilter] = useState('');
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('dueDate');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -334,6 +335,10 @@ export default function TasksPage() {
     if (priorityFilter) {
       list = list.filter((t: any) => t.priority === priorityFilter);
     }
+    // project filter
+    if (projectFilter) {
+      list = list.filter((t: any) => t.projectId === projectFilter);
+    }
     // overdue toggle
     if (showOverdueOnly) {
       list = list.filter((t: any) => isOverdue(t.dueDate) && t.status !== 'DONE');
@@ -357,7 +362,7 @@ export default function TasksPage() {
     });
 
     return list;
-  }, [data, search, priorityFilter, showOverdueOnly, sortKey, sortDir]);
+  }, [data, search, priorityFilter, projectFilter, showOverdueOnly, sortKey, sortDir]);
 
   const overdueCount = useMemo(
     () => (data?.data || []).filter((t: any) => isOverdue(t.dueDate) && t.status !== 'DONE').length,
@@ -432,6 +437,19 @@ export default function TasksPage() {
             >
               <option value="">Todas as prioridades</option>
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          )}
+          {/* Project filter */}
+          {view === 'list' && (
+            <select
+              value={projectFilter}
+              onChange={e => setProjectFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none max-w-[180px]"
+            >
+              <option value="">Todos os projetos</option>
+              {(projects?.data || []).map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
             </select>
           )}
           {/* Overdue toggle */}

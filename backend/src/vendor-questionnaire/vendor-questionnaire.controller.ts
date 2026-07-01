@@ -4,6 +4,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { VendorQuestionnaireService } from './vendor-questionnaire.service';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Vendor Questionnaires')
 @Controller('vendor-questionnaires')
@@ -13,7 +15,8 @@ export class VendorQuestionnaireController {
   // ── Authenticated endpoints ───────────────────────────────────
 
   @ApiBearerAuth('JWT')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('vendors', 2)
   @Post('vendors/:vendorId')
   @ApiOperation({ summary: 'Create a questionnaire for a vendor' })
   create(
@@ -26,7 +29,8 @@ export class VendorQuestionnaireController {
   }
 
   @ApiBearerAuth('JWT')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('vendors', 1)
   @Get('vendors/:vendorId')
   @ApiOperation({ summary: 'List questionnaires for a vendor' })
   list(

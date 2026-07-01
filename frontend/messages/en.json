@@ -827,6 +827,8 @@
     "clickToSelect": "Click to select file",
     "fileTypes": "PDF, DOCX, XLSX, PNG, JPG (max. 50 MB)",
     "upload": "Upload",
+    "project": "Project",
+    "noProject": "No project",
     "status": {
       "PENDING": "Pending",
       "APPROVED": "Approved",
@@ -1061,6 +1063,21 @@
     "roleTecnicoIt": "IT Technician",
     "roleInternalAuditor": "Internal Auditor",
     "roleExternalAuditor": "External Auditor"
+  },
+  "auditLogPage": {
+    "title": "Audit Log",
+    "subtitle": "History of actions performed in the system",
+    "entityPlaceholder": "Filter by entity...",
+    "allActions": "All actions",
+    "colActor": "User",
+    "colAction": "Action",
+    "colEntity": "Entity",
+    "colDetails": "Details",
+    "colDate": "Date",
+    "systemActor": "System",
+    "empty": "No records found",
+    "count": "{count} of {total} records",
+    "page": "Page {page} of {totalPages}"
   },
   "translations": {
     "title": "Translation Management",

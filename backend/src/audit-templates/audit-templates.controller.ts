@@ -3,15 +3,18 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuditTemplatesService } from './audit-templates.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Audit Templates')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('audit-templates')
 export class AuditTemplatesController {
   constructor(private svc: AuditTemplatesService) {}
 
   @Get()
+  @RequireModule('audits', 1)
   findAll(
     @CurrentUser('organizationId') orgId: string,
     @Query('framework') framework?: string,
@@ -20,6 +23,7 @@ export class AuditTemplatesController {
   }
 
   @Post()
+  @RequireModule('audits', 2)
   create(
     @CurrentUser('organizationId') orgId: string,
     @CurrentUser('id') userId: string,
@@ -29,6 +33,7 @@ export class AuditTemplatesController {
   }
 
   @Patch(':id')
+  @RequireModule('audits', 2)
   update(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
@@ -38,6 +43,7 @@ export class AuditTemplatesController {
   }
 
   @Delete(':id')
+  @RequireModule('audits', 2)
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @Param('id') id: string,

@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { evidenceApi } from '@/lib/api';
+import { evidenceApi, projectsApi } from '@/lib/api';
 import { Upload, FileText, X, CheckCircle, Clock, XCircle, Loader2, CheckCheck, Square, CheckSquare, Database } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
@@ -25,6 +25,13 @@ function UploadModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [projectId, setProjectId] = useState('');
+
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectsApi.list({ limit: 100 }).then(r => r.data),
+  });
+  const projects = projectsData?.data || [];
 
   const uploadMutation = useMutation({
     mutationFn: () => {
@@ -32,6 +39,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
       form.append('file', file!);
       form.append('title', title);
       form.append('description', description);
+      if (projectId) form.append('projectId', projectId);
       return evidenceApi.upload(form);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['evidence'] }); onClose(); },
@@ -78,6 +86,15 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')}</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('project')}</label>
+            <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+              <option value="">{t('noProject')}</option>
+              {projects.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 

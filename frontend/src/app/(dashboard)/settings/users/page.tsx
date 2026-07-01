@@ -3,22 +3,48 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { usersApi } from '@/lib/api';
+import { usersApi, permissionsApi, orgRolesApi } from '@/lib/api';
 import {
   UserPlus, Search, Loader2, Mail, Shield, SlidersHorizontal,
-  X, KeyRound, UserCheck, UserX, MoreVertical, Eye, EyeOff,
+  X, KeyRound, UserCheck, UserX, MoreVertical, Eye, EyeOff, Copy, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { cn, formatRelative, getStatusColor, getInitials } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { UserPermissionsPanel } from '@/components/permissions/user-permissions-panel';
 
 /* ── Invite Modal ─────────────────────────────────────────────── */
-function InviteModal({ onClose }: { onClose: () => void }) {
+function InviteModal({ onClose, duplicateFrom }: { onClose: () => void; duplicateFrom?: any }) {
   const t = useTranslations('usersPage');
   const qc = useQueryClient();
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<{
+    email: string; firstName: string; lastName: string; role: string;
+  }>({
+    defaultValues: duplicateFrom
+      ? { role: duplicateFrom.role, lastName: duplicateFrom.lastName }
+      : undefined,
+  });
+
   const inviteMutation = useMutation({
-    mutationFn: (data: any) => usersApi.invite(data),
+    mutationFn: async (data: any) => {
+      const res = await usersApi.invite(data);
+      const newUser = res.data;
+
+      // If duplicating, copy the source user's module permissions onto the new user.
+      if (duplicateFrom?.id && newUser?.id) {
+        try {
+          const sourcePerms = await permissionsApi
+            .getUserPermissions(duplicateFrom.id)
+            .then(r => r.data as Record<string, number>);
+          const permsArray = Object.entries(sourcePerms).map(([module, level]) => ({ module, level }));
+          await permissionsApi.setUserPermissions(newUser.id, permsArray);
+        } catch {
+          // Non-fatal: user was created successfully even if permission copy fails
+          // (e.g. duplicating from an ADMIN, whose permissions are implicit/full-access).
+        }
+      }
+
+      return res;
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); onClose(); },
   });
 
@@ -39,7 +65,14 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">{t('inviteUser')}</h3>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">{t('inviteUser')}</h3>
+            {duplicateFrom && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                A duplicar perfil e permissões de {duplicateFrom.firstName} {duplicateFrom.lastName}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4" /></button>
         </div>
         <form onSubmit={handleSubmit(d => inviteMutation.mutate(d))} className="space-y-4">
@@ -203,11 +236,73 @@ function PermissionsDrawer({ user, onClose }: { user: any; onClose: () => void }
   );
 }
 
+/* ── Delete Confirmation Modal ────────────────────────────────── */
+function DeleteUserModal({ user, onClose }: { user: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => usersApi.remove(user.id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); onClose(); },
+    onError: (e: any) => {
+      setError(e?.response?.data?.message || 'Erro ao eliminar utilizador');
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-4.5 h-4.5 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">Eliminar Utilizador</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4" /></button>
+        </div>
+
+        <p className="text-sm text-gray-600 mb-1">
+          Tem a certeza que pretende eliminar permanentemente <strong>{user.firstName} {user.lastName}</strong> ({user.email})?
+        </p>
+        <p className="text-sm text-gray-500 mb-4">
+          Esta ação é irreversível. Só é possível eliminar utilizadores sem atividade registada
+          (sem tarefas, riscos, evidências, CAPAs ou políticas associadas). Se o utilizador tiver
+          atividade, considere suspendê-lo em vez de eliminar.
+        </p>
+
+        {error && (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => { setError(''); mutation.mutate(); }}
+            disabled={mutation.isPending}
+            className="flex-1 bg-red-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── User Actions Menu ────────────────────────────────────────── */
-function UserActionsMenu({ user, onSetPassword, onPermissions }: {
+function UserActionsMenu({ user, onSetPassword, onPermissions, onDuplicate, onDelete }: {
   user: any;
   onSetPassword: () => void;
   onPermissions: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
@@ -271,6 +366,14 @@ function UserActionsMenu({ user, onSetPassword, onPermissions }: {
               Definir Password
             </button>
 
+            <button
+              onClick={() => { setOpen(false); onDuplicate(); }}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              <Copy className="w-4 h-4 text-gray-400" />
+              Duplicar Utilizador
+            </button>
+
             {user.status === 'INVITED' && (
               <button
                 onClick={() => resendMutation.mutate()}
@@ -302,11 +405,49 @@ function UserActionsMenu({ user, onSetPassword, onPermissions }: {
                   Suspender
                 </button>
               ) : null}
+
+              <button
+                onClick={() => { setOpen(false); onDelete(); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar Utilizador
+              </button>
             </div>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/* ── Custom Org Role Select ───────────────────────────────────── */
+function OrgRoleSelect({ user }: { user: any }) {
+  const qc = useQueryClient();
+  const { data: orgRoles = [] } = useQuery({
+    queryKey: ['org-roles'],
+    queryFn: () => orgRolesApi.list().then(r => r.data),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (orgRoleId: string | null) => usersApi.setOrgRole(user.id, orgRoleId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+
+  if ((orgRoles as any[]).length === 0) return null;
+
+  return (
+    <select
+      value={user.orgRoleId || ''}
+      onChange={e => mutation.mutate(e.target.value || null)}
+      disabled={mutation.isPending}
+      className="mt-1 text-xs border border-gray-200 rounded-lg px-1.5 py-0.5 text-gray-600 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none disabled:opacity-50"
+    >
+      <option value="">Sem role personalizado</option>
+      {(orgRoles as any[]).map(r => (
+        <option key={r.id} value={r.id}>{r.name}</option>
+      ))}
+    </select>
   );
 }
 
@@ -325,6 +466,8 @@ export default function UsersSettingsPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [passwordUser, setPasswordUser] = useState<any>(null);
   const [permissionsUser, setPermissionsUser] = useState<any>(null);
+  const [duplicateUser, setDuplicateUser] = useState<any>(null);
+  const [deleteUser, setDeleteUser] = useState<any>(null);
 
   const ROLE_LABELS: Record<string, string> = {
     SUPER_ADMIN: 'Super Admin',
@@ -400,6 +543,7 @@ export default function UsersSettingsPage() {
                       <Shield className="w-3.5 h-3.5 text-gray-400" />
                       <span className="text-sm text-gray-600">{ROLE_LABELS[u.role] || u.role}</span>
                     </div>
+                    <OrgRoleSelect user={u} />
                   </td>
                   <td className="px-4 py-3">
                     <span className={cn(
@@ -420,6 +564,8 @@ export default function UsersSettingsPage() {
                       user={u}
                       onSetPassword={() => setPasswordUser(u)}
                       onPermissions={() => setPermissionsUser(u)}
+                      onDuplicate={() => setDuplicateUser(u)}
+                      onDelete={() => setDeleteUser(u)}
                     />
                   </td>
                 </tr>
@@ -441,10 +587,14 @@ export default function UsersSettingsPage() {
       )}
 
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+      {duplicateUser && (
+        <InviteModal duplicateFrom={duplicateUser} onClose={() => setDuplicateUser(null)} />
+      )}
       {passwordUser && <SetPasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} />}
       {permissionsUser && (
         <PermissionsDrawer user={permissionsUser} onClose={() => setPermissionsUser(null)} />
       )}
+      {deleteUser && <DeleteUserModal user={deleteUser} onClose={() => setDeleteUser(null)} />}
     </div>
   );
 }

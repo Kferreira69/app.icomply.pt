@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { risksApi } from '@/lib/api';
+import { risksApi, frameworksApi } from '@/lib/api';
 import {
   Plus, AlertTriangle, Loader2, Grid3X3, Pencil, Shield,
   CheckCircle2, History,
@@ -32,6 +32,134 @@ const LEVEL_STYLES: Record<RiskLevel, string> = {
   MEDIUM:   'bg-yellow-100 text-yellow-800',
   LOW:      'bg-green-100 text-green-800',
 };
+
+// ── Curated risk category list (GRC/compliance domains) ─────────
+// category stays a free-text String? in the DB — this is a curated UI list,
+// plus an "Outro" (custom) option so any value remains valid.
+const RISK_CATEGORIES = [
+  'Operacional',
+  'Tecnológico / Cibersegurança',
+  'Legal / Regulatório',
+  'Financeiro',
+  'Reputacional',
+  'Estratégico',
+  'Terceiros / Fornecedores',
+  'Continuidade de Negócio',
+  'Privacidade de Dados (GDPR)',
+  'Recursos Humanos',
+  'Conformidade',
+  'Fraude',
+  'Branqueamento de Capitais (AML/CFT)',
+  'Segurança da Informação (ISO 27001)',
+  'Resiliência Digital (DORA)',
+  'Cibersegurança de Rede e Informação (NIS2)',
+  'Ambiental, Social e Governação (ESG)',
+  'Ética e Anticorrupção',
+  'Saúde e Segurança no Trabalho',
+  'Qualidade',
+  'Propriedade Intelectual',
+  'Contratual',
+  'Tecnologia da Informação (TI/IT)',
+  'Inteligência Artificial / Governação de IA',
+  'Continuidade de TI / Recuperação de Desastre',
+  'Fiscal / Tributário',
+  'Governação Corporativa',
+  'Cadeia de Abastecimento',
+  'Físico / Instalações',
+  'Outro',
+] as const;
+
+const CUSTOM_CATEGORY_VALUE = 'Outro';
+
+// Resolve the <select> value + custom text for a given stored category.
+// If the stored value isn't in the curated list, treat it as a custom "Outro" value
+// so existing risks aren't silently discarded.
+function resolveCategorySelection(category?: string | null): { select: string; custom: string } {
+  if (!category) return { select: '', custom: '' };
+  if ((RISK_CATEGORIES as readonly string[]).includes(category) && category !== CUSTOM_CATEGORY_VALUE) {
+    return { select: category, custom: '' };
+  }
+  return { select: CUSTOM_CATEGORY_VALUE, custom: category };
+}
+
+// ── Category select + custom "Outro" input ───────────────────────
+function CategoryField({
+  label, selectValue, customValue, onSelectChange, onCustomChange, inputClassName,
+}: {
+  label: string;
+  selectValue: string;
+  customValue: string;
+  onSelectChange: (v: string) => void;
+  onCustomChange: (v: string) => void;
+  inputClassName: string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <select
+        value={selectValue}
+        onChange={e => onSelectChange(e.target.value)}
+        className={inputClassName}
+      >
+        <option value="">Selecionar categoria...</option>
+        {RISK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+      {selectValue === CUSTOM_CATEGORY_VALUE && (
+        <input
+          value={customValue}
+          onChange={e => onCustomChange(e.target.value)}
+          className={inputClassName + ' mt-2'}
+          placeholder="Especifique a categoria..."
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Frameworks multi-select (checkbox group, modeled on webhooks EVENT_GROUPS) ──
+function FrameworkCheckboxGroup({
+  selectedIds, onChange,
+}: {
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const { data: frameworksData } = useQuery({
+    queryKey: ['frameworks'],
+    queryFn: () => frameworksApi.list().then(r => r.data),
+  });
+  const frameworks: any[] = frameworksData || [];
+
+  const toggle = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
+  };
+
+  if (frameworks.length === 0) return null;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">Frameworks Associados</label>
+      <div className="grid grid-cols-2 gap-1.5">
+        {frameworks.map((fw: any) => (
+          <label key={fw.id} className={cn('flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-xs border transition-colors',
+            selectedIds.includes(fw.id) ? 'bg-primary/5 border-primary/30 text-primary' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300')}>
+            <input type="checkbox" checked={selectedIds.includes(fw.id)} onChange={() => toggle(fw.id)} className="w-3 h-3" />
+            {fw.name} <span className="opacity-60">({fw.code})</span>
+          </label>
+        ))}
+      </div>
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {frameworks.filter((fw: any) => selectedIds.includes(fw.id)).map((fw: any) => (
+            <span key={fw.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              {fw.code}
+              <button type="button" onClick={() => toggle(fw.id)} className="hover:text-red-600">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function scoreToLevel(score: number): RiskLevel {
   if (score >= 20) return 'CRITICAL';
@@ -438,6 +566,9 @@ function NewRiskModal({ onClose }: { onClose: () => void }) {
   const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+  const [categorySelect, setCategorySelect] = useState('');
+  const [categoryCustom, setCategoryCustom] = useState('');
+  const [frameworkIds, setFrameworkIds] = useState<string[]>([]);
   const createMutation = useMutation({
     mutationFn: (data: any) => risksApi.create(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['risks'] }); onClose(); },
@@ -462,15 +593,24 @@ function NewRiskModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">{t('registerRisk')}</h3>
-        <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit(d => createMutation.mutate({
+          ...d,
+          category: categorySelect === CUSTOM_CATEGORY_VALUE ? categoryCustom : categorySelect,
+          frameworkIds,
+        }))} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('titleField')} *</label>
             <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Risco de acesso não autorizado..." />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('category')}</label>
-            <input {...register('category')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="Segurança de Informação, Operacional..." />
-          </div>
+          <CategoryField
+            label={t('category')}
+            selectValue={categorySelect}
+            customValue={categoryCustom}
+            onSelectChange={setCategorySelect}
+            onCustomChange={setCategoryCustom}
+            inputClassName="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+          />
+          <FrameworkCheckboxGroup selectedIds={frameworkIds} onChange={setFrameworkIds} />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')}</label>
             <textarea {...register('description')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
@@ -512,6 +652,12 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
   const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const [tab, setTab] = useState<'risk' | 'treatment' | 'history'>('risk');
+  const initialCategory = resolveCategorySelection(risk.category);
+  const [categorySelect, setCategorySelect] = useState(initialCategory.select);
+  const [categoryCustom, setCategoryCustom] = useState(initialCategory.custom);
+  const [frameworkIds, setFrameworkIds] = useState<string[]>(
+    (risk.frameworks || []).map((rf: any) => rf.frameworkId || rf.framework?.id).filter(Boolean),
+  );
 
   const { data: historyData = [] } = useQuery({
     queryKey: ['risk-history', risk?.id],
@@ -521,7 +667,7 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
 
   const { register, handleSubmit } = useForm({
     defaultValues: {
-      title: risk.title, category: risk.category || '',
+      title: risk.title,
       description: risk.description || '', likelihood: risk.likelihood,
       impact: risk.impact, mitigationPlan: risk.mitigationPlan || '', status: risk.status,
     },
@@ -582,16 +728,24 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
 
         <div className="p-6 pt-4">
           {tab === 'risk' && (
-            <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
+            <form onSubmit={handleSubmit(d => updateMutation.mutate({
+              ...d,
+              category: categorySelect === CUSTOM_CATEGORY_VALUE ? categoryCustom : categorySelect,
+              frameworkIds,
+            }))} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{t('titleField')} *</label>
                 <input {...register('title', { required: true })} className={inp} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('category')}</label>
-                  <input {...register('category')} className={inp} />
-                </div>
+                <CategoryField
+                  label={t('category')}
+                  selectValue={categorySelect}
+                  customValue={categoryCustom}
+                  onSelectChange={setCategorySelect}
+                  onCustomChange={setCategoryCustom}
+                  inputClassName={inp}
+                />
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{tCommon('status')}</label>
                   <select {...register('status')} className={inp}>
@@ -613,6 +767,7 @@ function EditRiskModal({ risk, onClose }: { risk: any; onClose: () => void }) {
                   </select>
                 </div>
               </div>
+              <FrameworkCheckboxGroup selectedIds={frameworkIds} onChange={setFrameworkIds} />
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{tCommon('description')}</label>
                 <textarea {...register('description')} rows={2} className={inp + ' resize-none'} />
@@ -742,6 +897,7 @@ export default function RisksPage() {
   const [view, setView] = useState<MainTab>('list');
   const [levelFilter, setLevelFilter] = useState<RiskLevel | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [frameworkFilter, setFrameworkFilter] = useState('');
   const [showNoTreatmentOnly, setShowNoTreatmentOnly] = useState(false);
   const [sortKey, setSortKey] = useState<RiskSortKey>('score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -756,6 +912,12 @@ export default function RisksPage() {
     queryKey: ['risks', 'heatmap'],
     queryFn: () => risksApi.heatmap().then(r => r.data),
   });
+
+  const { data: frameworksData } = useQuery({
+    queryKey: ['frameworks'],
+    queryFn: () => frameworksApi.list().then(r => r.data),
+  });
+  const allFrameworks: any[] = frameworksData || [];
 
   const allRisks: any[] = data?.data || [];
   const summary = heatmap?.summary || {};
@@ -794,6 +956,11 @@ export default function RisksPage() {
     if (showNoTreatmentOnly) {
       list = list.filter((r: any) => !r.treatmentPlan || r.treatmentPlan.trim() === '');
     }
+    if (frameworkFilter) {
+      list = list.filter((r: any) =>
+        (r.frameworks || []).some((rf: any) => (rf.frameworkId || rf.framework?.id) === frameworkFilter),
+      );
+    }
 
     list.sort((a, b) => {
       let cmp = 0;
@@ -812,7 +979,7 @@ export default function RisksPage() {
     });
 
     return list;
-  }, [allRisks, levelFilter, statusFilter, showNoTreatmentOnly, sortKey, sortDir]);
+  }, [allRisks, levelFilter, statusFilter, frameworkFilter, showNoTreatmentOnly, sortKey, sortDir]);
 
   const noTreatmentCount = useMemo(
     () => allRisks.filter((r: any) => !r.treatmentPlan || r.treatmentPlan.trim() === '').length,
@@ -880,6 +1047,17 @@ export default function RisksPage() {
                 <option value="">Todos os estados</option>
                 {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+
+              {allFrameworks.length > 0 && (
+                <select
+                  value={frameworkFilter}
+                  onChange={e => setFrameworkFilter(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none bg-white"
+                >
+                  <option value="">Todos os frameworks</option>
+                  {allFrameworks.map((fw: any) => <option key={fw.id} value={fw.id}>{fw.name}</option>)}
+                </select>
+              )}
 
               <button
                 onClick={() => setShowNoTreatmentOnly(v => !v)}
@@ -1004,7 +1182,18 @@ export default function RisksPage() {
                       <p className="text-sm font-medium text-gray-900">{r.title}</p>
                       <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{r.description}</p>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{r.category || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {r.category || '—'}
+                      {(r.frameworks || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {r.frameworks.map((rf: any) => (
+                            <span key={rf.id || rf.frameworkId} className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                              {rf.framework?.code || rf.framework?.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-600">{LIKELIHOOD_LABELS[r.likelihood]}</td>
                     <td className="px-4 py-3 text-xs text-gray-600">{IMPACT_LABELS[r.impact]}</td>
                     <td className="px-4 py-3">
@@ -1040,9 +1229,9 @@ export default function RisksPage() {
             </table>
             <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
               {risks.length} risco{risks.length !== 1 ? 's' : ''} encontrado{risks.length !== 1 ? 's' : ''}
-              {(levelFilter || statusFilter || showNoTreatmentOnly) && (
+              {(levelFilter || statusFilter || frameworkFilter || showNoTreatmentOnly) && (
                 <button
-                  onClick={() => { setLevelFilter(''); setStatusFilter(''); setShowNoTreatmentOnly(false); }}
+                  onClick={() => { setLevelFilter(''); setStatusFilter(''); setFrameworkFilter(''); setShowNoTreatmentOnly(false); }}
                   className="ml-2 text-primary hover:underline"
                 >
                   Limpar filtros

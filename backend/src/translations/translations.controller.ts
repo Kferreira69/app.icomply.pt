@@ -4,6 +4,8 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TranslationsService } from './translations.service';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @Controller('translations')
 export class TranslationsController {
@@ -17,13 +19,15 @@ export class TranslationsController {
 
   // Protected: full admin access
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('translations', 1)
   listOverrides(@Query('locale') locale?: string) {
     return this.translationsService.listOverrides(locale);
   }
 
   @Put(':locale/:key')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('translations', 2)
   upsertOverride(
     @Param('locale') locale: string,
     @Param('key') key: string,
@@ -34,14 +38,16 @@ export class TranslationsController {
   }
 
   @Delete(':locale/:key')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('translations', 2)
   deleteOverride(@Param('locale') locale: string, @Param('key') key: string) {
     return this.translationsService.deleteOverride(locale, key);
   }
 
   // DeepL translate a single key
   @Post('translate')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('translations', 2)
   async translate(
     @Body() body: { key: string; text: string; targetLang: string; save?: boolean },
     @Request() req: any,
@@ -58,7 +64,8 @@ export class TranslationsController {
 
   // DeepL translate multiple texts at once
   @Post('translate/batch')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('translations', 2)
   async translateBatch(
     @Body() body: { texts: string[]; targetLang: string; sourceLang?: string },
   ) {

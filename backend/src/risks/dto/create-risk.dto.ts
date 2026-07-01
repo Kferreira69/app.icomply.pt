@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsUUID, IsDateString, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RiskLikelihood, RiskImpact, RiskStatus } from '@prisma/client';
@@ -57,4 +57,10 @@ export class CreateRiskDto {
   @Transform(emptyToUndefined)
   @IsDateString()
   reviewDate?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Framework IDs to associate this risk with' })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  frameworkIds?: string[];
 }

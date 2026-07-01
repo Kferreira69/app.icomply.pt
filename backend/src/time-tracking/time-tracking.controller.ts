@@ -17,15 +17,18 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TimeTrackingService } from './time-tracking.service';
 import { StartTimerDto } from './dto/start-timer.dto';
 import { CreateManualEntryDto } from './dto/create-manual-entry.dto';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Time Tracking')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('time-tracking')
 export class TimeTrackingController {
   constructor(private service: TimeTrackingService) {}
 
   @Post('start')
+  @RequireModule('tasks', 2)
   @ApiOperation({ summary: 'Start a timer for a task' })
   startTimer(
     @Body() dto: StartTimerDto,
@@ -36,6 +39,7 @@ export class TimeTrackingController {
   }
 
   @Patch(':id/stop')
+  @RequireModule('tasks', 2)
   @ApiOperation({ summary: 'Stop a running timer' })
   stopTimer(
     @Param('id') entryId: string,
@@ -46,6 +50,7 @@ export class TimeTrackingController {
   }
 
   @Get('my')
+  @RequireModule('tasks', 1)
   @ApiOperation({ summary: 'Get my time entries (paginated)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -59,6 +64,7 @@ export class TimeTrackingController {
   }
 
   @Get('task/:taskId')
+  @RequireModule('tasks', 1)
   @ApiOperation({ summary: 'Get all time entries for a specific task' })
   getTaskEntries(
     @Param('taskId') taskId: string,
@@ -68,6 +74,7 @@ export class TimeTrackingController {
   }
 
   @Get('project/:projectId/report')
+  @RequireModule('tasks', 1)
   @ApiOperation({ summary: 'Get time report grouped by task for a project' })
   getProjectReport(
     @Param('projectId') projectId: string,
@@ -77,6 +84,7 @@ export class TimeTrackingController {
   }
 
   @Post('manual')
+  @RequireModule('tasks', 2)
   @ApiOperation({ summary: 'Create a manual time entry with start and end times' })
   createManualEntry(
     @Body() dto: CreateManualEntryDto,
@@ -87,6 +95,7 @@ export class TimeTrackingController {
   }
 
   @Delete(':id')
+  @RequireModule('tasks', 2)
   @ApiOperation({ summary: 'Delete a time entry (own entries only)' })
   deleteEntry(
     @Param('id') entryId: string,

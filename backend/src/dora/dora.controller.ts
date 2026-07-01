@@ -14,15 +14,18 @@ import {
   DoraIncidentSeverity, DoraIncidentStatus, DoraIncidentCategory,
   DoraTestType, DoraTestStatus,
 } from '@prisma/client';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @Controller('dora')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DoraController {
   constructor(private readonly doraService: DoraService) {}
 
   // ── Dashboard ──────────────────────────────────────────────────
 
   @Get('dashboard')
+  @RequireModule('dora', 1)
   getDashboard(@Request() req: any) {
     return this.doraService.getDashboard(req.user.organizationId);
   }
@@ -30,6 +33,7 @@ export class DoraController {
   // ── Incidents ──────────────────────────────────────────────────
 
   @Get('incidents')
+  @RequireModule('dora', 1)
   listIncidents(
     @Request() req: any,
     @Query('severity') severity?: DoraIncidentSeverity,
@@ -40,16 +44,19 @@ export class DoraController {
   }
 
   @Get('incidents/:id')
+  @RequireModule('dora', 1)
   getIncident(@Request() req: any, @Param('id') id: string) {
     return this.doraService.getIncident(req.user.organizationId, id);
   }
 
   @Post('incidents')
+  @RequireModule('dora', 2)
   createIncident(@Request() req: any, @Body() dto: CreateDoraIncidentDto) {
     return this.doraService.createIncident(req.user.organizationId, req.user.id, dto);
   }
 
   @Patch('incidents/:id')
+  @RequireModule('dora', 2)
   updateIncident(
     @Request() req: any,
     @Param('id') id: string,
@@ -59,6 +66,7 @@ export class DoraController {
   }
 
   @Delete('incidents/:id')
+  @RequireModule('dora', 2)
   deleteIncident(@Request() req: any, @Param('id') id: string) {
     return this.doraService.deleteIncident(req.user.organizationId, id);
   }
@@ -66,6 +74,7 @@ export class DoraController {
   // ── Tests ──────────────────────────────────────────────────────
 
   @Get('tests')
+  @RequireModule('dora', 1)
   listTests(
     @Request() req: any,
     @Query('testType') testType?: DoraTestType,
@@ -75,16 +84,19 @@ export class DoraController {
   }
 
   @Get('tests/:id')
+  @RequireModule('dora', 1)
   getTest(@Request() req: any, @Param('id') id: string) {
     return this.doraService.getTest(req.user.organizationId, id);
   }
 
   @Post('tests')
+  @RequireModule('dora', 2)
   createTest(@Request() req: any, @Body() dto: CreateDoraTestDto) {
     return this.doraService.createTest(req.user.organizationId, req.user.id, dto);
   }
 
   @Patch('tests/:id')
+  @RequireModule('dora', 2)
   updateTest(
     @Request() req: any,
     @Param('id') id: string,
@@ -94,6 +106,7 @@ export class DoraController {
   }
 
   @Delete('tests/:id')
+  @RequireModule('dora', 2)
   deleteTest(@Request() req: any, @Param('id') id: string) {
     return this.doraService.deleteTest(req.user.organizationId, id);
   }

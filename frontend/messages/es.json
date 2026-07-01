@@ -824,6 +824,8 @@
     "clickToSelect": "Haga clic para seleccionar archivo",
     "fileTypes": "PDF, DOCX, XLSX, PNG, JPG (máx. 50 MB)",
     "upload": "Subir",
+    "project": "Proyecto",
+    "noProject": "Sin proyecto",
     "status": {
       "PENDING": "Pendiente",
       "APPROVED": "Aprobado",
@@ -1058,6 +1060,21 @@
     "roleTecnicoIt": "Técnico IT",
     "roleInternalAuditor": "Auditor Interno",
     "roleExternalAuditor": "Auditor Externo"
+  },
+  "auditLogPage": {
+    "title": "Registro de Auditoría",
+    "subtitle": "Historial de acciones realizadas en el sistema",
+    "entityPlaceholder": "Filtrar por entidad...",
+    "allActions": "Todas las acciones",
+    "colActor": "Usuario",
+    "colAction": "Acción",
+    "colEntity": "Entidad",
+    "colDetails": "Detalles",
+    "colDate": "Fecha",
+    "systemActor": "Sistema",
+    "empty": "No se encontraron registros",
+    "count": "{count} de {total} registros",
+    "page": "Página {page} de {totalPages}"
   },
   "translations": {
     "title": "Gestión de traducciones",

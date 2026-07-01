@@ -43,16 +43,23 @@ export class RisksService {
     const inherentScore =
       (LIKELIHOOD_VALUES[dto.likelihood] ?? 1) * (IMPACT_VALUES[dto.impact] ?? 1);
     const riskLevel = calcRiskLevel(dto.likelihood, dto.impact);
+    const { frameworkIds, ...riskData } = dto;
 
     const risk = await this.prisma.risk.create({
       data: {
-        ...dto,
+        ...riskData,
         organizationId,
         ownerId,
         inherentScore,
+        ...(frameworkIds && frameworkIds.length > 0 && {
+          frameworks: {
+            create: frameworkIds.map(frameworkId => ({ frameworkId })),
+          },
+        }),
       },
       include: {
         owner: { select: { id: true, firstName: true, lastName: true } },
+        frameworks: { include: { framework: true } },
       },
     });
 
@@ -101,6 +108,7 @@ export class RisksService {
         include: {
           owner: { select: { id: true, firstName: true, lastName: true } },
           project: { select: { id: true, name: true } },
+          frameworks: { include: { framework: true } },
           _count: { select: { evidences: true } },
         },
       }),
@@ -124,6 +132,7 @@ export class RisksService {
         owner: { select: { id: true, firstName: true, lastName: true } },
         project: { select: { id: true, name: true } },
         evidences: { select: { id: true, title: true, status: true } },
+        frameworks: { include: { framework: true } },
       },
     });
     if (!risk) throw new NotFoundException('Risk not found');
@@ -146,7 +155,8 @@ export class RisksService {
       },
     }).catch(() => {}); // non-blocking
 
-    const updateData: any = { ...dto };
+    const { frameworkIds, ...restDto } = dto;
+    const updateData: any = { ...restDto };
     const effectiveLikelihood = dto.likelihood ?? existing.likelihood;
     const effectiveImpact = dto.impact ?? existing.impact;
 
@@ -156,11 +166,21 @@ export class RisksService {
       updateData.inherentScore = l * i;
     }
 
+    // Sync RiskFramework join rows when frameworkIds is provided (delete-all-then-recreate;
+    // join table is small so a full diff isn't necessary)
+    if (frameworkIds !== undefined) {
+      updateData.frameworks = {
+        deleteMany: {},
+        create: frameworkIds.map(frameworkId => ({ frameworkId })),
+      };
+    }
+
     const updatedRisk = await this.prisma.risk.update({
       where: { id },
       data: updateData,
       include: {
         owner: { select: { id: true, firstName: true, lastName: true } },
+        frameworks: { include: { framework: true } },
       },
     });
 

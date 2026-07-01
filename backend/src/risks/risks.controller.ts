@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Body, Param, Query,
-  ParseIntPipe, DefaultValuePipe,
+  ParseIntPipe, DefaultValuePipe, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { RisksService } from './risks.service';
@@ -8,14 +8,19 @@ import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RiskStatus } from '@prisma/client';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Risks')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('risks')
 export class RisksController {
   constructor(private service: RisksService) {}
 
   @Post()
+  @RequireModule('risks', 2)
   create(
     @Body() dto: CreateRiskDto,
     @CurrentUser('organizationId') orgId: string,
@@ -25,6 +30,7 @@ export class RisksController {
   }
 
   @Get()
+  @RequireModule('risks', 1)
   @ApiQuery({ name: 'projectId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: RiskStatus })
   @ApiQuery({ name: 'search', required: false, description: 'Filter risks by title (case-insensitive)' })
@@ -40,17 +46,20 @@ export class RisksController {
   }
 
   @Get('heatmap')
+  @RequireModule('risks', 1)
   @ApiOperation({ summary: 'Get risk heatmap data (5x5 matrix)' })
   getHeatmap(@CurrentUser('organizationId') orgId: string) {
     return this.service.getHeatmapData(orgId);
   }
 
   @Get(':id')
+  @RequireModule('risks', 1)
   findOne(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.findOne(id, orgId);
   }
 
   @Patch(':id')
+  @RequireModule('risks', 2)
   update(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
@@ -61,12 +70,14 @@ export class RisksController {
   }
 
   @Get(':id/history')
+  @RequireModule('risks', 1)
   @ApiOperation({ summary: 'Get risk score history (snapshots)' })
   getHistory(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.getHistory(id, orgId);
   }
 
   @Patch(':id/treatment')
+  @RequireModule('risks', 2)
   @ApiOperation({ summary: 'Update risk treatment plan & residual score' })
   updateTreatment(
     @Param('id') id: string,
@@ -77,6 +88,7 @@ export class RisksController {
   }
 
   @Post(':id/accept')
+  @RequireModule('risks', 2)
   @ApiOperation({ summary: 'Accept a risk (risk acceptance workflow)' })
   acceptRisk(
     @Param('id') id: string,

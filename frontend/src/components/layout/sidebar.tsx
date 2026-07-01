@@ -117,20 +117,27 @@ function QuickAddModal({ onClose }: { onClose: () => void }) {
 
 /* ── Starred hook ────────────────────────────────────────────── */
 const STARRED_KEY = 'icomply_starred';
+const MAX_STARRED = 10;
 
 function useStarred() {
   const [starred, setStarred] = useState<string[]>([]);
+  const [limitReached, setLimitReached] = useState(false);
   useEffect(() => {
     try { setStarred(JSON.parse(localStorage.getItem(STARRED_KEY) || '[]')); } catch { /* ignore */ }
   }, []);
   const toggle = useCallback((href: string) => {
     setStarred(prev => {
+      if (!prev.includes(href) && prev.length >= MAX_STARRED) {
+        setLimitReached(true);
+        setTimeout(() => setLimitReached(false), 2500);
+        return prev;
+      }
       const next = prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href];
       try { localStorage.setItem(STARRED_KEY, JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
   }, []);
-  return { starred, toggle };
+  return { starred, toggle, limitReached };
 }
 
 /* ── Recent pages hook ───────────────────────────────────────── */
@@ -496,7 +503,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const [quickAdd, setQuickAdd] = useState(false);
   const [customize, setCustomize] = useState(false);
   const [proToastPlan, setProToastPlan] = useState<string | null>(null);
-  const { starred, toggle: toggleStar } = useStarred();
+  const { starred, toggle: toggleStar, limitReached } = useStarred();
   const { hidden: hiddenSections, toggle: toggleSection } = useHiddenSections();
   const defaultSectionKeys = ['top', 'gerir', 'conformidade', 'intelligence', 'tools'];
   const { order: sectionOrder, reorder: reorderSections } = useSectionOrder(defaultSectionKeys);
@@ -713,6 +720,13 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
     <>
       {quickAdd && <QuickAddModal onClose={() => setQuickAdd(false)} />}
       {proToastPlan && <ProToast plan={proToastPlan} onDismiss={() => setProToastPlan(null)} />}
+      {limitReached && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-bottom-2 fade-in">
+          <div className="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl shadow-2xl px-4 py-2.5">
+            Limite de {MAX_STARRED} favoritos atingido. Remova um para adicionar outro.
+          </div>
+        </div>
+      )}
       {customize && (
         <CustomizePanel
           sections={sectionMeta}

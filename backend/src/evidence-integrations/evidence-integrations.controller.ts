@@ -18,15 +18,18 @@ import { UpdateIntegrationDto } from './dto/update-integration.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Evidence Integrations')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('evidence-integrations')
 export class EvidenceIntegrationsController {
   constructor(private readonly service: EvidenceIntegrationsService) {}
 
   @Get()
+  @RequireModule('evidence', 1)
   @ApiOperation({ summary: 'List all evidence integrations for the organization' })
   findAll(@CurrentUser('organizationId') orgId: string) {
     return this.service.findAll(orgId);
@@ -34,6 +37,7 @@ export class EvidenceIntegrationsController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER)
+  @RequireModule('evidence', 2)
   @ApiOperation({ summary: 'Create a new evidence integration' })
   create(
     @Body() dto: CreateIntegrationDto,
@@ -44,12 +48,14 @@ export class EvidenceIntegrationsController {
 
   @Post('sync-all')
   @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER)
+  @RequireModule('evidence', 2)
   @ApiOperation({ summary: 'Run sync for all active integrations' })
   runAllActive(@CurrentUser('organizationId') orgId: string) {
     return this.service.runAllActive(orgId);
   }
 
   @Get(':id')
+  @RequireModule('evidence', 1)
   @ApiOperation({ summary: 'Get a single integration by ID' })
   findOne(
     @Param('id') id: string,
@@ -60,6 +66,7 @@ export class EvidenceIntegrationsController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER)
+  @RequireModule('evidence', 2)
   @ApiOperation({ summary: 'Update an integration' })
   update(
     @Param('id') id: string,
@@ -71,6 +78,7 @@ export class EvidenceIntegrationsController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER)
+  @RequireModule('evidence', 2)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an integration' })
   remove(
@@ -82,6 +90,7 @@ export class EvidenceIntegrationsController {
 
   @Patch(':id/toggle')
   @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER)
+  @RequireModule('evidence', 2)
   @ApiOperation({ summary: 'Toggle integration active/inactive' })
   toggleActive(
     @Param('id') id: string,
@@ -92,6 +101,7 @@ export class EvidenceIntegrationsController {
 
   @Post(':id/sync')
   @Roles(UserRole.ADMIN, UserRole.COMPLIANCE_MANAGER)
+  @RequireModule('evidence', 2)
   @ApiOperation({ summary: 'Run sync for a single integration' })
   runSync(
     @Param('id') id: string,
@@ -101,6 +111,7 @@ export class EvidenceIntegrationsController {
   }
 
   @Get(':id/logs')
+  @RequireModule('evidence', 1)
   @ApiOperation({ summary: 'Get last 20 sync logs for an integration' })
   getSyncLogs(
     @Param('id') id: string,

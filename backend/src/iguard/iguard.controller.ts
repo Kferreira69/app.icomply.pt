@@ -22,6 +22,8 @@ import { DeviceReportDto } from './dto/device-report.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { DeviceTokenGuard } from './guards/device-token.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('iGuard')
 @Controller('iguard')
@@ -31,7 +33,8 @@ export class IGuardController {
   // ─── Stats ───────────────────────────────────────────────────
 
   @Get('stats')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 1)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Get device compliance stats for the organisation' })
   getStats(@CurrentUser('organizationId') orgId: string) {
@@ -41,7 +44,8 @@ export class IGuardController {
   // ─── Device list ─────────────────────────────────────────────
 
   @Get('devices')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 1)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'List all devices in the organisation' })
   listDevices(@CurrentUser('organizationId') orgId: string) {
@@ -51,7 +55,8 @@ export class IGuardController {
   // ─── My device (employee) ────────────────────────────────────
 
   @Get('devices/mine')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 1)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: "Get the current user's registered device" })
   getMyDevice(
@@ -64,7 +69,8 @@ export class IGuardController {
   // ─── Register device (employee) ──────────────────────────────
 
   @Post('devices/register')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 2)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Register a new device and receive a device token' })
   @ApiResponse({
@@ -82,7 +88,8 @@ export class IGuardController {
   // ─── Revoke device (admin) ───────────────────────────────────
 
   @Delete('devices/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 2)
   @ApiBearerAuth('JWT')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke a device' })
@@ -96,7 +103,8 @@ export class IGuardController {
   // ─── Device detail (admin) ───────────────────────────────────
 
   @Get('devices/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 1)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Get device detail with last 50 reports' })
   getDevice(
@@ -124,7 +132,8 @@ export class IGuardController {
   // ─── Network Probes (admin) ──────────────────────────────────
 
   @Get('probes')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 1)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'List network probes for the organisation' })
   listProbes(@CurrentUser('organizationId') orgId: string) {
@@ -132,7 +141,8 @@ export class IGuardController {
   }
 
   @Post('probes')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 2)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Create a new network probe' })
   createProbe(
@@ -143,7 +153,8 @@ export class IGuardController {
   }
 
   @Delete('probes/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 2)
   @ApiBearerAuth('JWT')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a network probe' })
@@ -155,7 +166,8 @@ export class IGuardController {
   }
 
   @Get('probes/:id/devices')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequireModule('iguard', 1)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'List discovered devices for a probe' })
   getProbeDevices(

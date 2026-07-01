@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { diagnosticsApi } from '@/lib/api';
+import { diagnosticsApi, projectsApi, tasksApi } from '@/lib/api';
 import {
   ClipboardList,
   MessageSquare,
@@ -15,6 +15,7 @@ import {
   Clock,
   AlertTriangle,
   ChevronDown,
+  ListChecks,
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 
@@ -57,11 +58,19 @@ interface AnswerWithQuestion {
 }
 
 interface RecommendationEntry {
+  frameworkId?: string;
   frameworkCode: string;
   frameworkName?: string;
   score: number;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   reasons: string[];
+  suggestedProjectId?: string | null;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+  frameworkId?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -607,6 +616,36 @@ function QuestionnaireTab({
 
 function ResultsTab({ preselectedRunId }: { preselectedRunId?: string }) {
   const [selectedRunId, setSelectedRunId] = useState<string>(preselectedRunId ?? '');
+  const queryClient = useQueryClient();
+
+  // projectId chosen per recommendation row (keyed by frameworkCode); pre-filled
+  // with the backend's suggestion once recommendations load (see effect below).
+  const [selectedProjectByRec, setSelectedProjectByRec] = useState<Record<string, string>>({});
+  const [createdRecKeys, setCreatedRecKeys] = useState<Set<string>>(new Set());
+
+  const { data: projects } = useQuery<ProjectOption[]>({
+    queryKey: ['projects', 'for-diagnostic-recommendations'],
+    queryFn: async () => {
+      const res = await projectsApi.list({ limit: 100 });
+      return res.data?.data ?? res.data ?? [];
+    },
+  });
+
+  const createTaskFromRecMutation = useMutation({
+    mutationFn: ({ rec, projectId }: { rec: RecommendationEntry; projectId: string }) =>
+      tasksApi.create({
+        title: `Plano de ação — ${rec.frameworkName ?? rec.frameworkCode}`,
+        description: rec.reasons?.length
+          ? `Recomendação gerada pelo diagnóstico:\n- ${rec.reasons.join('\n- ')}`
+          : `Recomendação gerada pelo diagnóstico de conformidade para ${rec.frameworkName ?? rec.frameworkCode}.`,
+        priority: rec.priority,
+        projectId,
+      }),
+    onSuccess: (_data, variables) => {
+      setCreatedRecKeys((prev) => new Set(prev).add(variables.rec.frameworkCode));
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
 
   const { data: runs = [] } = useQuery<DiagnosticRun[]>({
     queryKey: ['diagnostic-runs'],
@@ -635,6 +674,23 @@ function ResultsTab({ preselectedRunId }: { preselectedRunId?: string }) {
     },
     enabled: !!selectedRunId,
   });
+
+  // Pre-fill each recommendation's project select with the backend suggestion
+  // (editable/override-able) whenever a new run's recommendations load.
+  useEffect(() => {
+    if (!Array.isArray(runDetail?.recommendations)) return;
+    setSelectedProjectByRec((prev) => {
+      const next = { ...prev };
+      for (const rec of runDetail!.recommendations as RecommendationEntry[]) {
+        if (next[rec.frameworkCode] === undefined) {
+          next[rec.frameworkCode] = rec.suggestedProjectId ?? '';
+        }
+      }
+      return next;
+    });
+    setCreatedRecKeys(new Set());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runDetail?.recommendations]);
 
   // Compute category breakdown from answers
   const categoryBreakdown = useMemo(() => {
@@ -793,6 +849,11 @@ function ResultsTab({ preselectedRunId }: { preselectedRunId?: string }) {
               <div className="divide-y divide-gray-50">
                 {(runDetail.recommendations as RecommendationEntry[]).map((rec, i) => {
                   const priorityCfg = PRIORITY_CONFIG[rec.priority] ?? PRIORITY_CONFIG.LOW;
+                  const selectedProjectId = selectedProjectByRec[rec.frameworkCode] ?? '';
+                  const alreadyCreated = createdRecKeys.has(rec.frameworkCode);
+                  const isCreating =
+                    createTaskFromRecMutation.isPending &&
+                    createTaskFromRecMutation.variables?.rec.frameworkCode === rec.frameworkCode;
                   return (
                     <div key={i} className="px-6 py-4 flex items-start gap-4">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -818,6 +879,51 @@ function ResultsTab({ preselectedRunId }: { preselectedRunId?: string }) {
                             ))}
                           </ul>
                         )}
+
+                        {/* Convert recommendation into a real task, with a project
+                            pre-filled from the backend suggestion (frameworkId match)
+                            but always editable by the user. */}
+                        <div className="mt-3 flex items-center gap-2 flex-wrap">
+                          <div className="relative">
+                            <select
+                              value={selectedProjectId}
+                              onChange={(e) =>
+                                setSelectedProjectByRec((prev) => ({
+                                  ...prev,
+                                  [rec.frameworkCode]: e.target.value,
+                                }))
+                              }
+                              disabled={alreadyCreated}
+                              className="border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 text-xs appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:bg-gray-50 disabled:text-gray-400 min-w-[220px]"
+                            >
+                              <option value="">Selecionar projeto...</option>
+                              {projects?.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                  {p.frameworkId && p.frameworkId === rec.frameworkId ? ' (sugerido)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!selectedProjectId || alreadyCreated || isCreating}
+                            onClick={() =>
+                              createTaskFromRecMutation.mutate({ rec, projectId: selectedProjectId })
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-white hover:bg-primary/90 disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
+                          >
+                            {isCreating ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : alreadyCreated ? (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <ListChecks className="w-3.5 h-3.5" />
+                            )}
+                            {alreadyCreated ? 'Tarefa criada' : 'Criar tarefa'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
