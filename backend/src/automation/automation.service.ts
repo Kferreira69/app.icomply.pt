@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { AutomationTrigger } from '@prisma/client';
+import { AutomationTrigger } from '../generated/prisma/client';
 
 @Injectable()
 export class AutomationService {

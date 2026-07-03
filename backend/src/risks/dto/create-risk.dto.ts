@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsUUID, IsDateString, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { RiskLikelihood, RiskImpact, RiskStatus } from '@prisma/client';
+import { RiskLikelihood, RiskImpact, RiskStatus } from '../../generated/prisma/client';
 
 const emptyToUndefined = ({ value }: { value: any }) =>
   value === '' || value === null ? undefined : value;

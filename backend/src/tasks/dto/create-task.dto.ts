@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsEnum, IsUUID, IsDateString, IsNumber, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TaskStatus, TaskPriority } from '@prisma/client';
+import { TaskStatus, TaskPriority } from '../../generated/prisma/client';
 
 const emptyToUndefined = ({ value }: { value: any }) =>
   value === '' || value === null ? undefined : value;

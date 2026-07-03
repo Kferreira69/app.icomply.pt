@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { ActionPlansService } from './action-plans.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { ActionPlanStatus } from '@prisma/client';
+import { ActionPlanStatus } from '../generated/prisma/client';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';
 

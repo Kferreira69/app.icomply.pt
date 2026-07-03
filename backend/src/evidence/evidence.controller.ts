@@ -6,7 +6,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { EvidenceService } from './evidence.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { EvidenceStatus } from '@prisma/client';
+import { EvidenceStatus } from '../generated/prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';

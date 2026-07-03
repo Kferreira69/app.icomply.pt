@@ -6,7 +6,7 @@ import {
   DoraIncidentCategory,
   DoraTestType,
   DoraTestStatus,
-} from '@prisma/client';
+} from '../generated/prisma/client';
 
 // ── DTOs (inline) ─────────────────────────────────────────────
 

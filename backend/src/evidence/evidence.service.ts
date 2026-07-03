@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
-import { EvidenceStatus } from '@prisma/client';
+import { EvidenceStatus } from '../generated/prisma/client';
 
 @Injectable()
 export class EvidenceService {

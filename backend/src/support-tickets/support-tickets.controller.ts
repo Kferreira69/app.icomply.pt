@@ -10,7 +10,7 @@ import { SupportTicketsService } from './support-tickets.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateReplyDto } from './dto/create-reply.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
-import { TicketStatus } from '@prisma/client';
+import { TicketStatus } from '../generated/prisma/client';
 
 @UseGuards(JwtAuthGuard)
 @Controller('support-tickets')

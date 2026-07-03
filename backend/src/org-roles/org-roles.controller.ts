@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../generated/prisma/client';
 import { OrgRolesService } from './org-roles.service';
 import { CreateOrgRoleDto } from './dto/create-org-role.dto';
 import { UpdateOrgRoleDto } from './dto/update-org-role.dto';
