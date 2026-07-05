@@ -1,0 +1,221 @@
+# docker-compose.prod.yml — Production hardened
+# Aplica: utilizadores não-root, resource limits, read-only fs, secrets, network isolation
+
+version: '3.8'
+
+# ─────────────────────────────────────────────
+# SECRETS — nunca em variáveis de ambiente em texto plano
+# Criar com: docker secret create jwt_access_secret -
+# ─────────────────────────────────────────────
+secrets:
+  jwt_access_secret:
+    external: true
+  jwt_refresh_secret:
+    external: true
+  cookie_secret:
+    external: true
+  database_url:
+    external: true
+  redis_url:
+    external: true
+
+# ─────────────────────────────────────────────
+# NETWORKS — isolamento entre serviços
+# ─────────────────────────────────────────────
+networks:
+  traefik-public:
+    external: true             # rede partilhada com Traefik
+  backend-internal:
+    internal: true             # sem acesso externo — só entre containers
+  db-internal:
+    internal: true             # só backend + DB
+
+services:
+
+  # ─────────────────────────────────────────────
+  # FRONTEND — Next.js
+  # ─────────────────────────────────────────────
+  frontend:
+    image: icomply/frontend:${VERSION:-latest}
+    restart: unless-stopped
+    user: "1001:1001"          # utilizador não-root
+    read_only: true            # filesystem read-only
+    tmpfs:
+      - /tmp:size=50m,noexec   # tmp em memória, sem execução
+      - /app/.next/cache:size=200m
+    networks:
+      - traefik-public
+      - backend-internal
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.icomply.pt
+      NEXT_PUBLIC_APP_URL: https://app.icomply.pt
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true  # previne escalada de privilégios
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`app.icomply.pt`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.middlewares=security-headers,rate-limit-api,compress"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+
+  # ─────────────────────────────────────────────
+  # BACKEND — NestJS
+  # ─────────────────────────────────────────────
+  backend:
+    image: icomply/backend:${VERSION:-latest}
+    restart: unless-stopped
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=50m,noexec
+    networks:
+      - traefik-public
+      - backend-internal
+      - db-internal
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    secrets:
+      - jwt_access_secret
+      - jwt_refresh_secret
+      - cookie_secret
+      - database_url
+      - redis_url
+    # Ler secrets de ficheiros (Docker secrets montados em /run/secrets/)
+    # No NestJS config:
+    # JWT_ACCESS_SECRET: fs.readFileSync('/run/secrets/jwt_access_secret', 'utf8').trim()
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.icomply.pt`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.middlewares=secure-api"
+      # Rate limit apertado para /auth
+      - "traefik.http.routers.backend-auth.rule=Host(`api.icomply.pt`) && PathPrefix(`/api/v1/auth`)"
+      - "traefik.http.routers.backend-auth.middlewares=secure-auth"
+      - "traefik.http.services.backend.loadbalancer.server.port=3001"
+
+  # ─────────────────────────────────────────────
+  # POSTGRES — base de dados
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    user: "70:70"              # utilizador postgres não-root
+    read_only: true
+    tmpfs:
+      - /tmp:size=100m,noexec
+      - /var/run/postgresql:size=10m
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:rw  # volume para dados
+    networks:
+      - db-internal             # SEM acesso à internet
+    environment:
+      POSTGRES_DB: icomply_prod
+      # Não colocar passwords aqui — usar secrets
+    secrets:
+      - database_url
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+    security_opt:
+      - no-new-privileges:true
+    # NÃO expor porta 5432 ao exterior
+
+  # ─────────────────────────────────────────────
+  # REDIS — para sessões, throttler, blacklist tokens
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    user: "999:999"
+    read_only: true
+    tmpfs:
+      - /tmp:size=50m,noexec
+    networks:
+      - db-internal
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+      --loglevel warning
+      --protected-mode yes
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
+    # NÃO expor porta 6379
+
+  # ─────────────────────────────────────────────
+  # TRAEFIK — reverse proxy
+  # ─────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.0
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # NÃO expor 8080 (dashboard) — só via rede interna
+    networks:
+      - traefik-public
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # read-only
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/config:/etc/traefik/config:ro
+      - letsencrypt:/letsencrypt
+      - traefik_logs:/var/log/traefik
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
+    driver: local
+  letsencrypt:
+    driver: local
+  traefik_logs:
+    driver: local

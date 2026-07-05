@@ -2,33 +2,50 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+// SendGrid loaded dynamically to avoid hard crash if package absent
+let sgMail: any = null;
+try { sgMail = require('@sendgrid/mail'); } catch {}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null = null;
+  private readonly mode: 'sendgrid' | 'smtp' | 'stub';
 
   constructor(private config: ConfigService) {
-    const host = this.config.get<string>('SMTP_HOST', '');
-    const port = this.config.get<number>('SMTP_PORT', 587);
-    const user = this.config.get<string>('SMTP_USER', '');
-    const pass = this.config.get<string>('SMTP_PASS', '');
+    const sgKey  = this.config.get<string>('SENDGRID_API_KEY', '');
+    const host   = this.config.get<string>('SMTP_HOST', '');
+    const user   = this.config.get<string>('SMTP_USER', '');
+    const pass   = this.config.get<string>('SMTP_PASS', '');
+    const port   = this.config.get<number>('SMTP_PORT', 587);
 
-    if (!host || !user || !pass) {
-      this.logger.warn('SMTP not configured — emails will be logged only');
-      this.transporter = null;
-      return;
+    if (sgKey && sgMail) {
+      sgMail.setApiKey(sgKey);
+      this.mode = 'sendgrid';
+      this.logger.log('Mail: SendGrid API mode active');
+    } else if (host && user && pass) {
+      this.transporter = nodemailer.createTransport({
+        host, port,
+        secure: port === 465,
+        auth: { user, pass },
+      });
+      this.mode = 'smtp';
+      this.logger.log(`Mail: SMTP mode active (${host}:${port})`);
+    } else {
+      this.mode = 'stub';
+      this.logger.warn(
+        'Mail: STUB mode — emails NOT sent. ' +
+        'Set SENDGRID_API_KEY or SMTP_HOST+SMTP_USER+SMTP_PASS in .env.production',
+      );
     }
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
   }
 
   private get from(): string {
     return this.config.get<string>('SMTP_FROM', 'iComply <noreply@app.icomply.pt>');
+  }
+
+  private get replyTo(): string {
+    return this.config.get<string>('SMTP_REPLY_TO', 'iComply Support <support@icomply.pt>');
   }
 
   private get appUrl(): string {
@@ -36,124 +53,311 @@ export class MailService {
   }
 
   private get frontendUrl(): string {
-    // Derive frontend URL from APP_URL (api. → app.)
-    const apiUrl = this.appUrl;
-    return apiUrl.replace('https://api.', 'https://');
+    return this.config.get<string>('FRONTEND_URL', 'https://app.icomply.pt');
+  }
+
+  getMode(): string { return this.mode; }
+
+  async testConnection(): Promise<{ ok: boolean; mode: string; error?: string }> {
+    if (this.mode === 'sendgrid') {
+      // SendGrid API — no persistent connection to verify; just confirm key is set
+      return { ok: true, mode: 'sendgrid' };
+    }
+    if (this.mode === 'smtp' && this.transporter) {
+      try {
+        await this.transporter.verify();
+        return { ok: true, mode: 'smtp' };
+      } catch (err: any) {
+        return { ok: false, mode: 'smtp', error: err.message };
+      }
+    }
+    return { ok: false, mode: 'stub', error: 'No mail provider configured' };
+  }
+
+  async sendTestEmail(to: string): Promise<{ ok: boolean; mode: string; error?: string }> {
+    try {
+      await this.send(to, 'iComply — Teste de Email', `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1a56db;">✅ Configuração de Email OK</h2>
+          <p>Este é um email de teste enviado pela plataforma iComply.</p>
+          <p style="color: #666; font-size: 13px;">Modo: <strong>${this.mode.toUpperCase()}</strong><br>
+          Remetente: <strong>${this.from}</strong><br>
+          Data/hora: ${new Date().toISOString()}</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+          <p style="color: #999; font-size: 12px;">iComply Governance Operating System</p>
+        </div>
+      `);
+      return { ok: true, mode: this.mode };
+    } catch (err: any) {
+      return { ok: false, mode: this.mode, error: err.message };
+    }
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
-    if (!this.transporter) {
-      this.logger.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}`);
+    if (this.mode === 'stub') {
+      this.logger.warn(`[EMAIL STUB — NOT SENT] To: ${to} | Subject: ${subject}`);
       return;
     }
 
-    try {
-      await this.transporter.sendMail({ from: this.from, to, subject, html });
-      this.logger.log(`Email sent to ${to}: ${subject}`);
-    } catch (err) {
-      this.logger.error(`Failed to send email to ${to}: ${err.message}`);
-      // Don't throw — email failure should not break the API response
+    if (this.mode === 'sendgrid' && sgMail) {
+      const msg = { to, from: this.from, replyTo: this.replyTo, subject, html };
+      const res = await sgMail.send(msg);
+      this.logger.log(`[SendGrid] Sent to ${to} | Status: ${res?.[0]?.statusCode} | Subject: ${subject}`);
+      return;
     }
+
+    if (this.mode === 'smtp' && this.transporter) {
+      const info = await this.transporter.sendMail({ from: this.from, replyTo: this.replyTo, to, subject, html });
+      this.logger.log(`[SMTP] Sent to ${to} | MessageId: ${info.messageId} | Subject: ${subject}`);
+      return;
+    }
+
+    throw new Error('Mail provider not available');
   }
 
   async sendPasswordReset(email: string, token: string): Promise<void> {
     const resetUrl = `${this.frontendUrl}/reset-password?token=${token}`;
-
-    await this.send(
-      email,
-      'Redefinição de password — iComply',
-      `
+    await this.send(email, 'Redefinição de password — iComply', `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1a56db;">Redefinição de password</h2>
         <p>Recebemos um pedido de redefinição da sua password. Clique no botão abaixo para continuar:</p>
         <p style="margin: 24px 0;">
-          <a href="${resetUrl}"
-             style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px;
-                    text-decoration: none; font-weight: bold;">
+          <a href="${resetUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
             Redefinir password
           </a>
         </p>
-        <p style="color: #666; font-size: 14px;">
-          Este link é válido durante 1 hora.<br>
-          Se não solicitou esta alteração, pode ignorar este email.
-        </p>
+        <p style="color: #666; font-size: 14px;">Este link é válido durante 1 hora.<br>Se não solicitou esta alteração, pode ignorar este email.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
         <p style="color: #999; font-size: 12px;">iComply Compliance Operating System</p>
       </div>
-      `,
-    );
+    `);
   }
 
   async sendInvite(email: string, token: string, invitedBy: string, orgName: string): Promise<void> {
     const inviteUrl = `${this.frontendUrl}/accept-invite?token=${token}`;
-
-    await this.send(
-      email,
-      `Convite para ${orgName} — iComply`,
-      `
+    await this.send(email, `Convite para ${orgName} — iComply`, `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1a56db;">Foi convidado para ${orgName}</h2>
         <p><strong>${invitedBy}</strong> convidou-o para a plataforma iComply.</p>
         <p>Clique no botão abaixo para criar a sua conta e começar:</p>
         <p style="margin: 24px 0;">
-          <a href="${inviteUrl}"
-             style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px;
-                    text-decoration: none; font-weight: bold;">
+          <a href="${inviteUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
             Aceitar convite
           </a>
         </p>
-        <p style="color: #666; font-size: 14px;">
-          Este convite é válido durante 7 dias.<br>
-          Se não esperava este email, pode ignorá-lo com segurança.
-        </p>
+        <p style="color: #666; font-size: 14px;">Este convite é válido durante 7 dias.<br>Se não esperava este email, pode ignorá-lo com segurança.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
         <p style="color: #999; font-size: 12px;">iComply Compliance Operating System</p>
       </div>
-      `,
-    );
+    `);
   }
 
   async sendNotification(email: string, title: string, message: string): Promise<void> {
-    await this.send(
-      email,
-      `${title} — iComply`,
-      `
+    await this.send(email, `${title} — iComply`, `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1a56db;">${title}</h2>
         <p>${message}</p>
         <p style="margin: 24px 0;">
-          <a href="${this.frontendUrl}"
-             style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px;
-                    text-decoration: none; font-weight: bold;">
+          <a href="${this.frontendUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
             Ver na plataforma
           </a>
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-        <p style="color: #999; font-size: 12px;">iComply Compliance Operating System</p>
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System</p>
+      </div>
+    `);
+  }
+
+  async sendWeeklyDigest(email: string, firstName: string, orgName: string, stats: { overdueTasks: number; highRisks: number; openCapas: number; expiringEvidence: number }): Promise<void> {
+    const items = [
+      stats.overdueTasks     > 0 ? `<li>⏰ <b>${stats.overdueTasks}</b> tarefa(s) em atraso</li>`          : '',
+      stats.highRisks        > 0 ? `<li>⚠️ <b>${stats.highRisks}</b> risco(s) alto/crítico</li>`           : '',
+      stats.openCapas        > 0 ? `<li>🔧 <b>${stats.openCapas}</b> CAPA(s) em aberto</li>`               : '',
+      stats.expiringEvidence > 0 ? `<li>📄 <b>${stats.expiringEvidence}</b> evidência(s) a expirar</li>`   : '',
+    ].filter(Boolean).join('\n');
+
+    await this.send(email, `[iComply] Resumo semanal de conformidade — ${orgName}`, `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Resumo Semanal de Conformidade</h2>
+        <p>Olá ${firstName},</p>
+        <p>Aqui está o resumo semanal de conformidade para <strong>${orgName}</strong>:</p>
+        <ul style="line-height: 2;">${items || '<li>Sem itens pendentes — boa conformidade! ✅</li>'}</ul>
+        <p style="margin: 24px 0;">
+          <a href="${this.frontendUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            Ver na plataforma
+          </a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System · Digest semanal</p>
+      </div>
+    `);
+  }
+
+  async sendDsarConfirmation(email: string, subjectName: string, orgName: string, requestId: string): Promise<void> {
+    await this.send(email, `Confirmação do seu pedido RGPD — ${orgName}`, `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Pedido RGPD registado</h2>
+        <p>Caro/a ${subjectName},</p>
+        <p>Confirmamos a receção do seu pedido de exercício de direitos ao abrigo do RGPD submetido à <strong>${orgName}</strong>.</p>
+        <div style="background: #f8fafc; border-left: 4px solid #1a56db; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0; font-size: 14px; color: #64748b;">Referência do pedido</p>
+          <p style="margin: 4px 0 0; font-weight: bold; font-family: monospace;">${requestId.substring(0, 8).toUpperCase()}</p>
+        </div>
+        <p>Nos termos do artigo 12.º do RGPD, a organização tem <strong>30 dias</strong> para responder ao seu pedido.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">Este email foi gerado automaticamente. iComply Governance Operating System.</p>
+      </div>
+    `);
+  }
+
+  async sendAuditorInvite(email: string, auditorName: string, orgName: string, url: string, expiresAt: Date): Promise<void> {
+    await this.send(email, `Convite para Portal de Auditoria — ${orgName}`, `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Acesso ao Portal de Auditoria</h2>
+        <p>Olá <strong>${auditorName}</strong>,</p>
+        <p>A <strong>${orgName}</strong> partilhou consigo acesso ao portal de auditoria iComply.</p>
+        <div style="background: #f0f9ff; border-left: 4px solid #1a56db; padding: 12px; margin: 20px 0;">
+          <p style="margin:0; color:#1a56db; font-size:14px;">Acesso válido até: <strong>${expiresAt.toLocaleDateString('pt-PT')}</strong></p>
+        </div>
+        <p style="margin: 24px 0;"><a href="${url}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Aceder ao Portal</a></p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System</p>
+      </div>
+    `);
+  }
+
+  async sendScheduledReport(
+    email: string,
+    reportName: string,
+    orgName: string,
+    reportsLink: string,
+    frequency: string,
+    reportType?: string,
+    stats?: {
+      complianceScore?: number;
+      risks?: any[];
+      openCapas?: number;
+      auditsCompleted?: number;
+      totalAudits?: number;
+    },
+  ): Promise<void> {
+    const freqLabel: Record<string, string> = {
+      DAILY: 'diário', WEEKLY: 'semanal', MONTHLY: 'mensal', QUARTERLY: 'trimestral',
+    };
+    const typeLabel: Record<string, string> = {
+      COMPLIANCE_SUMMARY: 'Sumário de Conformidade',
+      RISK_REGISTER:      'Registo de Riscos',
+      TASK_STATUS:        'Estado de Tarefas',
+      EVIDENCE_GAP:       'Gap de Evidências',
+      EXECUTIVE_SUMMARY:  'Sumário Executivo',
+    };
+
+    const score = stats?.complianceScore ?? null;
+    const scoreColor = score === null ? '#64748b' : score >= 80 ? '#16a34a' : score >= 60 ? '#d97706' : '#dc2626';
+    const highRisks = stats?.risks?.filter((r: any) => ['HIGH', 'CRITICAL'].includes(r.level)).length ?? 0;
+
+    const statsHtml = stats ? `
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border-collapse: collapse;">
+        <tr>
+          ${score !== null ? `
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: ${scoreColor};">${score}%</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Score Conformidade</div>
+          </td>` : ''}
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: ${highRisks > 0 ? '#dc2626' : '#16a34a'};">${highRisks}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Riscos Críticos/Altos</div>
+          </td>
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: ${(stats.openCapas ?? 0) > 0 ? '#d97706' : '#16a34a'};">${stats.openCapas ?? 0}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">CAPA em Aberto</div>
+          </td>
+          <td width="25%" style="text-align: center; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="font-size: 26px; font-weight: bold; color: #1a56db;">${stats.auditsCompleted ?? 0}/${stats.totalAudits ?? 0}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Auditorias Concluídas</div>
+          </td>
+        </tr>
+      </table>
+    ` : '';
+
+    await this.send(
+      email,
+      `[iComply] Relatório ${freqLabel[frequency] || frequency} — ${reportName}`,
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
+        <!-- Header -->
+        <div style="background: #1e40af; padding: 24px 28px; border-radius: 8px 8px 0 0;">
+          <div style="color: white; font-size: 20px; font-weight: bold;">iComply
+            <span style="color: #93c5fd; font-weight: normal;"> Compliance Platform</span>
+          </div>
+          <div style="color: #bfdbfe; font-size: 13px; margin-top: 6px;">
+            Relatório automático ${freqLabel[frequency] || frequency} · ${typeLabel[reportType || ''] || reportName}
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div style="background: white; padding: 28px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+          <h2 style="margin: 0 0 8px; color: #1e40af; font-size: 18px;">Relatório automático disponível</h2>
+          <p style="margin: 0 0 16px; color: #475569;">
+            O relatório <strong>${typeLabel[reportType || ''] || reportName}</strong> para
+            <strong>${orgName}</strong> foi gerado automaticamente e está pronto para consulta.
+          </p>
+
+          ${statsHtml}
+
+          <p style="margin: 24px 0 8px; font-size: 13px; color: #64748b;">
+            Clique no botão abaixo para aceder à plataforma e descarregar o relatório:
+          </p>
+          <p style="margin: 0 0 24px;">
+            <a href="${reportsLink}"
+               style="display: inline-block; background: #1e40af; color: white; padding: 12px 28px;
+                      border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
+              Ver Relatórios na Plataforma →
+            </a>
+          </p>
+
+          <div style="background: #f8fafc; border-left: 3px solid #3b82f6; padding: 10px 14px;
+                      border-radius: 4px; font-size: 12px; color: #64748b;">
+            Gerado em ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+
+        <p style="text-align: center; color: #94a3b8; font-size: 11px; margin-top: 16px;">
+          iComply Governance Operating System · Relatório automático ${freqLabel[frequency] || frequency}<br>
+          Para gerir as suas notificações aceda às definições da plataforma.
+        </p>
       </div>
       `,
     );
   }
 
+  async sendVendorQuestionnaire(email: string, vendorName: string, url: string, expiresAt?: Date): Promise<void> {
+    const expiry = expiresAt ? expiresAt.toLocaleDateString('pt-PT') : '30 dias';
+    await this.send(email, 'Questionário de Segurança — iComply', `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">Questionário de Avaliação de Segurança</h2>
+        <p>Foi-lhe enviado um questionário de segurança e conformidade.</p>
+        <p>Por favor, preencha o questionário antes de <strong>${expiry}</strong>.</p>
+        <p style="margin: 24px 0;"><a href="${url}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Preencher Questionário</a></p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Governance Operating System</p>
+      </div>
+    `);
+  }
+
   async sendWelcome(email: string, firstName: string): Promise<void> {
-    await this.send(
-      email,
-      'Bem-vindo ao iComply!',
-      `
+    await this.send(email, 'Bem-vindo ao iComply!', `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1a56db;">Bem-vindo, ${firstName}!</h2>
         <p>A sua conta iComply está activa. Pode agora iniciar sessão e começar a gerir a conformidade da sua organização.</p>
         <p style="margin: 24px 0;">
-          <a href="${this.frontendUrl}"
-             style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px;
-                    text-decoration: none; font-weight: bold;">
+          <a href="${this.frontendUrl}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
             Entrar na plataforma
           </a>
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
         <p style="color: #999; font-size: 12px;">iComply Compliance Operating System</p>
       </div>
-      `,
-    );
+    `);
   }
 }

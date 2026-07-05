@@ -1,0 +1,126 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, RefreshCw, Send, Camera } from 'lucide-react';
+
+export default function DashboardError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error('[Dashboard Error]', error.name, error.message, error.stack);
+  }, [error]);
+
+  const [capturing, setCapturing] = useState(false);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const screenshotRef = useRef<string | null>(null);
+
+  const captureAndSend = async () => {
+    setCapturing(true);
+    let screenshotDataUrl: string | null = null;
+
+    try {
+      // Try html2canvas (loaded dynamically to avoid SSR issues)
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 0.75,
+        logging: false,
+      });
+      screenshotDataUrl = canvas.toDataURL('image/png');
+      screenshotRef.current = screenshotDataUrl;
+      setScreenshotUrl(screenshotDataUrl);
+
+      // Auto-download the screenshot
+      const link = document.createElement('a');
+      link.href = screenshotDataUrl;
+      link.download = `icomply-erro-${Date.now()}.png`;
+      link.click();
+    } catch {
+      // html2canvas failed — continue without screenshot
+    }
+
+    const url = typeof window !== 'undefined' ? window.location.href : 'N/A';
+    const ua  = typeof window !== 'undefined' ? window.navigator.userAgent : 'N/A';
+    const ts  = new Date().toLocaleString('pt-PT');
+
+    const subject = encodeURIComponent('[iComply] Erro no Dashboard');
+    const body = encodeURIComponent([
+      'Olá equipa iComply,',
+      '',
+      'Encontrei o seguinte erro no dashboard:',
+      '',
+      `Erro: ${error.message}`,
+      error.digest ? `ID de rastreio: ${error.digest}` : '',
+      '',
+      `URL: ${url}`,
+      `Data/Hora: ${ts}`,
+      `Navegador: ${ua}`,
+      '',
+      screenshotDataUrl
+        ? 'O screenshot foi descarregado automaticamente (icomply-erro-*.png). Por favor, anexe-o a este email.'
+        : '— Por favor, anexe uma captura de ecrã do que estava a fazer antes do erro ocorrer. —',
+    ].filter(Boolean).join('\n'));
+
+    window.open(`mailto:support@icomply.pt?subject=${subject}&body=${body}`);
+    setCapturing(false);
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[500px] text-center p-8">
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-lg w-full shadow-sm">
+        <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-4" />
+        <h2 className="text-lg font-bold text-red-800 mb-2">Erro ao carregar o Dashboard</h2>
+        <p className="text-sm text-red-600 mb-1 font-mono break-all">
+          {error.message || 'Ocorreu um erro inesperado.'}
+        </p>
+        {error.digest && (
+          <p className="text-xs text-red-400 mb-2 font-mono">ID: {error.digest}</p>
+        )}
+        <p className="text-xs text-red-400 mb-6">
+          Clica no botão abaixo para capturar o ecrã e enviar o erro automaticamente.
+        </p>
+
+        {screenshotUrl && (
+          <div className="mb-4 border border-red-200 rounded-xl overflow-hidden">
+            <p className="text-xs text-red-500 bg-red-100 py-1.5 px-3 text-left font-medium">
+              Screenshot capturado — será anexado ao email
+            </p>
+            <img src={screenshotUrl} alt="Screenshot do erro" className="w-full max-h-48 object-cover object-top" />
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={reset}
+            className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Tentar novamente
+          </button>
+          <button
+            onClick={captureAndSend}
+            disabled={capturing}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-wait"
+          >
+            {capturing ? (
+              <>
+                <Camera className="w-4 h-4 animate-pulse" />
+                A capturar…
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Enviar pedido de suporte
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

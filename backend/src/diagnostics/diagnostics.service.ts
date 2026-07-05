@@ -7,11 +7,24 @@ export class DiagnosticsService {
   constructor(private prisma: PrismaService) {}
 
   // ── Get all active diagnostic questions ─────────────────────
-  async getQuestions(category?: string) {
+  async getQuestions(category?: string, frameworkCodes?: string[]) {
+    // Build the framework filter: if codes are provided, only return questions
+    // that are either unlinked to a framework OR linked to one of the selected codes.
+    const frameworkFilter =
+      frameworkCodes && frameworkCodes.length > 0
+        ? {
+            OR: [
+              { frameworkId: null },
+              { framework: { code: { in: frameworkCodes } } },
+            ],
+          }
+        : {};
+
     return this.prisma.diagnosticQuestion.findMany({
       where: {
         isActive: true,
         ...(category && { category }),
+        ...frameworkFilter,
       },
       orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
       include: { framework: { select: { name: true, code: true } } },
@@ -20,6 +33,13 @@ export class DiagnosticsService {
 
   // ── Start a new diagnostic run ───────────────────────────────
   async startRun(organizationId: string, sector?: string, country?: string) {
+    // If there's already an IN_PROGRESS run, resume it instead of creating a duplicate
+    const existingRun = await this.prisma.diagnosticRun.findFirst({
+      where: { organizationId, status: 'IN_PROGRESS' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existingRun) return existingRun;
+
     return this.prisma.diagnosticRun.create({
       data: {
         organizationId,
@@ -76,7 +96,52 @@ export class DiagnosticsService {
       },
     });
     if (!run) throw new NotFoundException('Diagnostic run not found');
+
+    if (Array.isArray(run.recommendations) && run.recommendations.length > 0) {
+      const enriched = await this.attachSuggestedProjects(
+        run.recommendations as any[],
+        organizationId,
+      );
+      return { ...run, recommendations: enriched };
+    }
+
     return run;
+  }
+
+  // ── Suggest the most relevant existing project per recommendation ─
+  // Matches by exact frameworkId; if several projects share the framework,
+  // the most recently created one wins. No match → suggestedProjectId: null,
+  // leaving the choice to the user in the UI.
+  private async attachSuggestedProjects(
+    recommendations: any[],
+    organizationId: string,
+  ) {
+    const frameworkIds = [
+      ...new Set(recommendations.map((r) => r.frameworkId).filter(Boolean)),
+    ];
+    if (frameworkIds.length === 0) {
+      return recommendations.map((r) => ({ ...r, suggestedProjectId: null }));
+    }
+
+    const projects = await this.prisma.project.findMany({
+      where: { organizationId, frameworkId: { in: frameworkIds } },
+      select: { id: true, frameworkId: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const bestByFramework = new Map<string, string>();
+    for (const p of projects) {
+      if (!bestByFramework.has(p.frameworkId)) {
+        bestByFramework.set(p.frameworkId, p.id); // first hit = most recent, due to orderBy
+      }
+    }
+
+    return recommendations.map((r) => ({
+      ...r,
+      suggestedProjectId: r.frameworkId
+        ? bestByFramework.get(r.frameworkId) ?? null
+        : null,
+    }));
   }
 
   async findAllRuns(organizationId: string) {
@@ -87,6 +152,77 @@ export class DiagnosticsService {
         _count: { select: { answers: true, projects: true } },
       },
     });
+  }
+
+  // ── Platform health snapshot ─────────────────────────────────
+  async getPlatformHealth(organizationId: string) {
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const twelveMonthsAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    const [
+      riskTotal, riskWithOwner, riskWithMitigation, riskReviewedRecently,
+      policyTotal, policyApproved, policyReviewedRecently,
+      evidenceTotal, evidenceWithExpiry, evidenceExpired,
+      taskTotal, taskCompleted,
+      auditInternal, auditExternal, auditOpen,
+      trainingTotal,
+    ] = await Promise.all([
+      this.prisma.risk.count({ where: { organizationId } }),
+      this.prisma.risk.count({ where: { organizationId, ownerId: { not: null } } }),
+      this.prisma.risk.count({ where: { organizationId, mitigationPlan: { not: null } } }),
+      this.prisma.risk.count({ where: { organizationId, updatedAt: { gte: ninetyDaysAgo } } }),
+      this.prisma.policy.count({ where: { organizationId } }),
+      this.prisma.policy.count({ where: { organizationId, status: 'APPROVED' } }),
+      this.prisma.policy.count({ where: { organizationId, status: 'APPROVED', approvedAt: { gte: twelveMonthsAgo } } }),
+      this.prisma.evidence.count({ where: { uploadedBy: { organizationId } } }),
+      this.prisma.evidence.count({ where: { uploadedBy: { organizationId }, expiresAt: { not: null } } }),
+      this.prisma.evidence.count({ where: { uploadedBy: { organizationId }, expiresAt: { lt: now } } }),
+      this.prisma.task.count({ where: { project: { organizationId } } }),
+      this.prisma.task.count({ where: { project: { organizationId }, status: 'DONE' } }),
+      this.prisma.audit.count({ where: { organizationId, type: 'INTERNAL' } }),
+      this.prisma.audit.count({ where: { organizationId, type: 'EXTERNAL' } }),
+      this.prisma.audit.count({ where: { organizationId, status: { in: ['IN_PROGRESS', 'PLANNED'] } } }),
+      this.prisma.hrTraining.count({ where: { organizationId } }),
+    ]);
+
+    const taskCompletionRate = taskTotal > 0 ? Math.round((taskCompleted / taskTotal) * 100) : 0;
+    const evidenceValidPercent = evidenceTotal > 0
+      ? Math.round(((evidenceTotal - evidenceExpired) / evidenceTotal) * 100)
+      : 0;
+
+    return {
+      risks: {
+        total: riskTotal,
+        withOwner: riskWithOwner,
+        withMitigation: riskWithMitigation,
+        reviewedRecently: riskReviewedRecently,
+      },
+      policies: {
+        total: policyTotal,
+        approved: policyApproved,
+        reviewedRecently: policyReviewedRecently,
+      },
+      evidence: {
+        total: evidenceTotal,
+        withExpiry: evidenceWithExpiry,
+        expired: evidenceExpired,
+        validPercent: evidenceValidPercent,
+      },
+      tasks: {
+        total: taskTotal,
+        completed: taskCompleted,
+        completionRate: taskCompletionRate,
+      },
+      audits: {
+        internal: auditInternal,
+        external: auditExternal,
+        open: auditOpen,
+      },
+      training: {
+        total: trainingTotal,
+      },
+    };
   }
 
   // ── Recommendation engine ────────────────────────────────────

@@ -1,18 +1,20 @@
-import { IsString, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AcceptInviteDto {
   @ApiProperty()
   @IsString()
   token: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  firstName: string;
+  firstName?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  lastName: string;
+  lastName?: string;
 
   @ApiProperty({ minimum: 8 })
   @IsString()

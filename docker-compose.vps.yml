@@ -54,16 +54,21 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Redis ───────────────────────────────────────────────────
+  # ── Redis (token blacklist / rate limiting) ─────────────────
   redis:
     image: redis:7-alpine
     container_name: icomply_redis
     restart: unless-stopped
     networks:
       - icomply-internal          # NOT on traefik-public
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - icomply_redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "${REDIS_PASSWORD:-}" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ── MinIO ───────────────────────────────────────────────────
   minio:
@@ -85,10 +90,10 @@ services:
       retries: 3
 
   # ── Backend (NestJS) ────────────────────────────────────────
+  # Image built on GitHub Actions and pushed to GHCR.
+  # VPS only does: docker compose pull && docker compose up -d
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/kferreira69/icomply-backend:latest
     container_name: icomply_backend
     restart: unless-stopped
     networks:
@@ -110,17 +115,29 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       APP_PORT: 3001
       APP_URL: https://api.${DOMAIN}
+      FRONTEND_URL: https://app.${DOMAIN}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
-      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-true}
       ENABLE_AUDIT_LOG: 'true'
+      # ── AI ──────────────────────────────────────────────────────
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # ── Moloni (faturação) ──────────────────────────────────────
+      MOLONI_CLIENT_ID: ${MOLONI_CLIENT_ID}
+      MOLONI_CLIENT_SECRET: ${MOLONI_CLIENT_SECRET}
+      MOLONI_USERNAME: ${MOLONI_USERNAME}
+      MOLONI_PASSWORD: ${MOLONI_PASSWORD}
+      MOLONI_COMPANY_ID: ${MOLONI_COMPANY_ID}
     depends_on:
       postgres:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
@@ -137,12 +154,9 @@ services:
       - "traefik.http.routers.icomply-api-http.middlewares=redirect-to-https"
 
   # ── Frontend (Next.js) ──────────────────────────────────────
+  # Image built on GitHub Actions (NEXT_PUBLIC_API_URL baked at build time).
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api/v1
+    image: ghcr.io/kferreira69/icomply-frontend:latest
     container_name: icomply_frontend
     restart: unless-stopped
     networks:
@@ -161,12 +175,33 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
       # Router — domain.pt
-      - "traefik.http.routers.icomply-frontend.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-frontend.rule=Host(`app.${DOMAIN}`) || Host(`admin.icomply.pt`)"
       - "traefik.http.routers.icomply-frontend.entrypoints=websecure"
       - "traefik.http.routers.icomply-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.icomply-frontend.service=icomply-frontend"
       - "traefik.http.services.icomply-frontend.loadbalancer.server.port=3000"
       # HTTP → HTTPS redirect
-      - "traefik.http.routers.icomply-frontend-http.rule=Host(`app.${DOMAIN}`)"
+      - "traefik.http.routers.icomply-frontend-http.rule=Host(`app.${DOMAIN}`) || Host(`admin.icomply.pt`)"
       - "traefik.http.routers.icomply-frontend-http.entrypoints=web"
       - "traefik.http.routers.icomply-frontend-http.middlewares=redirect-to-https"
+
+  # ── iGuard Downloads (static binaries) ─────────────────────
+  # Serves /opt/icomply/downloads/ at https://app.icomply.pt/downloads/
+  # Binaries are deployed by the iguard-release CI workflow.
+  downloads:
+    image: nginx:alpine
+    container_name: icomply_downloads
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    volumes:
+      - /opt/icomply/downloads:/usr/share/nginx/html/downloads:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.icomply-downloads.rule=Host(`app.${DOMAIN}`) && PathPrefix(`/downloads/`)"
+      - "traefik.http.routers.icomply-downloads.entrypoints=websecure"
+      - "traefik.http.routers.icomply-downloads.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.icomply-downloads.service=icomply-downloads"
+      - "traefik.http.services.icomply-downloads.loadbalancer.server.port=80"
+      - "traefik.http.routers.icomply-downloads.priority=100"

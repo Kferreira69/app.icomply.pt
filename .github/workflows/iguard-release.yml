@@ -1,0 +1,82 @@
+name: iGuard — Build & Deploy Binaries
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'iGuard/**'
+      - '.github/workflows/iguard-release.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Cross-compile & deploy iGuard
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: iGuard/go.sum
+
+      - name: Get version tag
+        id: version
+        run: echo "version=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
+
+      - name: Build all platforms
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist
+          cd iGuard
+
+          build() {
+            GOOS=$1 GOARCH=$2 go build \
+              -ldflags "-X main.Version=${VERSION}" \
+              -o "../dist/$3" .
+          }
+
+          # Windows amd64
+          build windows amd64 iguard-windows-amd64.exe
+          cp ../dist/iguard-windows-amd64.exe ../dist/iguard-server-windows-amd64.exe
+
+          # macOS
+          build darwin arm64 iguard-darwin-arm64
+          build darwin amd64 iguard-darwin-amd64
+
+          # Linux amd64
+          build linux amd64 iguard-linux-amd64
+          cp ../dist/iguard-linux-amd64 ../dist/iguard-server-linux-amd64
+
+          # Linux arm64
+          build linux arm64 iguard-linux-arm64
+          cp ../dist/iguard-linux-arm64 ../dist/iguard-server-linux-arm64
+
+      - name: List built binaries
+        run: ls -lh dist/
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload binaries to VPS
+        run: |
+          scp dist/* \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/icomply/downloads/
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "chmod 644 /opt/icomply/downloads/*"
+          echo "✅ Binaries deployed"
+
+      - name: Smoke-test
+        run: |
+          sleep 3
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+            https://app.icomply.pt/downloads/iguard-windows-amd64.exe)
+          echo "HTTP $STATUS for iguard-windows-amd64.exe"
+          [ "$STATUS" = "200" ] || (echo "❌ Expected 200, got $STATUS" && exit 1)
+          echo "✅ Downloads endpoint OK"

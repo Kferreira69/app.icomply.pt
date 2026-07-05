@@ -1,15 +1,40 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
 import * as path from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
+
+// ── Sentry (initialise before anything else if DSN is set) ────
+if (process.env.SENTRY_DSN) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Sentry = require('@sentry/node');
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: 0.1,
+      release: process.env.APP_VERSION || 'unknown',
+    });
+    console.log('[Sentry] Initialised successfully');
+  } catch {
+    console.warn('[Sentry] Could not initialise — @sentry/node may not be installed yet');
+  }
+}
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log'],
+  const isProdBuild = process.env.NODE_ENV === 'production';
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // In production: only errors/warnings; in dev: full verbose
+    logger: isProdBuild ? ['error', 'warn'] : ['error', 'warn', 'log', 'debug', 'verbose'],
+    // Structured JSON logs in production via built-in logger
+    bufferLogs: false,
   });
 
   const configService = app.get(ConfigService);
@@ -17,7 +42,20 @@ async function bootstrap() {
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isProd = nodeEnv === 'production';
 
-  // ── Security headers (Helmet) ─────────────────────────────
+  // ── Trust proxy — required behind Traefik/nginx ───────────────
+  app.set('trust proxy', 1);
+
+  // ── Graceful shutdown ─────────────────────────────────────────
+  app.enableShutdownHooks();
+
+  // ── Cookie parser (required for HttpOnly cookie JWT) ──────────
+  app.use(cookieParser());
+
+  // ── Body size limit — prevent DoS via huge payloads ──────────
+  app.use(require('express').json({ limit: '1mb' }));
+  app.use(require('express').urlencoded({ extended: true, limit: '1mb' }));
+
+  // ── Security headers (Helmet) ─────────────────────────────────
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -29,55 +67,58 @@ async function bootstrap() {
           connectSrc: ["'self'"],
         },
       },
-      crossOriginEmbedderPolicy: false, // allow Swagger UI to load
+      crossOriginEmbedderPolicy: false, // allow Swagger UI
+      hidePoweredBy: true,              // remove X-Powered-By: Express
       hsts: isProd
-        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        ? { maxAge: 63072000, includeSubDomains: true, preload: true } // 2 years
         : false,
     }),
   );
 
-  // ── Global prefix ────────────────────────────────────────
+  // ── Global prefix ─────────────────────────────────────────────
   app.setGlobalPrefix('api/v1');
 
-  // ── CORS ─────────────────────────────────────────────────
+  // ── CORS ──────────────────────────────────────────────────────
   const corsOrigins = [
     'http://localhost:3000',
-    // Production
     'https://app.icomply.pt',
     'https://icomply.pt',
-    // Staging
     'https://staging.icomply.pt',
-    // Dev on VPS
     'https://dev.icomply.pt',
   ];
-  // Allow additional origins from env (comma-separated)
   const extraOrigins = configService.get<string>('CORS_ORIGINS', '');
   if (extraOrigins) {
     corsOrigins.push(...extraOrigins.split(',').map(o => o.trim()));
   }
   app.enableCors({
     origin: corsOrigins,
-    credentials: true,
+    credentials: true, // required for cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
   });
 
-  // ── Global pipes ─────────────────────────────────────────
+  // ── Global exception filter (no stack traces in prod) ─────────
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // ── Global pipes ──────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      // Never expose validation details to the client in production
+      disableErrorMessages: isProd,
     }),
   );
 
-  // ── Global interceptors ──────────────────────────────────
+  // ── Global interceptors ───────────────────────────────────────
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector)),
+    new AuditLogInterceptor(),
   );
 
-  // ── Swagger ───────────────────────────────────────────────
+  // ── Swagger ───────────────────────────────────────────────────
   if (configService.get<string>('ENABLE_SWAGGER') !== 'false') {
     const config = new DocumentBuilder()
       .setTitle('iComply API')
@@ -87,6 +128,7 @@ async function bootstrap() {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'JWT',
       )
+      .addCookieAuth('access_token')
       .addTag('Auth', 'Authentication & authorization')
       .addTag('Organizations', 'Tenant management')
       .addTag('Users', 'User management')
@@ -110,13 +152,12 @@ async function bootstrap() {
     });
   }
 
-  // ── Local file uploads serving (fallback when S3 not configured) ─
+  // ── Static uploads ────────────────────────────────────────────
   const uploadDir = configService.get<string>(
     'LOCAL_UPLOAD_DIR',
     path.join(process.cwd(), 'uploads'),
   );
   fs.mkdirSync(uploadDir, { recursive: true });
-  // Use express static via the underlying http adapter (express is bundled with @nestjs/platform-express)
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   app.use('/api/v1/uploads', require('express').static(uploadDir));
 

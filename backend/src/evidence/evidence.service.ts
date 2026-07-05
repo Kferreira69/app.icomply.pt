@@ -117,6 +117,20 @@ export class EvidenceService {
     });
   }
 
+  async bulkUpdateStatus(ids: string[], status: EvidenceStatus, organizationId: string) {
+    // Verify all belong to this org
+    const count = await this.prisma.evidence.count({
+      where: { id: { in: ids }, uploadedBy: { organizationId } },
+    });
+    if (count !== ids.length) throw new NotFoundException('Some evidence records not found');
+
+    await this.prisma.evidence.updateMany({
+      where: { id: { in: ids } },
+      data: { status, reviewedAt: new Date() },
+    });
+    return { updated: ids.length, status };
+  }
+
   async getGapAnalysis(organizationId: string, frameworkId: string) {
     const controls = await this.prisma.control.findMany({
       where: { frameworkId },

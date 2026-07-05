@@ -54,6 +54,12 @@ export class CreateTaskDto {
   @IsOptional()
   @Transform(emptyToUndefined)
   @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsDateString()
   dueDate?: string;
 
   @ApiPropertyOptional()

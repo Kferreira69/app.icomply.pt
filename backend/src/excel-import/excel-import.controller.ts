@@ -1,20 +1,25 @@
 import {
   Controller, Get, Post, Body, Param, Query,
-  UploadedFile, UseInterceptors, Res,
+  UploadedFile, UseInterceptors, Res, UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ExcelImportService } from './excel-import.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequireModule } from '../permissions/require-module.decorator';
 
 @ApiTags('Excel Import')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('excel-import')
 export class ExcelImportController {
   constructor(private service: ExcelImportService) {}
 
   @Post('upload')
+  @RequireModule('excelImport', 2)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload Excel file for import' })
@@ -29,11 +34,13 @@ export class ExcelImportController {
   }
 
   @Get('history')
+  @RequireModule('excelImport', 1)
   getHistory(@CurrentUser('organizationId') orgId: string) {
     return this.service.getHistory(orgId);
   }
 
   @Get('template')
+  @RequireModule('excelImport', 1)
   @ApiOperation({ summary: 'Download Excel import template' })
   async downloadTemplate(
     @Query('type') type: string,
@@ -48,6 +55,7 @@ export class ExcelImportController {
   }
 
   @Get(':id')
+  @RequireModule('excelImport', 1)
   getStatus(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
     return this.service.getStatus(id, orgId);
   }

@@ -1,0 +1,101 @@
+# traefik/config/middleware.yml
+# Aplicar a TODOS os routers em produção
+
+http:
+  middlewares:
+
+    # ─────────────────────────────────────────────
+    # 1. SECURITY HEADERS (obrigatório em todos os serviços)
+    # ─────────────────────────────────────────────
+    security-headers:
+      headers:
+        # Previne clickjacking
+        frameDeny: true
+        # Previne MIME sniffing
+        contentTypeNosniff: true
+        # Força HTTPS durante 2 anos, inclui subdomínios e preload
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        # XSS protection (legacy browsers)
+        browserXssFilter: true
+        # Remove header que expõe o servidor
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+          X-AspNet-Version: ""
+        # Referrer mínimo para não vazar URLs internas
+        referrerPolicy: "strict-origin-when-cross-origin"
+        # Permissions policy — desativar APIs desnecessárias
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()"
+        # CSP — ajustar conforme os teus CDNs/fontes
+        contentSecurityPolicy: >-
+          default-src 'self';
+          script-src 'self' 'nonce-{nonce}';
+          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+          font-src 'self' https://fonts.gstatic.com;
+          img-src 'self' data: https:;
+          connect-src 'self' https://api.icomply.pt;
+          frame-ancestors 'none';
+          base-uri 'self';
+          form-action 'self';
+          upgrade-insecure-requests;
+
+    # ─────────────────────────────────────────────
+    # 2. RATE LIMITING — API backend
+    # ─────────────────────────────────────────────
+    rate-limit-api:
+      rateLimit:
+        average: 100      # requests por segundo (média)
+        burst: 50         # pico máximo
+        period: 1s
+
+    # Rate limit mais apertado para auth endpoints
+    rate-limit-auth:
+      rateLimit:
+        average: 5
+        burst: 10
+        period: 1m
+
+    # ─────────────────────────────────────────────
+    # 3. REDIRECT HTTP → HTTPS
+    # ─────────────────────────────────────────────
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    # ─────────────────────────────────────────────
+    # 4. IP ALLOWLIST — painel Traefik (só IPs teus)
+    # ─────────────────────────────────────────────
+    traefik-dashboard-allowlist:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          # Adiciona o teu IP de escritório:
+          # - "X.X.X.X/32"
+
+    # ─────────────────────────────────────────────
+    # 5. COMPRESS respostas
+    # ─────────────────────────────────────────────
+    compress:
+      compress: {}
+
+    # ─────────────────────────────────────────────
+    # 6. CHAIN — aplicar em produção (API)
+    # ─────────────────────────────────────────────
+    secure-api:
+      chain:
+        middlewares:
+          - redirect-to-https
+          - security-headers
+          - rate-limit-api
+          - compress
+
+    # Chain para endpoints de autenticação
+    secure-auth:
+      chain:
+        middlewares:
+          - redirect-to-https
+          - security-headers
+          - rate-limit-auth

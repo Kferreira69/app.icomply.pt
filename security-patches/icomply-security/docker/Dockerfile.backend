@@ -1,0 +1,54 @@
+# Dockerfile.backend — NestJS hardened (multi-stage)
+# Resultado: imagem mínima, sem root, sem ferramentas de dev
+
+# ─── STAGE 1: Dependencies ───────────────────
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+# Instalar apenas dependências de produção
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# ─── STAGE 2: Build ──────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ─── STAGE 3: Production ─────────────────────
+FROM node:20-alpine AS production
+
+# Instalar dumb-init para gestão de processos (SIGTERM correto)
+RUN apk add --no-cache dumb-init
+
+# Criar utilizador não-root dedicado
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Copiar apenas o necessário do build
+COPY --from=deps --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/package.json ./
+
+# Mudar para utilizador não-root
+USER nestjs
+
+# Não expor variáveis de ambiente no processo
+ENV NODE_ENV=production
+ENV PORT=3001
+
+EXPOSE 3001
+
+# dumb-init garante que signals chegam corretamente ao Node.js
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/main.js"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:3001/api/v1/health || exit 1

@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { capaApi } from '@/lib/api';
-import { Plus, AlertCircle, Loader2, Calendar } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, Calendar, Pencil, Download } from 'lucide-react';
+import { usePdfExport } from '@/hooks/usePdfExport';
 import { cn, formatDate, getStatusColor, isOverdue, cleanFormData } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 
-const CAPA_STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Aberto', IN_PROGRESS: 'Em Curso', PENDING_VERIFICATION: 'A Verificar', CLOSED: 'Fechado', OVERDUE: 'Em Atraso',
-};
-
 function NewCapaModal({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('capa');
+  const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
   const createMutation = useMutation({
@@ -22,38 +22,122 @@ function NewCapaModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Nova Ação Corretiva (CAPA)</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('newCapaFull')}</h3>
         <form onSubmit={handleSubmit(d => createMutation.mutate(d))} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')} *</label>
             <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')} *</label>
             <textarea {...register('description', { required: true })} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Causa Raiz</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('rootCause')}</label>
             <textarea {...register('rootCause')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ação Corretiva</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('correctiveAction')}</label>
             <textarea {...register('correctiveAction')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Prazo</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('dueDate')}</label>
             <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
           </div>
           {createMutation.isError && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              Erro ao criar CAPA. Verifique os campos e tente novamente.
+              {t('createError')}
             </p>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">Cancelar</button>
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
             <button type="submit" disabled={createMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Criar CAPA
+              {t('newCapa')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditCapaModal({ capa, onClose }: { capa: any; onClose: () => void }) {
+  const t = useTranslations('capa');
+  const tCommon = useTranslations('common');
+  const qc = useQueryClient();
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+    defaultValues: {
+      title: capa.title,
+      description: capa.description || '',
+      rootCause: capa.rootCause || '',
+      correctiveAction: capa.correctiveAction || '',
+      preventiveAction: capa.preventiveAction || '',
+      dueDate: capa.dueDate ? capa.dueDate.slice(0, 10) : '',
+      status: capa.status,
+    },
+  });
+
+  const CAPA_STATUS_LABELS: Record<string, string> = {
+    OPEN: t('status.OPEN'),
+    IN_PROGRESS: t('status.IN_PROGRESS'),
+    PENDING_VERIFICATION: t('status.PENDING_VERIFICATION'),
+    CLOSED: t('status.CLOSED'),
+    OVERDUE: t('status.OVERDUE'),
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => capaApi.update(capa.id, cleanFormData(data)),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['capa'] }); onClose(); },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">{t('editCapa')}</h3>
+        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('name')} *</label>
+            <input {...register('title', { required: true })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('description')} *</label>
+            <textarea {...register('description', { required: true })} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('rootCause')}</label>
+            <textarea {...register('rootCause')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('correctiveAction')}</label>
+            <textarea {...register('correctiveAction')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('preventiveAction')}</label>
+            <textarea {...register('preventiveAction')} rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('status')}</label>
+              <select {...register('status')} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none">
+                {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{tCommon('dueDate')}</label>
+              <input {...register('dueDate')} type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+            </div>
+          </div>
+          {updateMutation.isError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {t('saveError')}
+            </p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">{tCommon('cancel')}</button>
+            <button type="submit" disabled={updateMutation.isPending} className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {tCommon('save')}
             </button>
           </div>
         </form>
@@ -63,9 +147,21 @@ function NewCapaModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function CapaPage() {
+  const t = useTranslations('capa');
+  const tCommon = useTranslations('common');
   const [showNew, setShowNew] = useState(false);
+  const [editingCapa, setEditingCapa] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const qc = useQueryClient();
+  const { exportCapas } = usePdfExport();
+
+  const CAPA_STATUS_LABELS: Record<string, string> = {
+    OPEN: t('status.OPEN'),
+    IN_PROGRESS: t('status.IN_PROGRESS'),
+    PENDING_VERIFICATION: t('status.PENDING_VERIFICATION'),
+    CLOSED: t('status.CLOSED'),
+    OVERDUE: t('status.OVERDUE'),
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['capa', statusFilter],
@@ -88,13 +184,16 @@ export default function CapaPage() {
           onChange={e => setStatusFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"
         >
-          <option value="">Todos os estados</option>
+          <option value="">{t('allStatuses')}</option>
           {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => (
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
+        <button onClick={() => exportCapas(capas)} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 bg-white transition-colors">
+          <Download className="w-4 h-4" />PDF
+        </button>
         <button onClick={() => setShowNew(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90">
-          <Plus className="w-4 h-4" /> Nova CAPA
+          <Plus className="w-4 h-4" /> {t('newCapa')}
         </button>
       </div>
 
@@ -119,7 +218,7 @@ export default function CapaPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Título', 'Finding', 'Responsável', 'Estado', 'Prazo', 'Ação'].map(h => (
+                {[t('colTitle'), t('colFinding'), t('colAssignee'), t('colStatus'), t('colDueDate'), t('colAction')].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
                 ))}
               </tr>
@@ -129,7 +228,7 @@ export default function CapaPage() {
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-400">
                     <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">Nenhuma CAPA registada</p>
+                    <p className="text-sm">{t('noCapa')}</p>
                   </td>
                 </tr>
               ) : capas.map((c: any) => (
@@ -156,17 +255,22 @@ export default function CapaPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {c.status !== 'CLOSED' && (
-                      <select
-                        value={c.status}
-                        onChange={e => updateMutation.mutate({ id: c.id, status: e.target.value })}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
-                      >
-                        {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {c.status !== 'CLOSED' && (
+                        <select
+                          value={c.status}
+                          onChange={e => updateMutation.mutate({ id: c.id, status: e.target.value })}
+                          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                        >
+                          {Object.entries(CAPA_STATUS_LABELS).map(([v, l]) => (
+                            <option key={v} value={v}>{l}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button onClick={() => setEditingCapa(c)} className="p-1 text-gray-300 hover:text-primary rounded transition-colors" title={tCommon('edit') as string}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -176,6 +280,7 @@ export default function CapaPage() {
       )}
 
       {showNew && <NewCapaModal onClose={() => setShowNew(false)} />}
+      {editingCapa && <EditCapaModal capa={editingCapa} onClose={() => setEditingCapa(null)} />}
     </div>
   );
 }

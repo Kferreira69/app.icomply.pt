@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { TokenBlacklistService } from '../common/security/token-blacklist.service';
 
 @Module({
   imports: [
@@ -26,11 +27,11 @@ import { RolesGuard } from '../common/guards/roles.guard';
     AuthService,
     JwtStrategy,
     LocalStrategy,
-    // Apply JWT guard globally
+    TokenBlacklistService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, TokenBlacklistService],
 })
 export class AuthModule {}

@@ -1,16 +1,29 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
-import { RiskStatus } from '@prisma/client';
+import { RiskStatus, NotificationType } from '@prisma/client';
 
 // Likelihood and impact map 1-5
+// Includes aliases for extended enum values that may appear in DTOs or imports
 const LIKELIHOOD_VALUES: Record<string, number> = {
   RARE: 1, UNLIKELY: 2, POSSIBLE: 3, LIKELY: 4, ALMOST_CERTAIN: 5,
+  VERY_LIKELY: 5, // alias
 };
 const IMPACT_VALUES: Record<string, number> = {
   NEGLIGIBLE: 1, MINOR: 2, MODERATE: 3, MAJOR: 4, CATASTROPHIC: 5,
+  SIGNIFICANT: 4, // alias for MAJOR
+  CRITICAL: 5,    // alias for CATASTROPHIC
 };
+
+function calcRiskLevel(likelihood: string, impact: string): string {
+  const score = (LIKELIHOOD_VALUES[likelihood] ?? 1) * (IMPACT_VALUES[impact] ?? 1);
+  if (score >= 20) return 'CRITICAL';
+  if (score >= 12) return 'HIGH';
+  if (score >= 6) return 'MEDIUM';
+  return 'LOW';
+}
 
 function getRiskLevel(score: number): string {
   if (score >= 20) return 'CRITICAL';
@@ -21,22 +34,51 @@ function getRiskLevel(score: number): string {
 
 @Injectable()
 export class RisksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async create(dto: CreateRiskDto, organizationId: string, ownerId: string) {
-    const inherentScore = LIKELIHOOD_VALUES[dto.likelihood] * IMPACT_VALUES[dto.impact];
+    const inherentScore =
+      (LIKELIHOOD_VALUES[dto.likelihood] ?? 1) * (IMPACT_VALUES[dto.impact] ?? 1);
+    const riskLevel = calcRiskLevel(dto.likelihood, dto.impact);
+    const { frameworkIds, ...riskData } = dto;
 
-    return this.prisma.risk.create({
+    const risk = await this.prisma.risk.create({
       data: {
-        ...dto,
+        ...riskData,
         organizationId,
         ownerId,
         inherentScore,
+        ...(frameworkIds && frameworkIds.length > 0 && {
+          frameworks: {
+            create: frameworkIds.map(frameworkId => ({ frameworkId })),
+          },
+        }),
       },
       include: {
         owner: { select: { id: true, firstName: true, lastName: true } },
+        frameworks: { include: { framework: true } },
       },
     });
+
+    // Alert owner when risk is HIGH or CRITICAL
+    if (inherentScore >= 12) {
+      const level = inherentScore >= 20 ? 'CRÍTICO' : 'ALTO';
+      await this.notifications.create({
+        organizationId,
+        userId: ownerId,
+        type: NotificationType.RISK_HIGH,
+        title: `Risco ${level} registado`,
+        message: `O risco "${risk.title}" foi classificado como ${level} (score ${inherentScore}). Defina um plano de mitigação.`,
+        entityType: 'Risk',
+        entityId: risk.id,
+        sendEmail: inherentScore >= 20,
+      });
+    }
+
+    return { ...risk, riskLevel };
   }
 
   async findAll(
@@ -45,12 +87,16 @@ export class RisksService {
     status?: RiskStatus,
     page = 1,
     limit = 50,
+    search?: string,
   ) {
     const skip = (page - 1) * limit;
     const where: any = {
       organizationId,
       ...(projectId && { projectId }),
       ...(status && { status }),
+      ...(search && {
+        title: { contains: search, mode: 'insensitive' },
+      }),
     };
 
     const [data, total] = await Promise.all([
@@ -62,6 +108,7 @@ export class RisksService {
         include: {
           owner: { select: { id: true, firstName: true, lastName: true } },
           project: { select: { id: true, name: true } },
+          frameworks: { include: { framework: true } },
           _count: { select: { evidences: true } },
         },
       }),
@@ -85,28 +132,102 @@ export class RisksService {
         owner: { select: { id: true, firstName: true, lastName: true } },
         project: { select: { id: true, name: true } },
         evidences: { select: { id: true, title: true, status: true } },
+        frameworks: { include: { framework: true } },
       },
     });
     if (!risk) throw new NotFoundException('Risk not found');
     return { ...risk, riskLevel: getRiskLevel(risk.inherentScore) };
   }
 
-  async update(id: string, organizationId: string, dto: UpdateRiskDto) {
-    await this.findOne(id, organizationId);
+  async update(id: string, organizationId: string, dto: UpdateRiskDto, userId?: string) {
+    const existing = await this.findOne(id, organizationId);
 
-    const updateData: any = { ...dto };
+    // Take snapshot before updating (for history chart)
+    await (this.prisma as any).riskSnapshot.create({
+      data: {
+        riskId:         id,
+        inherentScore:  existing.inherentScore,
+        residualScore:  existing.residualScore,
+        status:         existing.status,
+        likelihood:     existing.likelihood,
+        impact:         existing.impact,
+        capturedById:   userId,
+      },
+    }).catch(() => {}); // non-blocking
+
+    const { frameworkIds, ...restDto } = dto;
+    const updateData: any = { ...restDto };
+    const effectiveLikelihood = dto.likelihood ?? existing.likelihood;
+    const effectiveImpact = dto.impact ?? existing.impact;
+
     if (dto.likelihood || dto.impact) {
-      const current = await this.prisma.risk.findUnique({ where: { id } });
-      const l = dto.likelihood ? LIKELIHOOD_VALUES[dto.likelihood] : LIKELIHOOD_VALUES[current.likelihood];
-      const i = dto.impact ? IMPACT_VALUES[dto.impact] : IMPACT_VALUES[current.impact];
+      const l = LIKELIHOOD_VALUES[effectiveLikelihood] ?? 1;
+      const i = IMPACT_VALUES[effectiveImpact] ?? 1;
       updateData.inherentScore = l * i;
     }
 
-    return this.prisma.risk.update({
+    // Sync RiskFramework join rows when frameworkIds is provided (delete-all-then-recreate;
+    // join table is small so a full diff isn't necessary)
+    if (frameworkIds !== undefined) {
+      updateData.frameworks = {
+        deleteMany: {},
+        create: frameworkIds.map(frameworkId => ({ frameworkId })),
+      };
+    }
+
+    const updatedRisk = await this.prisma.risk.update({
       where: { id },
       data: updateData,
       include: {
         owner: { select: { id: true, firstName: true, lastName: true } },
+        frameworks: { include: { framework: true } },
+      },
+    });
+
+    return {
+      ...updatedRisk,
+      riskLevel: calcRiskLevel(effectiveLikelihood, effectiveImpact),
+    };
+  }
+
+  async getHistory(id: string, organizationId: string) {
+    await this.findOne(id, organizationId);
+    return (this.prisma as any).riskSnapshot.findMany({
+      where: { riskId: id },
+      orderBy: { capturedAt: 'asc' },
+      select: { inherentScore: true, residualScore: true, status: true, capturedAt: true },
+    });
+  }
+
+  async updateTreatmentPlan(id: string, organizationId: string, dto: any) {
+    await this.findOne(id, organizationId);
+    return this.prisma.risk.update({
+      where: { id },
+      data: {
+        treatmentType:   dto.treatmentType,
+        treatmentPlan:   dto.treatmentPlan,
+        treatmentStatus: dto.treatmentStatus,
+        treatmentOwnerId: dto.treatmentOwnerId,
+        treatmentDueDate: dto.treatmentDueDate ? new Date(dto.treatmentDueDate) : undefined,
+        treatmentCompletedAt: dto.treatmentStatus === 'COMPLETED' ? new Date() : undefined,
+        residualScore:   dto.residualScore ? Number(dto.residualScore) : undefined,
+        riskAppetite:    dto.riskAppetite,
+      },
+      include: { owner: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async acceptRisk(id: string, organizationId: string, userId: string, dto: any) {
+    await this.findOne(id, organizationId);
+    return this.prisma.risk.update({
+      where: { id },
+      data: {
+        treatmentType:        'ACCEPT',
+        acceptedAt:           new Date(),
+        acceptedById:         userId,
+        acceptanceRationale:  dto.rationale,
+        treatmentStatus:      'COMPLETED',
+        status:               'ACCEPTED' as any,
       },
     });
   }

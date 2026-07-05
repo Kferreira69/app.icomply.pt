@@ -1,18 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, tasksApi, risksApi, evidenceApi } from '@/lib/api';
 import {
   ArrowLeft, CheckSquare, AlertTriangle, FileText, Loader2,
-  Plus, Calendar, Target, TrendingUp,
+  Plus, Calendar, Target, TrendingUp, BarChart2,
 } from 'lucide-react';
 import { cn, formatDate, getStatusColor, getPriorityColor, getRiskColor, isOverdue } from '@/lib/utils';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { GanttChart, type GanttItem } from '@/components/gantt/GanttChart';
 
 const STATUS_LABELS: Record<string, string> = {
   TODO: 'A Fazer', IN_PROGRESS: 'Em Curso', IN_REVIEW: 'Em Revisão', DONE: 'Concluído', CANCELLED: 'Cancelado',
+};
+
+const TASK_COLORS: Record<string, string> = {
+  TODO:        'bg-gray-400',
+  IN_PROGRESS: 'bg-blue-500',
+  IN_REVIEW:   'bg-amber-500',
+  DONE:        'bg-green-500',
+  CANCELLED:   'bg-red-400',
+};
+
+const TASK_PROGRESS: Record<string, number> = {
+  TODO: 0, IN_PROGRESS: 40, IN_REVIEW: 75, DONE: 100, CANCELLED: 0,
 };
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -31,7 +44,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<'tasks' | 'risks' | 'evidence'>('tasks');
+  const [tab, setTab] = useState<'tasks' | 'risks' | 'evidence' | 'gantt'>('tasks');
   const qc = useQueryClient();
 
   const { data: project, isLoading } = useQuery({
@@ -42,7 +55,7 @@ export default function ProjectDetailPage() {
   const { data: tasksData } = useQuery({
     queryKey: ['tasks', { projectId: id }],
     queryFn: () => tasksApi.list({ projectId: id, limit: 100 }).then(r => r.data),
-    enabled: tab === 'tasks',
+    enabled: tab === 'tasks' || tab === 'gantt',
   });
 
   const { data: risksData } = useQuery({
@@ -61,6 +74,25 @@ export default function ProjectDetailPage() {
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) => tasksApi.update(taskId, { status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', { projectId: id }] }),
   });
+
+  const ganttItems = useMemo((): GanttItem[] => {
+    return (tasksData?.data || []).map((t: any) => {
+      const start = t.startDate ? new Date(t.startDate) : new Date(t.createdAt);
+      const endRaw = t.dueDate ? new Date(t.dueDate) : null;
+      const end = endRaw ?? new Date(start.getTime() + 7 * 86400000);
+      const safeEnd = end > start ? end : new Date(start.getTime() + 86400000);
+      return {
+        id:       t.id,
+        name:     t.title,
+        subtitle: t.assignee ? `${t.assignee.firstName} ${t.assignee.lastName}` : undefined,
+        start,
+        end:      safeEnd,
+        progress: TASK_PROGRESS[t.status] ?? 0,
+        color:    TASK_COLORS[t.status]   ?? 'bg-gray-400',
+        indent:   false,
+      };
+    });
+  }, [tasksData]);
 
   if (isLoading) {
     return (
@@ -155,6 +187,9 @@ export default function ProjectDetailPage() {
           <TabButton active={tab === 'tasks'} onClick={() => setTab('tasks')}>
             <div className="flex items-center gap-1.5"><CheckSquare className="w-3.5 h-3.5" /> Tarefas</div>
           </TabButton>
+          <TabButton active={tab === 'gantt'} onClick={() => setTab('gantt')}>
+            <div className="flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> Gantt</div>
+          </TabButton>
           <TabButton active={tab === 'risks'} onClick={() => setTab('risks')}>
             <div className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Riscos</div>
           </TabButton>
@@ -203,6 +238,16 @@ export default function ProjectDetailPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* Gantt Tab */}
+        {tab === 'gantt' && (
+          <div className="p-4">
+            <GanttChart
+              items={ganttItems}
+              emptyMessage="Sem tarefas com datas configuradas"
+            />
+          </div>
         )}
 
         {/* Risks Tab */}

@@ -1,0 +1,77 @@
+import {
+  Body, Controller, Get, Param, Patch, Post, Query,
+  Request, UseGuards, ParseIntPipe, DefaultValuePipe,
+  UseInterceptors, UploadedFile, Res,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { SupportTicketsService } from './support-tickets.service';
+import { CreateTicketDto } from './dto/create-ticket.dto';
+import { CreateReplyDto } from './dto/create-reply.dto';
+import { UpdateTicketDto } from './dto/update-ticket.dto';
+import { TicketStatus } from '@prisma/client';
+
+@UseGuards(JwtAuthGuard)
+@Controller('support-tickets')
+export class SupportTicketsController {
+  constructor(private readonly service: SupportTicketsService) {}
+
+  @Post()
+  create(@Request() req: any, @Body() dto: CreateTicketDto) {
+    return this.service.create(req.user.userId, req.user.organizationId, dto);
+  }
+
+  @Get('stats')
+  getStats(@Request() req: any) {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      return { open: 0, inProgress: 0, waitingUser: 0, resolved: 0, total: 0 };
+    }
+    return this.service.getStats();
+  }
+
+  @Get('attachments/:attachmentId/download')
+  async downloadAttachment(
+    @Request() req: any,
+    @Param('attachmentId') attachmentId: string,
+    @Res() res: Response,
+  ) {
+    return this.service.downloadAttachment(attachmentId, req.user.organizationId, res);
+  }
+
+  @Get()
+  findAll(
+    @Request() req: any,
+    @Query('status') status?: TicketStatus,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+  ) {
+    return this.service.findAll(req.user.userId, req.user.role, status, page, limit);
+  }
+
+  @Get(':id')
+  findOne(@Request() req: any, @Param('id') id: string) {
+    return this.service.findOne(id, req.user.userId, req.user.role);
+  }
+
+  @Post(':id/replies')
+  addReply(@Request() req: any, @Param('id') ticketId: string, @Body() dto: CreateReplyDto) {
+    return this.service.addReply(ticketId, req.user.userId, req.user.role, dto);
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAttachment(
+    @Request() req: any,
+    @Param('id') ticketId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Query('replyId') replyId?: string,
+  ) {
+    return this.service.uploadAttachment(ticketId, req.user.organizationId, file, replyId);
+  }
+
+  @Patch(':id')
+  update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateTicketDto) {
+    return this.service.update(id, req.user.userId, req.user.role, dto);
+  }
+}

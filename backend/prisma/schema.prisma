@@ -15,11 +15,23 @@ datasource db {
 
 // ─── Enums ───────────────────────────────────────────────────
 
+enum RagStatus {
+  RED
+  AMBER
+  GREEN
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
+  CISO
   COMPLIANCE_MANAGER
   CONSULTANT
+  INTERNAL_AUDITOR
+  EXTERNAL_AUDITOR
+  LEGAL
+  HEAD_RH
+  TECNICO_IT
   VIEWER
 }
 
@@ -119,6 +131,7 @@ enum CapaStatus {
   PENDING_VERIFICATION
   CLOSED
   OVERDUE
+  CANCELLED
 }
 
 enum ControlStatus {
@@ -148,6 +161,11 @@ enum NotificationType {
   // Evidence
   EVIDENCE_EXPIRING   // 30 days before expiry
   EVIDENCE_REJECTED
+  // Policies
+  POLICY_REVIEW
+  // Vendors
+  VENDOR_EXPIRY
+  VENDOR_ASSESSMENT_COMPLETED
   // System
   USER_INVITED
   SYSTEM
@@ -181,25 +199,126 @@ enum ImportStatus {
   FAILED
 }
 
+enum PolicyStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum PolicyCategory {
+  INFORMATION_SECURITY
+  DATA_PROTECTION
+  BUSINESS_CONTINUITY
+  HUMAN_RESOURCES
+  PHYSICAL_SECURITY
+  ACCESS_CONTROL
+  INCIDENT_MANAGEMENT
+  SUPPLIER_MANAGEMENT
+  COMPLIANCE
+  OPERATIONAL
+  OTHER
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTERESTS
+  PUBLIC_TASK
+  LEGITIMATE_INTERESTS
+}
+
+enum ProcessingActivityStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REVIEW
+}
+
+enum DpiaStatus {
+  DRAFT
+  IN_REVIEW
+  COMPLETED
+}
+
+enum DpiaOutcome {
+  LOW_RISK
+  MEDIUM_RISK
+  HIGH_RISK_PROCEED
+  HIGH_RISK_CONSULT_DPA
+}
+
+enum BreachSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BreachStatus {
+  IDENTIFIED
+  ASSESSING
+  NOTIFYING
+  CLOSED
+}
+
 // ─── Organizations (Tenants) ──────────────────────────────────
 
 model Organization {
   id           String   @id @default(uuid())
   name         String
   slug         String   @unique
-  industry     String?  // e.g. TECHNOLOGY, FINANCIAL_SERVICES, HEALTHCARE
-  size         String?  // MICRO, SMALL, MEDIUM, LARGE, ENTERPRISE
+  // ── Extended profile ──────────────────────────────────────
+  legalName    String?           // Nome legal completo
+  tradeName    String?           // Nome comercial
+  industry     String?           // e.g. TECHNOLOGY, FINANCIAL_SERVICES, HEALTHCARE
+  size         String?           // MICRO, SMALL, MEDIUM, LARGE, ENTERPRISE
   country      String   @default("PT")
-  vatNumber    String?
+  vatNumber    String?           // NIF/VAT
+  employeeCount  Int?
+  annualRevenue  Decimal? @db.Decimal(15,2)
+  groupName    String?           // Grupo empresarial
   address      String?
   logoUrl      String?
   website      String?
+  phone        String?
   billingEmail String?
   plan         String   @default("FREE") // FREE, STARTER, PROFESSIONAL, ENTERPRISE
+  isDemoMode   Boolean  @default(false) // When true, org has access to all ENTERPRISE features for demos
   maxUsers     Int      @default(5)
   isActive     Boolean  @default(true)
+  aiProvider   String   @default("AUTO") // ANTHROPIC, OPENAI, AUTO
+  aiModel      String?  // e.g. "claude-sonnet-4-5", "gpt-4o", "gpt-4o-mini"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // ── Extended profile relations ────────────────────────────
+  orgAddresses    OrgAddress[]
+  orgContacts     OrgContact[]
+  reportSchedules ReportSchedule[]
+  webhooks        Webhook[]
+  orgRoles        OrgRole[]
+  aiCreditUsage   AiCreditUsage[]
+  raciAssignments   RaciAssignment[]
+  approvalRequests   ApprovalRequest[]
+  intakeForms        IntakeForm[]
+  actionPlans        ActionPlan[]
+  programTemplates   ProgramTemplate[]
+  programActivations ProgramActivation[]
+  automationRules    AutomationRule[]
+  ssoConfig          SsoConfig?
+  // Multi-entity
+  parentId        String?
+  parent          Organization?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children        Organization[] @relation("OrgHierarchy")
+  // Sprint Premium
+  doraRegisterEntries       DoraRegisterEntry[]
+  nis2IncidentNotifications Nis2IncidentNotification[]
+  auditorSessions           AuditorSession[]
+  managementBodyMembers     ManagementBodyMember[]
+  boardReports              BoardReport[]
+  hubMembershipsAsHub       ClientHubMembership[] @relation("HubConsultancy")
+  hubMembershipsAsClient    ClientHubMembership[] @relation("HubClient")
+  meetings                  Meeting[]
 
   users             User[]
   projects          Project[]
@@ -210,8 +329,96 @@ model Organization {
   excelImports      ExcelImport[]
   audits            Audit[]
   notifications     Notification[]
+  policies          Policy[]
+  dataProcessingActivities DataProcessingActivity[]
+  dpias             Dpia[]
+  breachNotifications BreachNotification[]
+  nis2Assessments   Nis2Assessment[]
+  vendors           Vendor[]
+  soaControls       SoaControl[]
+  doraIncidents     DoraIncident[]
+  doraTests         DoraTest[]
+  whistleblowReports     WhistleblowReport[]
+  codesOfConduct         CodeOfConduct[]
+  whistleblowTrainings   WhistleblowTraining[]
+  trustCenter            TrustCenterSettings?
+  license                License?
+  unifiedControls        UnifiedControl[]
+  regulatoryObligations  RegulatoryObligation[]
+  hrSalaryBands          HrSalaryBand[]
+  hrShstIncidents        HrShstIncident[]
+  hrContracts            HrContract[]
+  hrRemoteWorkers        HrRemoteWorker[]
+  hrTrainings            HrTraining[]
+  aiSystems              AiSystem[]
+  aiRisks                AiRisk[]
+  aiImpactAssessments    AiImpactAssessment[]
+  ai42001Controls        Ai42001Control[]
+  esgReports             EsgReport[]
+  esgMetrics             EsgMetric[]
+  dsarRequests           DataSubjectRequest[]
+  consentRecords         ConsentRecord[]
+  bcpPlans               BcpPlan[]
+  bcpTests               BcpTest[]
+  itsmChangeRequests     ItsmChangeRequest[]
+  itsmIncidents          ItsmIncident[]
+  itsmProblems           ItsmProblem[]
+  amlCases               AmlCase[]
+  amlScreenings          AmlScreening[]
+  amlPolicies            AmlPolicy[]
+  amlRiskAssessments     AmlRiskAssessment[]
+  amlTrainingRecords     AmlTrainingRecord[]
+  amlRegulatoryUpdates   AmlRegulatoryUpdate[]
+  amlAuditItems          AmlAuditItem[]
+  iso27701Controls       Iso27701Control[]
+  soc2Criteria           Soc2Criterion[]
+
+  evidenceIntegrations EvidenceIntegration[]
+  deviceAgents         DeviceAgent[]
+  networkProbes        NetworkProbe[]
+
+  // Wave 3
+  cisControls         CisControl[]           @relation("CisControls")
+  tisaxAssessments    TisaxAssessment[]      @relation("TisaxAssessments")
+  tisaxControls       TisaxControl[]         @relation("TisaxControls")
+  antiBriberyControls AntiBriberyControl[]   @relation("AntiBriberyControls")
+  workforceCompliance WorkforceCompliance[]  @relation("WorkforceCompliance")
+  qualityControls     QualityControl[]       @relation("QualityControls")
+  capaRecords         CapaRecord[]           @relation("CapaRecords")
+  nonConformances     NonConformance[]       @relation("NonConformances")
+  regulatoryChanges   RegulatoryChange[]     @relation("RegulatoryChanges")
+  calendarItems       ComplianceCalendarItem[] @relation("CalendarItems")
+  timeEntries         TimeEntry[]
+  platformIntegrations PlatformIntegration[]
+  supportTickets      SupportTicket[]
+  ticketAttachments   TicketAttachment[]
 
   @@map("organizations")
+}
+
+// ─── Trust Center ─────────────────────────────────────────────
+
+model TrustCenterSettings {
+  id               String   @id @default(uuid())
+  organizationId   String   @unique
+  isPublic         Boolean  @default(false)
+  showFrameworks   Boolean  @default(true)
+  showEvidence     Boolean  @default(true)
+  showAudits       Boolean  @default(true)
+  showPolicies     Boolean  @default(true)
+  showVendors      Boolean  @default(false)
+  showRisks        Boolean  @default(false)
+  customMessage    String?
+  contactEmail     String?
+  customTitle      String?
+  logoUrl          String?
+  accentColor      String   @default("#2563eb")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("trust_center_settings")
 }
 
 // ─── Users ───────────────────────────────────────────────────
@@ -223,6 +430,7 @@ model User {
   firstName        String
   lastName         String
   role             UserRole   @default(VIEWER)
+  orgRoleId        String?    // optional custom role override (OrgRole); when set, its permissions take precedence over the base `role` matrix
   status           UserStatus @default(INVITED)
   avatarUrl        String?
   phone            String?
@@ -231,11 +439,16 @@ model User {
   passwordResetToken String?  @unique
   passwordResetExpiresAt DateTime?
   lastLoginAt      DateTime?
+  // 2FA / TOTP
+  totpSecret       String?
+  totpEnabled      Boolean    @default(false)
+  totpVerifiedAt   DateTime?
   organizationId   String
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
   organization     Organization @relation(fields: [organizationId], references: [id])
+  orgRole          OrgRole?     @relation(fields: [orgRoleId], references: [id])
   assignedTasks    Task[]       @relation("TaskAssignee")
   createdTasks     Task[]       @relation("TaskCreator")
   taskComments     TaskComment[]
@@ -246,8 +459,84 @@ model User {
   createdCapas     Capa[]       @relation("CapaCreator")
   notifications    Notification[]
   auditParticipations AuditParticipant[]
+  ownedPolicies    Policy[]     @relation("PolicyOwner")
+  approvedPolicies Policy[]     @relation("PolicyApprover")
+  policyVersions   PolicyVersion[]
+  policyAcknowledgments PolicyAcknowledgment[]
+  controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
+  ownedDpias       Dpia[]       @relation("DpiaOwner")
+  ownedBreaches    BreachNotification[] @relation("BreachNotificationOwner")
+  nis2Assessments       Nis2Assessment[]   @relation("Nis2Responsible")
+  vendorAssessments     VendorAssessment[] @relation("VendorAssessor")
+  doraIncidentsReported DoraIncident[]     @relation("DoraIncidentReporter")
+  doraTestsConducted    DoraTest[]         @relation("DoraTestConductor")
+  whistleblowAssigned   WhistleblowReport[] @relation("WhistleblowAssignee")
+  whistleblowTimeline   WhistleblowTimeline[]
+  codeOfConductAcks     CodeOfConductAck[]
+  trainingAttendances   WhistleblowTrainingAttendee[]
+  permissions           UserPermission[]
+  notificationPrefs     NotificationPreference[]
+  hrContracts           HrContract[]
+  hrRemoteWorkerProfile HrRemoteWorker[]
+  hrTrainingEnrollments HrTrainingEnrollment[]
+  aiImpactAssessments   AiImpactAssessment[]
+  dsarHandled            DataSubjectRequest[] @relation("DsarHandler")
+  bcpPlansOwned          BcpPlan[]            @relation("BcpOwner")
+  changeRequestsMade     ItsmChangeRequest[]  @relation("ChangeRequester")
+  changeRequestsApproved ItsmChangeRequest[]  @relation("ChangeApprover")
+  incidentsReported      ItsmIncident[]       @relation("IncidentReporter")
+  incidentsAssigned      ItsmIncident[]       @relation("IncidentAssignee")
+  problemsOwned          ItsmProblem[]        @relation("ProblemOwner")
+  amlCasesAssigned       AmlCase[]            @relation("AmlAssignee")
+  soc2Responsibilities   Soc2Criterion[]      @relation("Soc2Responsible")
+  meetingsCreated        Meeting[]            @relation("MeetingCreator")
+  meetingAttendances     MeetingAttendance[]
+
+  // Wave 3
+  cisControlsOwned         CisControl[]           @relation("CisResponsible")
+  tisaxControlsOwned       TisaxControl[]         @relation("TisaxResponsible")
+  antiBriberyControlsOwned AntiBriberyControl[]   @relation("AntiBriberyResponsible")
+  workforceControlsOwned   WorkforceCompliance[]  @relation("WorkforceResponsible")
+  qualityControlsOwned     QualityControl[]       @relation("QualityResponsible")
+  capaRecordsOwned         CapaRecord[]           @relation("CapaResponsible")
+  capaRecordsVerified      CapaRecord[]           @relation("CapaVerifier")
+  regChangesOwned          RegulatoryChange[]     @relation("RegChangeResponsible")
+  calendarItemsOwned       ComplianceCalendarItem[] @relation("CalendarResponsible")
+  nis2IncidentsResponsible Nis2IncidentNotification[] @relation("Nis2IncidentResponsible")
+  raciAssignments          RaciAssignment[]
+  approvalRequests         ApprovalRequest[] @relation("ApprovalRequester")
+  approvalVotes            ApprovalVote[]    @relation("ApprovalVoter")
+  intakeForms              IntakeForm[]      @relation("IntakeFormCreator")
+  actionPlansOwned         ActionPlan[]      @relation("ActionPlanOwner")
+  actionTasksAssigned      ActionTask[]      @relation("ActionTaskAssignee")
+  programActivations       ProgramActivation[] @relation("ProgramActivator")
+  automationRules          AutomationRule[]  @relation("AutomationRuleCreator")
+  timeEntries              TimeEntry[]
+  deviceAgents             DeviceAgent[]
+  supportTickets           SupportTicket[] @relation("TicketAuthor")
+  assignedTickets          SupportTicket[] @relation("TicketAssignee")
+  ticketReplies            TicketReply[]   @relation("TicketReplies")
 
   @@map("users")
+}
+
+// ─── User Permissions ─────────────────────────────────────────
+// Granular per-module access control (0=none, 1=read, 2=full)
+// ADMIN role always bypasses these; they apply to non-admin users.
+
+model UserPermission {
+  id     String @id @default(uuid())
+  userId String
+  module String  // dashboard | diagnostic | projects | tasks | risks |
+                 // evidence | audits | capa | reports | policies | gdpr |
+                 // nis2 | dora | denuncias | vendors | soa | excelImport |
+                 // aiAssistant | trustCenter | users | settings | translations
+  level  Int    @default(1)  // 0=NONE 1=READ 2=FULL
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@map("user_permissions")
 }
 
 // ─── Frameworks ───────────────────────────────────────────────
@@ -267,6 +556,8 @@ model Framework {
   templates    Template[]
   projects     Project[]
   diagnosticQuestions DiagnosticQuestion[]
+  policies     Policy[]
+  riskLinks    RiskFramework[]
 
   @@map("frameworks")
 }
@@ -413,6 +704,8 @@ model Project {
   startDate        DateTime?
   targetDate       DateTime?
   completedAt      DateTime?
+  ragStatus        RagStatus?
+  statusNarrative  String?       @db.Text
   metadata         Json?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -442,6 +735,7 @@ model Task {
   description    String?
   status         TaskStatus   @default(TODO)
   priority       TaskPriority @default(MEDIUM)
+  startDate      DateTime?
   dueDate        DateTime?
   completedAt    DateTime?
   estimatedHours Float?
@@ -460,8 +754,24 @@ model Task {
   subtasks   Task[]   @relation("TaskHierarchy")
   evidences  Evidence[]
   comments   TaskComment[]
+  dependsOn  TaskDependency[] @relation("DependentTask")
+  blockedFor TaskDependency[] @relation("BlockingTask")
+  timeEntries TimeEntry[]
 
   @@map("tasks")
+}
+
+model TaskDependency {
+  id              String   @id @default(cuid())
+  dependentTaskId String  // this task is blocked by...
+  blockingTaskId  String  // ...this task
+  createdAt       DateTime @default(now())
+
+  dependentTask   Task @relation("DependentTask", fields: [dependentTaskId], references: [id], onDelete: Cascade)
+  blockingTask    Task @relation("BlockingTask", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([dependentTaskId, blockingTaskId])
+  @@map("task_dependencies")
 }
 
 model TaskComment {
@@ -476,6 +786,27 @@ model TaskComment {
   user User @relation(fields: [userId], references: [id])
 
   @@map("task_comments")
+}
+
+model TimeEntry {
+  id              String    @id @default(cuid())
+  taskId          String
+  userId          String
+  organizationId  String
+  description     String?
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationMinutes Int?      // null = timer still running; set on stop
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([taskId])
+  @@index([userId, organizationId])
+  @@map("time_entries")
 }
 
 // ─── Risks ────────────────────────────────────────────────────
@@ -493,12 +824,27 @@ model Risk {
   inherentScore   Int            // likelihood * impact (1-25)
   residualScore   Int?           // after controls
   status          RiskStatus     @default(IDENTIFIED)
-  mitigationPlan  String?
-  acceptancePlan  String?
+  // Treatment plan
+  treatmentType   String?        // MITIGATE, ACCEPT, TRANSFER, AVOID
+  treatmentPlan   String?        // detailed treatment plan (richer than old mitigationPlan)
+  mitigationPlan  String?        // kept for backward compat
+  treatmentStatus String?        // PLANNED, IN_PROGRESS, COMPLETED
+  treatmentOwnerId String?
+  treatmentDueDate DateTime?
+  treatmentCompletedAt DateTime?
+  // Acceptance
+  acceptancePlan   String?
+  acceptedAt       DateTime?
+  acceptedById     String?
+  acceptanceRationale String?
+  // Risk appetite
+  riskAppetite    String?        // ABOVE, AT, BELOW (vs org appetite)
   dueDate         DateTime?
   reviewDate      DateTime?
   closedAt        DateTime?
   tags            String[]
+  ragStatus       RagStatus?
+  statusNarrative String?        @db.Text
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -506,8 +852,46 @@ model Risk {
   project      Project?     @relation(fields: [projectId], references: [id])
   owner        User?        @relation(fields: [ownerId], references: [id])
   evidences    Evidence[]
+  unifiedControlLinks UnifiedControlRisk[]
+  snapshots    RiskSnapshot[]
+  frameworks   RiskFramework[]
 
   @@map("risks")
+}
+
+// ── Risk ↔ Framework association (for multi-framework filtering) ──
+
+model RiskFramework {
+  id          String   @id @default(uuid())
+  riskId      String
+  frameworkId String
+  createdAt   DateTime @default(now())
+
+  risk      Risk      @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  framework Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+
+  @@unique([riskId, frameworkId])
+  @@map("risk_frameworks")
+}
+
+// ── Risk history snapshots ─────────────────────────────────────
+
+model RiskSnapshot {
+  id            String   @id @default(uuid())
+  riskId        String
+  risk          Risk     @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  inherentScore Int
+  residualScore Int?
+  status        String
+  treatmentType String?
+  treatmentStatus String?
+  likelihood    String
+  impact        String
+  capturedAt    DateTime @default(now())
+  capturedById  String?
+
+  @@index([riskId, capturedAt])
+  @@map("risk_snapshots")
 }
 
 // ─── Evidence ─────────────────────────────────────────────────
@@ -541,6 +925,8 @@ model Evidence {
   control    Control?  @relation(fields: [controlId], references: [id])
   risk       Risk?     @relation(fields: [riskId], references: [id])
   uploadedBy User      @relation(fields: [uploadedById], references: [id])
+  unifiedControlLinks UnifiedControlEvidence[]
+  versions   EvidenceVersion[]
 
   @@map("evidences")
 }
@@ -559,11 +945,13 @@ model Audit {
   startDate      DateTime?
   endDate        DateTime?
   completedAt    DateTime?
-  leadAuditor    String?
-  summary        String?
-  score          Float?      // 0-100
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  leadAuditor      String?
+  summary          String?
+  score            Float?      // 0-100
+  ragStatus        RagStatus?
+  statusNarrative  String?     @db.Text
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   organization Organization      @relation(fields: [organizationId], references: [id])
   project      Project?          @relation(fields: [projectId], references: [id])
@@ -622,13 +1010,15 @@ model Capa {
   rootCause    String?
   correctiveAction String?
   preventiveAction String?
-  status       CapaStatus @default(OPEN)
-  dueDate      DateTime?
-  verifiedAt   DateTime?
-  closedAt     DateTime?
-  evidence     String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  status           CapaStatus @default(OPEN)
+  dueDate          DateTime?
+  verifiedAt       DateTime?
+  closedAt         DateTime?
+  evidence         String?
+  ragStatus        RagStatus?
+  statusNarrative  String?    @db.Text
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   finding    Finding? @relation(fields: [findingId], references: [id])
   assignee   User?    @relation("CapaAssignee", fields: [assigneeId], references: [id])
@@ -658,6 +1048,30 @@ model Report {
   project      Project?     @relation(fields: [projectId], references: [id])
 
   @@map("reports")
+}
+
+// ── Scheduled Reports ─────────────────────────────────────────
+
+model ReportSchedule {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  type           ReportType
+  format         ReportFormat @default(PDF)
+  frequency      String   @default("MONTHLY")  // DAILY, WEEKLY, MONTHLY, QUARTERLY
+  recipients     String[] @default([])          // email addresses
+  parameters     Json?
+  isActive       Boolean  @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@map("report_schedules")
 }
 
 // ─── Excel Imports ───────────────────────────────────────────
@@ -731,4 +1145,3330 @@ model Notification {
   @@index([userId, read, createdAt])
   @@index([organizationId, createdAt])
   @@map("notifications")
+}
+
+// ─── Policies ─────────────────────────────────────────────────
+
+model Policy {
+  id             String         @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  content        String         @db.Text
+  version        String         @default("1.0")
+  status         PolicyStatus   @default(DRAFT)
+  category       PolicyCategory @default(OTHER)
+  frameworkId    String?
+  ownerId        String
+  approverId     String?
+  approvedAt     DateTime?
+  effectiveDate  DateTime?
+  reviewDate     DateTime?
+  expiresAt      DateTime?
+  tags           String[]       @default([])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization    Organization           @relation(fields: [organizationId], references: [id])
+  owner           User                   @relation("PolicyOwner", fields: [ownerId], references: [id])
+  approver        User?                  @relation("PolicyApprover", fields: [approverId], references: [id])
+  framework       Framework?             @relation(fields: [frameworkId], references: [id])
+  versions        PolicyVersion[]
+  acknowledgments PolicyAcknowledgment[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("policies")
+}
+
+model PolicyVersion {
+  id          String   @id @default(uuid())
+  policyId    String
+  version     String
+  content     String   @db.Text
+  changeNote  String?
+  changedById String
+  createdAt   DateTime @default(now())
+
+  policy    Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  changedBy User   @relation(fields: [changedById], references: [id])
+
+  @@map("policy_versions")
+}
+
+model PolicyAcknowledgment {
+  id             String   @id @default(uuid())
+  policyId       String
+  userId         String
+  policyVersion  String?
+  acknowledgedAt DateTime @default(now())
+  ipAddress      String?
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([policyId, userId])
+  @@map("policy_acknowledgments")
+}
+
+// ─── GDPR / Data Protection ────────────────────────────────────
+
+model DataProcessingActivity {
+  id                     String                   @id @default(uuid())
+  organizationId         String
+  name                   String
+  purpose                String
+  legalBasis             LegalBasis
+  dataCategories         String[]                 @default([])
+  dataSubjects           String[]                 @default([])
+  recipients             String[]                 @default([])
+  internationalTransfers Boolean                  @default(false)
+  transferCountries      String[]                 @default([])
+  transferSafeguards     String?
+  retentionPeriod        String
+  retentionJustification String?
+  technicalMeasures      String[]                 @default([])
+  organizationalMeasures String[]                 @default([])
+  dpoConsulted           Boolean                  @default(false)
+  processorName          String?
+  processorCountry       String?
+  status                 ProcessingActivityStatus @default(ACTIVE)
+  controllerId           String
+  reviewDate             DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  controller   User         @relation("ProcessingActivityController", fields: [controllerId], references: [id])
+  dpias          Dpia[]
+  consentRecords ConsentRecord[]
+
+  @@index([organizationId, status])
+  @@map("data_processing_activities")
+}
+
+model Dpia {
+  id                              String       @id @default(uuid())
+  organizationId                  String
+  activityId                      String?
+  title                           String
+  description                     String
+  necessityTest                   String?
+  proportionalityTest             String?
+  riskAssessment                  String?
+  mitigationMeasures              String?
+  dpoConsultation                 String?
+  supervisoryAuthorityConsulted   Boolean      @default(false)
+  outcome                         DpiaOutcome?
+  status                          DpiaStatus   @default(DRAFT)
+  ownerId                         String
+  reviewedAt                      DateTime?
+  createdAt                       DateTime     @default(now())
+  updatedAt                       DateTime     @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  activity     DataProcessingActivity?  @relation(fields: [activityId], references: [id])
+  owner        User                     @relation("DpiaOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("dpias")
+}
+
+model BreachNotification {
+  id                             String         @id @default(uuid())
+  organizationId                 String
+  title                          String
+  description                    String
+  discoveredAt                   DateTime
+  affectedDataSubjects           Int?
+  affectedDataCategories         String[]       @default([])
+  severity                       BreachSeverity @default(MEDIUM)
+  status                         BreachStatus   @default(IDENTIFIED)
+  supervisoryAuthorityNotifiedAt DateTime?
+  supervisoryAuthorityReference  String?
+  dataSubjectsNotifiedAt         DateTime?
+  containmentMeasures            String?
+  rootCause                      String?
+  ownerId                        String
+  createdAt                      DateTime       @default(now())
+  updatedAt                      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User         @relation("BreachNotificationOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("breach_notifications")
+}
+
+// ─── NIS2 Compliance ──────────────────────────────────────────
+
+enum Nis2MeasureStatus {
+  NOT_ASSESSED
+  NON_COMPLIANT
+  PARTIAL
+  COMPLIANT
+  NOT_APPLICABLE
+}
+
+model Nis2Assessment {
+  id             String             @id @default(uuid())
+  organizationId String
+  measureCode    String             // e.g. "ART21_A", "ART23_1"
+  category       String             // RISK_MANAGEMENT | INCIDENT_RESPONSE | SUPPLY_CHAIN | BCP | CRYPTOGRAPHY | HR_SECURITY | ACCESS_CONTROL | VULNERABILITY
+  title          String
+  description    String?
+  status         Nis2MeasureStatus  @default(NOT_ASSESSED)
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  responsible  User?        @relation("Nis2Responsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, measureCode])
+  @@index([organizationId, status])
+  @@map("nis2_assessments")
+}
+
+// ─── Vendor / Third-Party Risk ────────────────────────────────
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REVIEW
+  TERMINATED
+}
+
+enum VendorRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Vendor {
+  id              String          @id @default(uuid())
+  organizationId  String
+  name            String
+  category        String          @default("Technology")
+  contactName     String?
+  contactEmail    String?
+  website         String?
+  countries       String?
+  status          VendorStatus    @default(ACTIVE)
+  riskLevel       VendorRiskLevel @default(MEDIUM)
+  riskScore       Int?
+  contractStart   DateTime?
+  contractEnd     DateTime?
+  dataProcessor   Boolean         @default(false)
+  dataShared      String?
+  lastAssessedAt  DateTime?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  assessments    VendorAssessment[]
+  questionnaires VendorQuestionnaire[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, riskLevel])
+  @@map("vendors")
+}
+
+model VendorAssessment {
+  id           String          @id @default(uuid())
+  vendorId     String
+  score        Int
+  riskLevel    VendorRiskLevel @default(MEDIUM)
+  findings     String?
+  assessedById String
+  createdAt    DateTime        @default(now())
+
+  vendor     Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  assessedBy User   @relation("VendorAssessor", fields: [assessedById], references: [id])
+
+  @@map("vendor_assessments")
+}
+
+// ── Vendor public questionnaire ───────────────────────────────
+
+model VendorQuestionnaire {
+  id           String   @id @default(uuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  token        String   @unique @default(uuid())
+  title        String   @default("Security & Compliance Questionnaire")
+  instructions String?
+  status       String   @default("PENDING")  // PENDING, COMPLETED, EXPIRED
+  expiresAt    DateTime?
+  completedAt  DateTime?
+  vendorName   String?   // vendor-provided name during submission
+  vendorContact String?
+  createdById  String?
+  responses    VendorQuestionnaireResponse[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([vendorId])
+  @@map("vendor_questionnaires")
+}
+
+model VendorQuestionnaireResponse {
+  id               String   @id @default(uuid())
+  questionnaireId  String
+  questionnaire    VendorQuestionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  sectionKey       String
+  questionKey      String
+  answer           String?
+  score            Int?     // 0-100 for numeric questions
+  createdAt        DateTime @default(now())
+
+  @@index([questionnaireId, sectionKey])
+  @@map("vendor_questionnaire_responses")
+}
+
+// ── Notification preferences ──────────────────────────────────
+
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // TASK_DUE_SOON, TASK_OVERDUE, RISK_HIGH, CAPA_DUE_SOON, etc.
+  inApp       Boolean  @default(true)
+  email       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, type])
+  @@map("notification_preferences")
+}
+
+// ── Audit Templates ───────────────────────────────────────────
+
+model AuditTemplate {
+  id             String   @id @default(uuid())
+  organizationId String?  // null = global template
+  name           String
+  type           String   // INTERNAL, EXTERNAL, CERTIFICATION, SURVEILLANCE
+  framework      String?  // ISO_27001, GDPR, NIS2, DORA, etc.
+  description    String?
+  checklistItems Json?    // Array of { id, section, question, required }
+  isGlobal       Boolean  @default(false)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([framework])
+  @@map("audit_templates")
+}
+
+// ── Custom Roles ──────────────────────────────────────────────
+
+model OrgRole {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  permissions    Json?    // { module: 'read'|'write'|'none', ... }
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  users          User[]
+
+  @@unique([organizationId, name])
+  @@map("org_roles")
+}
+
+// ── Evidence Versions ─────────────────────────────────────────
+
+model EvidenceVersion {
+  id          String   @id @default(uuid())
+  evidenceId  String
+  evidence    Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  version     Int      @default(1)
+  s3Key       String
+  s3Url       String?
+  fileName    String
+  fileSize    Int?
+  mimeType    String?
+  changeNote  String?
+  uploadedById String
+  createdAt   DateTime @default(now())
+
+  @@index([evidenceId, version])
+  @@map("evidence_versions")
+}
+
+// ── AI Credit Usage ───────────────────────────────────────────
+
+model AiCreditUsage {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  model          String   // claude-sonnet-4-5, gpt-4o, etc.
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  totalTokens    Int      @default(0)
+  costUsd        Decimal? @db.Decimal(10,6)
+  endpoint       String?  // ai-assistant, report-generation, etc.
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("ai_credit_usage")
+}
+
+// ── SSO Configuration ─────────────────────────────────────────
+
+model SsoConfig {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       String   // AZURE_AD, GOOGLE_WORKSPACE, OKTA, SAML, OIDC
+  clientId       String?
+  tenantId       String?
+  domain         String?
+  isActive       Boolean  @default(false)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("sso_configs")
+}
+
+// ─── Statement of Applicability (ISO 27001:2022) ──────────────
+
+enum SoaImplementationStatus {
+  NOT_STARTED
+  PLANNED
+  PARTIALLY_IMPLEMENTED
+  IMPLEMENTED
+  NOT_APPLICABLE
+}
+
+model SoaControl {
+  id                  String                  @id @default(uuid())
+  organizationId      String
+  controlCode         String
+  theme               String
+  title               String
+  description         String?
+  applicable          Boolean                 @default(true)
+  justification       String?
+  status              SoaImplementationStatus @default(NOT_STARTED)
+  implementationNotes String?
+  owner               String?
+  targetDate          DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, theme])
+  @@map("soa_controls")
+}
+
+// ─── DORA — Digital Operational Resilience Act ────────────────
+
+enum DoraIncidentSeverity {
+  MINOR
+  SIGNIFICANT
+  MAJOR
+}
+
+enum DoraIncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum DoraIncidentCategory {
+  AVAILABILITY
+  AUTHENTICITY
+  INTEGRITY
+  CONFIDENTIALITY
+  CONTINUITY
+}
+
+enum DoraTestType {
+  VULNERABILITY_ASSESSMENT
+  PENETRATION_TEST
+  TLPT
+  BUSINESS_CONTINUITY
+  SCENARIO_BASED
+  GAP_ANALYSIS
+}
+
+enum DoraTestStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model DoraIncident {
+  id                   String               @id @default(uuid())
+  organizationId       String
+  title                String
+  description          String
+  severity             DoraIncidentSeverity
+  category             DoraIncidentCategory
+  status               DoraIncidentStatus   @default(OPEN)
+  affectedSystems      String[]             @default([])
+  detectedAt           DateTime
+  resolvedAt           DateTime?
+  rootCause            String?
+  impact               String?
+  estimatedLoss        Float?
+  // Regulatory reporting timelines
+  reportedToRegulator  Boolean              @default(false)
+  initialReportAt      DateTime?            // ≤ 4 hours
+  intermediaryReportAt DateTime?            // ≤ 72 hours
+  finalReportAt        DateTime?            // ≤ 1 month
+  regulatoryRef        String?
+  reportedById         String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  reportedBy   User         @relation("DoraIncidentReporter", fields: [reportedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@map("dora_incidents")
+}
+
+model DoraTest {
+  id                  String         @id @default(uuid())
+  organizationId      String
+  title               String
+  testType            DoraTestType
+  status              DoraTestStatus @default(PLANNED)
+  scope               String?
+  provider            String?
+  plannedDate         DateTime
+  executedDate        DateTime?
+  nextTestDate        DateTime?
+  findings            String?
+  criticalFindings    Int            @default(0)
+  highFindings        Int            @default(0)
+  remediationDeadline DateTime?
+  remediationStatus   String?
+  conductedById       String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  conductedBy  User?        @relation("DoraTestConductor", fields: [conductedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, testType])
+  @@map("dora_tests")
+}
+
+// ─── Translations (manual overrides for i18n) ────────────────
+
+model TranslationOverride {
+  id        String   @id @default(uuid())
+  locale    String   // 'pt', 'en', ...
+  key       String   // e.g. 'common.save', 'dora.title'
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([locale, key])
+  @@index([locale])
+  @@map("translation_overrides")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Canal de Denúncias — RGPC / EU Directive 2019/1937
+// Lei 93/2021 | Regime Geral da Prevenção da Corrupção
+// ─────────────────────────────────────────────────────────────
+
+enum WhistleblowCategory {
+  CORRUPTION
+  FRAUD
+  BRIBERY
+  CONFLICT_OF_INTEREST
+  ABUSE_OF_POWER
+  EMBEZZLEMENT
+  MISUSE_OF_INFORMATION
+  DATA_BREACH
+  WORKPLACE_HARASSMENT
+  SAFETY_VIOLATION
+  ENVIRONMENTAL_VIOLATION
+  OTHER
+}
+
+enum WhistleblowStatus {
+  RECEIVED           // Received — 7-day ack clock starts
+  ACKNOWLEDGED       // Acknowledged within 7 days (legal requirement)
+  UNDER_INVESTIGATION
+  CONCLUDED
+  UNFOUNDED          // Closed as unfounded
+  ARCHIVED
+}
+
+enum WhistleblowPersonRole {
+  ACCUSED
+  WITNESS
+  OTHER
+}
+
+enum WhistleblowTimelineEvent {
+  SUBMITTED
+  ACKNOWLEDGED
+  ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  EVIDENCE_ADDED
+  CONCLUDED
+  REGULATORY_NOTIFIED
+  MENAC_REPORTED
+}
+
+// ── Main report ───────────────────────────────────────────────
+
+model WhistleblowReport {
+  id               String               @id @default(uuid())
+  organizationId   String
+  referenceCode    String               @unique // Public: e.g. "DEN-2024-0001"
+  secureToken      String               @unique // Private: reporter status-check token
+  isAnonymous      Boolean              @default(true)
+  category         WhistleblowCategory
+  status           WhistleblowStatus    @default(RECEIVED)
+
+  // Reporter info (only if not anonymous)
+  reporterName     String?
+  reporterEmail    String?
+  reporterPhone    String?
+  reporterDept     String?
+  reporterRelation String?              // EMPLOYEE, CONTRACTOR, SUPPLIER, FORMER_EMPLOYEE, OTHER
+
+  // Incident details
+  subject          String
+  description      String
+  incidentDate     DateTime?
+  incidentLocation String?
+  repeatOffense    Boolean              @default(false)
+  witnesses        String?              // Free text initially
+
+  // Deadlines (Lei 93/2021)
+  ackDeadline      DateTime             // +7 days from createdAt
+  resolutionDeadline DateTime           // +3 months (extendable to 6)
+  deadlineExtended Boolean              @default(false)
+  extendedUntil    DateTime?
+  extensionReason  String?
+
+  // Timestamps
+  acknowledgedAt   DateTime?
+  assignedAt       DateTime?
+  concludedAt      DateTime?
+
+  // Resolution
+  conclusionSummary String?
+  conclusionType    String?             // SUBSTANTIATED, UNSUBSTANTIATED, INSUFFICIENT_EVIDENCE
+  actionsTaken      String?
+  regulatoryNotified Boolean            @default(false)
+  regulatoryNotifiedAt DateTime?
+
+  // Internal handling
+  assignedToId     String?
+  internalNotes    String?              // Protected — not visible to reporter
+  assignedTo       User?    @relation("WhistleblowAssignee", fields: [assignedToId], references: [id])
+  organization     Organization @relation(fields: [organizationId], references: [id])
+
+  persons          WhistleblowPerson[]
+  evidences        WhistleblowEvidence[]
+  timeline         WhistleblowTimeline[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([referenceCode])
+  @@map("whistleblow_reports")
+}
+
+model WhistleblowPerson {
+  id          String                @id @default(uuid())
+  reportId    String
+  role        WhistleblowPersonRole
+  name        String?
+  jobTitle    String?
+  department  String?
+  notes       String?
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("whistleblow_persons")
+}
+
+model WhistleblowEvidence {
+  id          String   @id @default(uuid())
+  reportId    String
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  mimeType    String
+  uploadedAt  DateTime @default(now())
+  uploadedBy  String?  // null = reporter (anonymous)
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("whistleblow_evidences")
+}
+
+// Immutable audit trail — no updates, no deletes
+model WhistleblowTimeline {
+  id          String                   @id @default(uuid())
+  reportId    String
+  event       WhistleblowTimelineEvent
+  description String
+  actorId     String?                  // null = system or anonymous reporter
+  actorRole   String?                  // REPORTER, MANAGER, SYSTEM
+  metadata    Json?                    // Extra structured data
+  createdAt   DateTime                 @default(now())
+
+  report      WhistleblowReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  actor       User?             @relation(fields: [actorId], references: [id])
+
+  @@index([reportId, createdAt])
+  @@map("whistleblow_timeline")
+}
+
+// ── Code of Conduct ───────────────────────────────────────────
+
+model CodeOfConduct {
+  id              String   @id @default(uuid())
+  organizationId  String
+  title           String
+  content         String   // Markdown
+  version         String   @default("1.0")
+  isActive        Boolean  @default(true)
+  requiresAck     Boolean  @default(true)
+  publishedAt     DateTime?
+  reviewDate      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization       @relation(fields: [organizationId], references: [id])
+  acknowledgments CodeOfConductAck[]
+
+  @@index([organizationId, isActive])
+  @@map("codes_of_conduct")
+}
+
+model CodeOfConductAck {
+  id          String   @id @default(uuid())
+  conductId   String
+  userId      String
+  acknowledgedAt DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  conduct     CodeOfConduct @relation(fields: [conductId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@unique([conductId, userId])
+  @@index([conductId])
+  @@map("code_of_conduct_acks")
+}
+
+// ── Training Plans ────────────────────────────────────────────
+
+model WhistleblowTraining {
+  id               String   @id @default(uuid())
+  organizationId   String
+  title            String
+  description      String?
+  trainingDate     DateTime
+  durationMinutes  Int      @default(60)
+  instructor       String?
+  location         String?  // Physical or online URL
+  mandatory        Boolean  @default(true)
+  materialUrl      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization                  @relation(fields: [organizationId], references: [id])
+  attendees        WhistleblowTrainingAttendee[]
+
+  @@index([organizationId, trainingDate])
+  @@map("whistleblow_trainings")
+}
+
+model WhistleblowTrainingAttendee {
+  id            String    @id @default(uuid())
+  trainingId    String
+  userId        String
+  attended      Boolean   @default(false)
+  completedAt   DateTime?
+  score         Int?
+  certificateUrl String?
+  notes         String?
+
+  training      WhistleblowTraining @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id])
+
+  @@unique([trainingId, userId])
+  @@index([trainingId])
+  @@map("whistleblow_training_attendees")
+}
+
+// ─────────────────────────────────────────────────────────────
+// UNIFIED CONTROL FRAMEWORK ENGINE
+// Core world-class architecture: control-centric, cross-framework
+// One control → many frameworks → one evidence base
+// ─────────────────────────────────────────────────────────────
+
+// Governance domains (top-level organizational construct)
+enum GovernanceDomain {
+  SECURITY           // ISO 27001, NIS2, DORA, SOC2, CIS
+  PRIVACY            // GDPR, ISO 27701, ePrivacy
+  AI_GOVERNANCE      // EU AI Act, ISO 42001, NIST AI RMF
+  ETHICS_SPEAKUP     // RGPC, Whistleblowing, Code of Conduct
+  WORKFORCE          // HR Compliance, Pay Transparency, SHST
+  THIRD_PARTY        // Vendor Risk, TPRM, Outsourcing
+  AUDIT_ASSURANCE    // Internal Audit, CAPA, Continuous Monitoring
+  REGULATORY_CHANGE  // Horizon scanning, Obligation tracking
+  AML_FINANCIAL      // AML/KYC, Anti-Bribery, Sanctions
+  ESG                // CSRD, ESG Reporting, Sustainability
+  DATA_RECORDS       // Retention, Data Lifecycle, Records Management
+  RESILIENCE         // BCP, ISO 22301, Crisis Management
+  QUALITY            // ISO 9001, Process Governance
+  CORPORATE          // Policies, Board Governance, Delegations
+}
+
+// Master control library — framework-agnostic, cross-mapped
+model UnifiedControl {
+  id             String           @id @default(uuid())
+  organizationId String
+  domain         GovernanceDomain
+  controlId      String           // e.g. "PAM-001", "DATA-003"
+  title          String
+  description    String?
+  objective      String?          // What this control achieves
+
+  // Cross-framework mapping: which standards require this control
+  // e.g. ["ISO27001:A.8.1", "NIS2:Art21.2a", "DORA:Art9", "SOC2:CC6.1"]
+  frameworkMappings String[]      @default([])
+
+  // Implementation
+  status         String           @default("NOT_STARTED")
+  // NOT_STARTED | PLANNED | IN_PROGRESS | IMPLEMENTED | VERIFIED | NOT_APPLICABLE
+  implementationNotes String?
+  automationLevel String?         // MANUAL | PARTIAL | AUTOMATED
+  testingFrequency String?        // CONTINUOUS | MONTHLY | QUARTERLY | ANNUAL
+  owner          String?
+  targetDate     DateTime?
+  lastTestedAt   DateTime?
+  nextReviewAt   DateTime?
+
+  // Justification if N/A
+  applicable     Boolean          @default(true)
+  naJustification String?
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  evidenceLinks  UnifiedControlEvidence[]
+  riskLinks      UnifiedControlRisk[]
+
+  @@unique([organizationId, controlId])
+  @@index([organizationId, domain])
+  @@index([organizationId, status])
+  @@map("unified_controls")
+}
+
+// Evidence reuse: one piece of evidence can satisfy many controls
+model UnifiedControlEvidence {
+  id          String        @id @default(uuid())
+  controlId   String
+  evidenceId  String
+  notes       String?
+  linkedAt    DateTime      @default(now())
+  linkedBy    String?
+
+  control     UnifiedControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  evidence    Evidence       @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, evidenceId])
+  @@map("unified_control_evidences")
+}
+
+// Risk linkage: risks map to controls (not to frameworks)
+model UnifiedControlRisk {
+  id        String         @id @default(uuid())
+  controlId String
+  riskId    String
+  notes     String?
+  linkedAt  DateTime       @default(now())
+
+  control   UnifiedControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  risk      Risk           @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, riskId])
+  @@map("unified_control_risks")
+}
+
+// Regulatory obligation tracking — horizon scanning
+model RegulatoryObligation {
+  id              String   @id @default(uuid())
+  organizationId  String
+  domain          GovernanceDomain
+  regulation      String   // e.g. "EU AI Act", "NIS2", "CSRD"
+  jurisdiction    String   @default("EU") // EU, PT, ES, FR, EN, ...
+  obligationCode  String?  // e.g. "Art.21(2)(a)"
+  title           String
+  description     String?
+  effectiveDate   DateTime?
+  complianceDate  DateTime? // deadline for compliance
+  status          String   @default("MONITORING")
+  // MONITORING | IN_PROGRESS | COMPLIANT | NON_COMPLIANT | NOT_APPLICABLE
+  priority        String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  sourceUrl       String?
+  internalNotes   String?
+  ownerId         String?
+  lastUpdatedBy   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, domain])
+  @@index([organizationId, status])
+  @@index([organizationId, complianceDate])
+  @@map("regulatory_obligations")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PONTO 16 — Licensing Management
+// Backoffice exclusivo Contemporary Constellation
+// ─────────────────────────────────────────────────────────────
+
+model License {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  plan           String   @default("FREE")    // FREE, STARTER, PROFESSIONAL, ENTERPRISE, CUSTOM
+  status         String   @default("ACTIVE")  // ACTIVE, TRIAL, SUSPENDED, CANCELLED, PAST_DUE, EXPIRED
+  billingCycle   String   @default("MONTHLY") // MONTHLY, QUARTERLY, ANNUAL, MULTI_YEAR
+  trialEndsAt    DateTime?
+  startDate      DateTime @default(now())
+  endDate        DateTime?
+  nextBillingDate DateTime?
+  autoRenew      Boolean  @default(true)
+  gracePeriodDays Int     @default(7)
+  // Stripe
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  stripePaymentMethodId String?
+  stripePriceId         String?
+  // Moloni
+  moloniClientId String?
+  moloniCustomerId String?
+  // AI config
+  aiProvider     String   @default("AUTO")
+  aiModel        String?
+  // Limits
+  maxUsers       Int      @default(5)
+  maxStorageGb   Int      @default(5)
+  maxAiCredits   Int      @default(100)
+  maxApiCalls    Int      @default(0)
+  // Contacts
+  contactName    String?
+  contactEmail   String?
+  notes          String?
+  // Lifecycle timestamps
+  suspendedAt          DateTime?
+  cancelledAt          DateTime?
+  renewalReminderSentAt DateTime?
+  // Relations
+  modules        LicenseModule[]
+  invoices       LicenseInvoice[]
+  addons         LicenseAddon[]
+  events         SubscriptionEvent[]
+  featureFlags   FeatureFlag[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("licenses")
+}
+
+model LicenseModule {
+  id           String   @id @default(uuid())
+  licenseId    String
+  license      License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  module       String   // gdpr, nis2, dora, hr_compliance, ai_governance, whistleblow, vendors, soa, etc.
+  enabled      Boolean  @default(true)
+  monthlyPrice Decimal  @default(0) @db.Decimal(10,2)
+  annualPrice  Decimal  @default(0) @db.Decimal(10,2)
+  submodules   String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([licenseId, module])
+  @@map("license_modules")
+}
+
+model LicenseInvoice {
+  id          String   @id @default(uuid())
+  licenseId   String
+  license     License  @relation(fields: [licenseId], references: [id])
+  // Moloni
+  moloniId    String?
+  moloniDocNo String?
+  moloniReceiptId  String?
+  moloniReceiptNo  String?
+  // Stripe
+  stripeInvoiceId       String?
+  stripePaymentIntentId String?
+  // Amounts
+  amount      Decimal  @db.Decimal(10,2)
+  taxRate     Decimal  @default(23) @db.Decimal(5,2)
+  taxAmount   Decimal  @default(0)  @db.Decimal(10,2)
+  totalAmount Decimal  @db.Decimal(10,2)
+  currency    String   @default("EUR")
+  // Status
+  status      String   @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
+  description String?
+  periodStart DateTime?
+  periodEnd   DateTime?
+  dueDate     DateTime?
+  paidAt      DateTime?
+  // Files
+  pdfUrl      String?
+  receiptUrl  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([licenseId, status])
+  @@map("license_invoices")
+}
+
+// ── Webhooks ──────────────────────────────────────────────────
+
+model Webhook {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  url            String
+  secret         String?  // HMAC-SHA256 signing secret
+  events         String[] @default([]) // risk.created, task.overdue, capa.overdue, etc.
+  isActive       Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  failureCount   Int      @default(0)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId, isActive])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id          String   @id @default(uuid())
+  webhookId   String
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event       String
+  payload     Json
+  statusCode  Int?
+  success     Boolean  @default(false)
+  errorMsg    String?
+  deliveredAt DateTime @default(now())
+
+  @@index([webhookId, deliveredAt])
+  @@map("webhook_deliveries")
+}
+
+// ── Add-ons per license ───────────────────────────────────────
+
+model LicenseAddon {
+  id        String   @id @default(uuid())
+  licenseId String
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  addonKey  String   // ai_copilot, api_access, white_label, multi_entity, dpia_wizard, etc.
+  enabled   Boolean  @default(true)
+  price     Decimal  @default(0) @db.Decimal(10,2)
+  expiresAt DateTime?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([licenseId, addonKey])
+  @@map("license_addons")
+}
+
+// ── Subscription lifecycle event log ─────────────────────────
+
+model SubscriptionEvent {
+  id          String   @id @default(uuid())
+  licenseId   String
+  license     License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  type        String   // CREATED, UPGRADED, DOWNGRADED, RENEWED, SUSPENDED, CANCELLED, PAYMENT_FAILED, PAYMENT_SUCCEEDED, TRIAL_STARTED, TRIAL_EXPIRED, ADDON_ADDED, ADDON_REMOVED
+  fromPlan    String?
+  toPlan      String?
+  metadata    Json?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([licenseId, type])
+  @@map("subscription_events")
+}
+
+// ── Feature flags per license/org ────────────────────────────
+
+model FeatureFlag {
+  id             String   @id @default(uuid())
+  licenseId      String?
+  license        License? @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  organizationId String?
+  key            String   // e.g. ai_copilot, beta_dashboard, api_access, white_label
+  enabled        Boolean  @default(false)
+  expiresAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([licenseId, key])
+  @@map("feature_flags")
+}
+
+// ── Org addresses ─────────────────────────────────────────────
+
+model OrgAddress {
+  id             String      @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String      // HQ, BILLING, OPERATIONAL
+  street         String?
+  city           String?
+  postalCode     String?
+  region         String?
+  country        String      @default("PT")
+  isPrimary      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([organizationId, type])
+  @@map("org_addresses")
+}
+
+// ── Org contacts (DPO, CO, SO, AML, AI Lead, HR Lead, etc.) ──
+
+model OrgContact {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           String       // GENERAL, BILLING, DPO, COMPLIANCE_OFFICER, SECURITY_OFFICER, AML_OFFICER, AI_GOVERNANCE_LEAD, HR_LEAD
+  name           String
+  title          String?      // Job title
+  email          String?
+  phone          String?
+  isPrimary      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, role])
+  @@map("org_contacts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PONTO 17 — HR Compliance & Workforce Governance
+// 10 sub-módulos: Pay Transparency, SHST, HR Speak-Up,
+// Training, HR Policies, ESG Social, GDPR HR,
+// Employment Contracts, Remote Workers, HR Audit
+// ─────────────────────────────────────────────────────────────
+
+// ── 17.1 Pay Transparency / Salary Band Governance ───────────
+
+model HrSalaryBand {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  jobFamily      String   // e.g. "Engineering", "Sales", "HR"
+  jobLevel       String   // e.g. "Junior", "Mid", "Senior", "Lead", "Manager"
+  minSalary      Decimal  @db.Decimal(12,2)
+  midSalary      Decimal? @db.Decimal(12,2)
+  maxSalary      Decimal  @db.Decimal(12,2)
+  currency       String   @default("EUR")
+  country        String   @default("PT")
+  effectiveFrom  DateTime @default(now())
+  effectiveTo    DateTime?
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payGapAnalyses HrPayGapAnalysis[]
+
+  @@index([organizationId, isActive])
+  @@map("hr_salary_bands")
+}
+
+model HrPayGapAnalysis {
+  id             String   @id @default(uuid())
+  salaryBandId   String
+  salaryBand     HrSalaryBand @relation(fields: [salaryBandId], references: [id], onDelete: Cascade)
+  year           Int
+  maleCount      Int      @default(0)
+  femaleCount    Int      @default(0)
+  otherCount     Int      @default(0)
+  maleAvgSalary  Decimal? @db.Decimal(12,2)
+  femaleAvgSalary Decimal? @db.Decimal(12,2)
+  gapPercentage  Decimal? @db.Decimal(5,2) // positive = women earn less
+  gapCause       String?
+  actionPlan     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([salaryBandId, year])
+  @@map("hr_pay_gap_analyses")
+}
+
+// ── 17.2 SHST — Saúde, Higiene e Segurança no Trabalho ───────
+
+enum HrShstIncidentSeverity {
+  NEAR_MISS
+  MINOR
+  MODERATE
+  SERIOUS
+  FATAL
+}
+
+enum HrShstIncidentStatus {
+  REPORTED
+  INVESTIGATING
+  CORRECTIVE_ACTION
+  CLOSED
+}
+
+model HrShstIncident {
+  id              String                  @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  title           String
+  description     String
+  incidentDate    DateTime
+  location        String?
+  severity        HrShstIncidentSeverity  @default(MINOR)
+  status          HrShstIncidentStatus    @default(REPORTED)
+  injuredWorkers  Int                     @default(0)
+  lostDays        Int                     @default(0)
+  rootCause       String?
+  correctiveAction String?
+  reportedToACT   Boolean                 @default(false) // ACT = Autoridade para as Condições do Trabalho
+  actReportRef    String?
+  reportedAt      DateTime                @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@map("hr_shst_incidents")
+}
+
+// ── 17.3 HR Training & Awareness ────────────────────────────
+
+model HrTraining {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  title           String
+  description     String?
+  category        String   @default("GENERAL") // GENERAL, ONBOARDING, COMPLIANCE, SAFETY, LEADERSHIP, TECHNICAL
+  trainingDate    DateTime
+  durationHours   Decimal  @default(1) @db.Decimal(5,2)
+  instructor      String?
+  location        String?
+  mandatory       Boolean  @default(false)
+  certificationRequired Boolean @default(false)
+  expiresAfterMonths Int?
+  materialUrl     String?
+  maxAttendees    Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  enrollments HrTrainingEnrollment[]
+
+  @@index([organizationId, trainingDate])
+  @@map("hr_trainings")
+}
+
+model HrTrainingEnrollment {
+  id            String    @id @default(uuid())
+  trainingId    String
+  training      HrTraining @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  status        String    @default("ENROLLED") // ENROLLED, COMPLETED, FAILED, ABSENT
+  completedAt   DateTime?
+  score         Int?      // 0-100
+  certificateUrl String?
+  notes         String?
+  expiresAt     DateTime?
+
+  @@unique([trainingId, userId])
+  @@map("hr_training_enrollments")
+}
+
+// ── 17.4 Employment Contracts ────────────────────────────────
+
+enum HrContractType {
+  PERMANENT          // Contrato sem termo
+  FIXED_TERM         // Contrato a termo certo
+  TEMPORARY          // Contrato a termo incerto
+  INTERNSHIP         // Estágio
+  SERVICE_AGREEMENT  // Prestação de serviços
+  PART_TIME
+  REMOTE
+}
+
+enum HrContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  SUSPENDED
+}
+
+model HrContract {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  employeeName    String       // in case user not yet registered
+  employeeEmail   String?
+  contractType    HrContractType  @default(PERMANENT)
+  status          HrContractStatus @default(ACTIVE)
+  department      String?
+  jobTitle        String
+  startDate       DateTime
+  endDate         DateTime?
+  probationEndDate DateTime?
+  salary          Decimal?     @db.Decimal(12,2)
+  currency        String       @default("EUR")
+  weeklyHours     Decimal      @default(40) @db.Decimal(5,2)
+  noticePeriodDays Int         @default(30)
+  collectiveAgreement String?  // IRCT
+  fileUrl         String?
+  notes           String?
+  signedAt        DateTime?
+  terminatedAt    DateTime?
+  terminationReason String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, contractType])
+  @@map("hr_contracts")
+}
+
+// ── 17.5 Remote Workers Policy & Register ────────────────────
+
+model HrRemoteWorker {
+  id               String   @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id])
+  employeeName     String
+  jobTitle         String?
+  remoteType       String   @default("HYBRID") // FULL_REMOTE, HYBRID, OCCASIONAL
+  country          String   @default("PT")
+  city             String?
+  workspaceAssessed Boolean @default(false)
+  dseSelfAssessmentAt DateTime?
+  equipmentProvided Boolean @default(false)
+  equipmentList    String?
+  internetAllowance Decimal? @db.Decimal(8,2)
+  taxCompliant     Boolean  @default(false)
+  socialSecurityCompliant Boolean @default(false)
+  startDate        DateTime
+  endDate          DateTime?
+  agreementFileUrl String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId, remoteType])
+  @@map("hr_remote_workers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PONTO 18 — AI Governance Suite
+// ISO 42001 | EU AI Act | AI Risk | AI Inventory |
+// AI Vendor Governance | Human Oversight | AI Impact Assessment
+// ─────────────────────────────────────────────────────────────
+
+// ── 18.1 AI System Inventory ─────────────────────────────────
+
+enum AiSystemRiskLevel {
+  MINIMAL
+  LIMITED
+  HIGH
+  UNACCEPTABLE
+}
+
+enum AiSystemStatus {
+  PLANNED
+  IN_DEVELOPMENT
+  DEPLOYED
+  DEPRECATED
+  PROHIBITED
+}
+
+model AiSystem {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  description     String?
+  vendor          String?         // 3rd party or "Internal"
+  version         String?
+  purpose         String          // What it does
+  useCase         String?         // Specific business use case
+  department      String?
+  owner           String?         // Responsible person/team
+  aiActRiskLevel  AiSystemRiskLevel @default(LIMITED)
+  status          AiSystemStatus    @default(DEPLOYED)
+  trainingData    String?         // Description of training data
+  inputData       String?
+  outputData      String?
+  affectedPersons String[]        @default([]) // EMPLOYEES, CUSTOMERS, PUBLIC, etc.
+  humanOversight  Boolean         @default(true)
+  oversightDescription String?
+  accuracyMetrics String?
+  biasAssessed    Boolean         @default(false)
+  biasAssessmentAt DateTime?
+  documentationUrl String?
+  apiEndpoint     String?
+  isThirdParty    Boolean         @default(false)
+  contractUrl     String?
+  lastReviewAt    DateTime?
+  nextReviewAt    DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  risks              AiRisk[]
+  impactAssessments  AiImpactAssessment[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, aiActRiskLevel])
+  @@map("ai_systems")
+}
+
+// ── 18.2 AI Risk Register ────────────────────────────────────
+
+enum AiRiskCategory {
+  BIAS_DISCRIMINATION
+  PRIVACY_VIOLATION
+  SECURITY_VULNERABILITY
+  TRANSPARENCY_LACK
+  ACCOUNTABILITY_GAP
+  SAFETY_RISK
+  LEGAL_COMPLIANCE
+  REPUTATIONAL
+  OPERATIONAL
+  OTHER
+}
+
+model AiRisk {
+  id              String          @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  aiSystemId      String?
+  aiSystem        AiSystem?    @relation(fields: [aiSystemId], references: [id])
+  title           String
+  description     String
+  category        AiRiskCategory  @default(OTHER)
+  likelihood      Int             @default(3) // 1-5
+  impact          Int             @default(3) // 1-5
+  riskScore       Int             // likelihood * impact
+  residualScore   Int?
+  status          String          @default("IDENTIFIED") // IDENTIFIED, MITIGATING, MITIGATED, ACCEPTED, CLOSED
+  mitigationPlan  String?
+  owner           String?
+  dueDate         DateTime?
+  reviewDate      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([organizationId, status])
+  @@map("ai_risks")
+}
+
+// ── 18.3 AI Impact Assessment (AIIA / DPIA-AI) ───────────────
+
+model AiImpactAssessment {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id])
+  aiSystemId            String?
+  aiSystem              AiSystem? @relation(fields: [aiSystemId], references: [id])
+  title                 String
+  scope                 String?
+  status                String   @default("DRAFT") // DRAFT, IN_REVIEW, COMPLETED
+  // Assessment steps
+  purposeDescription    String?
+  necessityTest         String?
+  proportionalityTest   String?
+  riskAssessment        String?
+  mitigationMeasures    String?
+  humanOversightPlan    String?
+  fundamentalRightsImpact String?
+  // EU AI Act specifics
+  aiActClassification   String?  // MINIMAL, LIMITED, HIGH, PROHIBITED
+  conformityAssessment  String?  // For HIGH risk: notified body assessment
+  euDeclaration         Boolean  @default(false)
+  // Outcome
+  outcome               String?  // LOW_RISK, MEDIUM_RISK, HIGH_RISK_PROCEED, DO_NOT_DEPLOY
+  approvedAt            DateTime?
+  approvedBy            String?
+  reviewDate            DateTime?
+  ownerId               String?
+  owner                 User?    @relation(fields: [ownerId], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@map("ai_impact_assessments")
+}
+
+// ── 18.4 ISO 42001 Controls ──────────────────────────────────
+
+enum Ai42001Status {
+  NOT_STARTED
+  PLANNED
+  IN_PROGRESS
+  IMPLEMENTED
+  NOT_APPLICABLE
+}
+
+model Ai42001Control {
+  id                  String        @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  controlCode         String        // e.g. "6.1", "8.4", "A.6.2.3"
+  clause              String        // e.g. "6 Planning", "8 Operation", "Annex A"
+  title               String
+  description         String?
+  applicable          Boolean       @default(true)
+  justification       String?       // why N/A if not applicable
+  status              Ai42001Status @default(NOT_STARTED)
+  implementationNotes String?
+  owner               String?
+  evidence            String?
+  targetDate          DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, status])
+  @@map("ai_42001_controls")
+}
+
+// ─── ESG / Sustainability ──────────────────────────────────────
+
+enum EsgPillar {
+  ENVIRONMENTAL
+  SOCIAL
+  GOVERNANCE
+}
+
+model EsgReport {
+  id             String     @id @default(uuid())
+  organizationId String
+  year           Int
+  framework      String     @default("CSRD")
+  title          String
+  description    String?
+  status         String     @default("DRAFT")
+  publishedAt    DateTime?
+  ownerId        String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  metrics        EsgMetric[]
+
+  @@index([organizationId, year])
+  @@map("esg_reports")
+}
+
+model EsgMetric {
+  id             String    @id @default(uuid())
+  organizationId String
+  reportId       String?
+  pillar         EsgPillar
+  framework      String    @default("CSRD")
+  standardCode   String
+  indicator      String
+  description    String?
+  unit           String?
+  targetValue    Float?
+  actualValue    Float?
+  year           Int
+  period         String?
+  dataSource     String?
+  methodology    String?
+  status         String    @default("NOT_REPORTED")
+  notes          String?
+  verifiedBy     String?
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  report         EsgReport?   @relation(fields: [reportId], references: [id])
+
+  @@unique([organizationId, standardCode, year, framework])
+  @@index([organizationId, pillar])
+  @@index([organizationId, year])
+  @@map("esg_metrics")
+}
+
+// ─── DSAR (Data Subject Access Requests) ──────────────────────
+
+enum DsarType {
+  ACCESS
+  RECTIFICATION
+  ERASURE
+  RESTRICTION
+  PORTABILITY
+  OBJECTION
+  AUTOMATED
+}
+
+enum DsarStatus {
+  RECEIVED
+  IN_REVIEW
+  PENDING_VERIFICATION
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  ESCALATED
+}
+
+model DataSubjectRequest {
+  id               String     @id @default(uuid())
+  organizationId   String
+  requestType      DsarType
+  subjectName      String
+  subjectEmail     String
+  subjectId        String?
+  description      String?
+  receivedAt       DateTime   @default(now())
+  dueAt            DateTime
+  status           DsarStatus @default(RECEIVED)
+  respondedAt      DateTime?
+  responseNotes    String?
+  handlerId        String?
+  identityVerified Boolean    @default(false)
+  extensionReason  String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  handler          User?        @relation("DsarHandler", fields: [handlerId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, dueAt])
+  @@map("data_subject_requests")
+}
+
+// ─── Consent Records ───────────────────────────────────────────
+
+enum ConsentStatus {
+  ACTIVE
+  WITHDRAWN
+  EXPIRED
+}
+
+model ConsentRecord {
+  id             String        @id @default(uuid())
+  organizationId String
+  subjectEmail   String
+  subjectName    String?
+  purpose        String
+  legalBasis     String        @default("CONSENT")
+  consentedAt    DateTime
+  expiresAt      DateTime?
+  withdrawnAt    DateTime?
+  ipAddress      String?
+  consentMethod  String?
+  version        String?
+  status         ConsentStatus @default(ACTIVE)
+  notes          String?
+  activityId     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization            @relation(fields: [organizationId], references: [id])
+  activity       DataProcessingActivity? @relation(fields: [activityId], references: [id])
+
+  @@index([organizationId, subjectEmail])
+  @@index([organizationId, status])
+  @@map("consent_records")
+}
+
+// ─── Business Continuity (ISO 22301) ──────────────────────────
+
+model BcpPlan {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  scope          String?
+  version        String   @default("1.0")
+  status         String   @default("DRAFT")
+  rtoTarget      Int?
+  rpoTarget      Int?
+  lastTestedAt   DateTime?
+  nextTestAt     DateTime?
+  approvedBy     String?
+  approvedAt     DateTime?
+  ownerId        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  owner          User         @relation("BcpOwner", fields: [ownerId], references: [id])
+  tests          BcpTest[]
+  assets         BcpAsset[]
+
+  @@index([organizationId, status])
+  @@map("bcp_plans")
+}
+
+model BcpTest {
+  id                String   @id @default(uuid())
+  organizationId    String
+  planId            String
+  testType          String
+  testedAt          DateTime
+  conductedBy       String?
+  result            String
+  rtoActual         Int?
+  rpoActual         Int?
+  findings          String?
+  correctiveActions String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  plan              BcpPlan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, planId])
+  @@map("bcp_tests")
+}
+
+model BcpAsset {
+  id             String   @id @default(uuid())
+  planId         String
+  assetName      String
+  assetType      String
+  criticality    String
+  rtoRequired    Int?
+  rpoRequired    Int?
+  recoveryOwner  String?
+  recoverySteps  String?
+  dependencies   String[] @default([])
+
+  plan           BcpPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("bcp_assets")
+}
+
+// ─── IT Service Management (ITSM / ITIL) ──────────────────────
+
+model ItsmChangeRequest {
+  id             String   @id @default(uuid())
+  organizationId String
+  changeId       String
+  title          String
+  description    String
+  changeType     String   @default("NORMAL")
+  priority       String   @default("MEDIUM")
+  status         String   @default("DRAFT")
+  riskLevel      String   @default("MEDIUM")
+  impactArea     String[] @default([])
+  rollbackPlan   String?
+  testPlan       String?
+  requesterId    String
+  approverId     String?
+  approvedAt     DateTime?
+  scheduledAt    DateTime?
+  implementedAt  DateTime?
+  closedAt       DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  requester      User         @relation("ChangeRequester", fields: [requesterId], references: [id])
+  approver       User?        @relation("ChangeApprover", fields: [approverId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("itsm_change_requests")
+}
+
+model ItsmIncident {
+  id             String   @id @default(uuid())
+  organizationId String
+  incidentId     String
+  title          String
+  description    String
+  category       String   @default("SOFTWARE")
+  priority       String   @default("P3")
+  severity       String   @default("MEDIUM")
+  status         String   @default("NEW")
+  affectedSystem String?
+  affectedUsers  Int?
+  reporterId     String
+  assigneeId     String?
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  resolution     String?
+  rootCause      String?
+  slaBreached    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  reporter       User         @relation("IncidentReporter", fields: [reporterId], references: [id])
+  assignee       User?        @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("itsm_incidents")
+}
+
+model ItsmProblem {
+  id             String   @id @default(uuid())
+  organizationId String
+  problemId      String
+  title          String
+  description    String
+  status         String   @default("NEW")
+  priority       String   @default("MEDIUM")
+  rootCause      String?
+  workaround     String?
+  resolution     String?
+  affectedSystem String?
+  ownerId        String
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  owner          User         @relation("ProblemOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("itsm_problems")
+}
+
+// ─── AML / KYC / Financial Compliance ─────────────────────────
+
+model AmlCase {
+  id              String   @id @default(uuid())
+  organizationId  String
+  caseId          String
+  subjectName     String
+  subjectType     String   @default("INDIVIDUAL")
+  caseType        String   @default("KYC")
+  riskLevel       String   @default("MEDIUM")
+  status          String   @default("OPEN")
+  description     String?
+  findings        String?
+  resolution      String?
+  reportedToFIU   Boolean  @default(false)
+  reportedAt      DateTime?
+  referenceNumber String?
+  assigneeId      String?
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  assignee        User?        @relation("AmlAssignee", fields: [assigneeId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("aml_cases")
+}
+
+model AmlScreening {
+  id             String   @id @default(uuid())
+  organizationId String
+  subjectName    String
+  subjectType    String   @default("INDIVIDUAL")
+  screeningType  String   @default("KYC")
+  result         String   @default("CLEAR")
+  screenedAt     DateTime @default(now())
+  screenedBy     String?
+  notes          String?
+  caseId         String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, screeningType])
+  @@map("aml_screenings")
+}
+
+model AmlPolicy {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  category       String   @default("AML")
+  content        String?
+  version        String   @default("1.0")
+  status         String   @default("ACTIVE")
+  effectiveDate  DateTime?
+  reviewDate     DateTime?
+  ownerId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("aml_policies")
+}
+
+model AmlRiskAssessment {
+  id             String    @id @default(uuid())
+  organizationId String
+  entityName     String
+  entityType     String    @default("CUSTOMER")
+  overallRisk    String    @default("MEDIUM")
+  score          Int       @default(50)
+  factors        String?
+  assessedById   String?
+  assessedAt     DateTime  @default(now())
+  nextReviewAt   DateTime?
+  notes          String?
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, entityType])
+  @@map("aml_risk_assessments")
+}
+
+model AmlTrainingRecord {
+  id             String    @id @default(uuid())
+  organizationId String
+  employeeName   String
+  trainingTitle  String
+  trainingType   String    @default("AML_BASIC")
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  status         String    @default("PENDING")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("aml_training_records")
+}
+
+model AmlRegulatoryUpdate {
+  id             String    @id @default(uuid())
+  organizationId String
+  source         String    @default("FATF")
+  title          String
+  summary        String?
+  url            String?
+  publishedAt    DateTime
+  impactLevel    String    @default("MEDIUM")
+  category       String    @default("GUIDANCE")
+  status         String    @default("NEW")
+  reviewedById   String?
+  reviewedAt     DateTime?
+  actionNotes    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("aml_regulatory_updates")
+}
+
+model AmlAuditItem {
+  id             String    @id @default(uuid())
+  organizationId String
+  category       String    @default("GOVERNANCE")
+  requirement    String
+  reference      String?
+  status         String    @default("PENDING")
+  evidence       String?
+  capaId         String?
+  notes          String?
+  dueDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, category])
+  @@map("aml_audit_items")
+}
+
+// ─── ISO 27701 — Privacy Information Management ───────────────
+
+model Iso27701Control {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  controlCode         String
+  clause              String
+  title               String
+  description         String?
+  applicableTo        String   @default("BOTH")
+  status              String   @default("NOT_STARTED")
+  applicable          Boolean  @default(true)
+  justification       String?
+  implementationNotes String?
+  owner               String?
+  targetDate          DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, status])
+  @@map("iso_27701_controls")
+}
+
+// ─── SOC 2 Trust Service Criteria ─────────────────────────────
+
+model Soc2Criterion {
+  id             String   @id @default(uuid())
+  organizationId String
+  criterionCode  String
+  category       String
+  title          String
+  description    String?
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  responsible    User?        @relation("Soc2Responsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, criterionCode])
+  @@index([organizationId, status])
+  @@map("soc2_criteria")
+}
+
+// ─── CIS Controls v8 ──────────────────────────────────────────
+
+enum CisImplementationGroup {
+  IG1
+  IG2
+  IG3
+}
+
+model CisControl {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  controlId           String   // e.g. "CIS-1", "CIS-18"
+  safeGuardId         String?  // e.g. "CIS-1.1"
+  title               String
+  description         String?
+  implementationGroup CisImplementationGroup
+  assetType           String?  // Devices, Software, Data, Users, Network, etc.
+  securityFunction    String?  // Identify, Protect, Detect, Respond, Recover
+  status              String   @default("NOT_IMPLEMENTED") // NOT_IMPLEMENTED | PARTIAL | IMPLEMENTED | NOT_APPLICABLE
+  evidence            String?
+  notes               String?
+  responsibleId       String?
+  targetDate          DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation("CisControls", fields: [organizationId], references: [id])
+  responsible         User?        @relation("CisResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlId, safeGuardId])
+  @@index([organizationId, implementationGroup])
+  @@map("cis_controls")
+}
+
+// ─── TISAX (VDA ISA) ──────────────────────────────────────────
+
+enum TisaxLabel {
+  INFO            // Information Protection
+  PROTO           // Prototype Protection
+  DATA_PROVIDER   // Connected Third-Party Assessment
+}
+
+model TisaxAssessment {
+  id              String      @id @default(uuid())
+  organizationId  String
+  assessmentScope String
+  label           TisaxLabel  @default(INFO)
+  targetLevel     Int         @default(3)  // 1-3 maturity levels
+  status          String      @default("PLANNED") // PLANNED | IN_PROGRESS | SUBMITTED | APPROVED | EXPIRED
+  auditBody       String?
+  assessmentDate  DateTime?
+  validUntil      DateTime?
+  score           Int?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  organization    Organization @relation("TisaxAssessments", fields: [organizationId], references: [id])
+  controls        TisaxControl[]
+
+  @@index([organizationId, status])
+  @@map("tisax_assessments")
+}
+
+model TisaxControl {
+  id             String   @id @default(uuid())
+  organizationId String
+  assessmentId   String?
+  requirementId  String   // e.g. "IS-1.1.1"
+  chapter        String   // e.g. "Information Security"
+  requirement    String
+  description    String?
+  maturityLevel  Int      @default(0)  // 0-3
+  targetLevel    Int      @default(3)
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization    @relation("TisaxControls", fields: [organizationId], references: [id])
+  assessment     TisaxAssessment? @relation(fields: [assessmentId], references: [id])
+  responsible    User?           @relation("TisaxResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, requirementId])
+  @@index([organizationId, chapter])
+  @@map("tisax_controls")
+}
+
+// ─── ISO 37001 / 37301 Anti-Bribery & Compliance Programs ─────
+
+model AntiBriberyControl {
+  id             String   @id @default(uuid())
+  organizationId String
+  controlCode    String   // e.g. "ISO37001-6.1", "ISO37301-8.2"
+  standard       String   // ISO_37001 | ISO_37301
+  clauseNumber   String
+  title          String
+  description    String?
+  status         String   @default("NOT_IMPLEMENTED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation("AntiBriberyControls", fields: [organizationId], references: [id])
+  responsible    User?        @relation("AntiBriberyResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, standard])
+  @@map("anti_bribery_controls")
+}
+
+// ─── ISO 45001 / HR Compliance (Workforce Governance) ──────────
+
+model WorkforceCompliance {
+  id             String   @id @default(uuid())
+  organizationId String
+  controlCode    String   // e.g. "ISO45001-6.1.2", "HR-GDPR-1"
+  framework      String   // ISO_45001 | HR_GDPR | WORKING_TIME | DISCRIMINATION | HEALTH_SAFETY
+  clauseTitle    String
+  description    String?
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation("WorkforceCompliance", fields: [organizationId], references: [id])
+  responsible    User?        @relation("WorkforceResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, framework])
+  @@map("workforce_compliance")
+}
+
+// ─── ISO 9001 / CAPA (Quality & Operational) ──────────────────
+
+enum CapaType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+model QualityControl {
+  id             String   @id @default(uuid())
+  organizationId String
+  controlCode    String   // e.g. "ISO9001-4.1", "ISO9001-8.5.1"
+  clauseNumber   String
+  title          String
+  description    String?
+  status         String   @default("NOT_ASSESSED")
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation("QualityControls", fields: [organizationId], references: [id])
+  responsible    User?        @relation("QualityResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, controlCode])
+  @@index([organizationId, status])
+  @@map("quality_controls")
+}
+
+model CapaRecord {
+  id              String     @id @default(uuid())
+  capaId          String     @unique // AUTO: CAPA-XXXXXX
+  organizationId  String
+  type            CapaType
+  status          CapaStatus @default(OPEN)
+  title           String
+  description     String
+  rootCause       String?
+  sourceType      String?    // AUDIT | INCIDENT | CUSTOMER_COMPLAINT | INTERNAL | RISK | OTHER
+  sourceRef       String?    // reference to source record
+  correctiveAction String?
+  preventiveAction String?
+  effectivenessCheck String?
+  responsibleId   String?
+  dueDate         DateTime?
+  closedAt        DateTime?
+  verifiedAt      DateTime?
+  verifiedById    String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  organization    Organization @relation("CapaRecords", fields: [organizationId], references: [id])
+  responsible     User?        @relation("CapaResponsible", fields: [responsibleId], references: [id])
+  verifiedBy      User?        @relation("CapaVerifier", fields: [verifiedById], references: [id])
+
+  @@index([organizationId, type, status])
+  @@map("capa_records")
+}
+
+// ─── Non-Conformance ──────────────────────────────────────────
+
+enum NCCategory {
+  PRODUCT
+  PROCESS
+  SUPPLIER
+  SYSTEM
+}
+
+enum NCSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum NCStatus {
+  OPEN
+  INVESTIGATING
+  CORRECTED
+  CLOSED
+}
+
+model NonConformance {
+  id                String      @id @default(cuid())
+  ncId              String      @unique
+  organizationId    String
+  title             String
+  category          NCCategory
+  severity          NCSeverity
+  status            NCStatus    @default(OPEN)
+  description       String
+  rootCause         String?
+  correctiveAction  String?
+  responsiblePerson String?
+  detectedAt        DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  organization      Organization @relation("NonConformances", fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("non_conformances")
+}
+
+// ─── Regulatory Change Governance ─────────────────────────────
+
+enum RegChangeStatus {
+  DETECTED
+  UNDER_ANALYSIS
+  IMPACT_ASSESSED
+  IMPLEMENTATION_PLANNED
+  IMPLEMENTED
+  VERIFIED
+  NOT_APPLICABLE
+}
+
+enum RegChangeImpact {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model RegulatoryChange {
+  id              String          @id @default(uuid())
+  organizationId  String
+  referenceId     String          // AUTO: REG-XXXXXX
+  title           String
+  description     String?
+  source          String?         // e.g. "EUR-Lex", "CNPD", "ANACOM"
+  jurisdiction    String?         // e.g. "EU", "PT", "Global"
+  frameworks      String[]        // e.g. ["GDPR", "NIS2", "DORA"]
+  status          RegChangeStatus @default(DETECTED)
+  impact          RegChangeImpact @default(NONE)
+  impactAnalysis  String?
+  implementationPlan String?
+  effectiveDate   DateTime?
+  deadlineDate    DateTime?
+  implementedAt   DateTime?
+  verifiedAt      DateTime?
+  responsibleId   String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization    Organization @relation("RegulatoryChanges", fields: [organizationId], references: [id])
+  responsible     User?        @relation("RegChangeResponsible", fields: [responsibleId], references: [id])
+  calendarItems   ComplianceCalendarItem[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, deadlineDate])
+  @@map("regulatory_changes")
+}
+
+model ComplianceCalendarItem {
+  id              String   @id @default(uuid())
+  organizationId  String
+  title           String
+  description     String?
+  frameworks      String[]
+  eventType       String   // DEADLINE | REPORTING | AUDIT | REVIEW | TRAINING | RENEWAL
+  eventDate       DateTime
+  recurrence      String?  // NONE | MONTHLY | QUARTERLY | ANNUAL
+  status          String   @default("UPCOMING") // UPCOMING | IN_PROGRESS | COMPLETED | OVERDUE | CANCELLED
+  regulatoryChangeId String?
+  responsibleId   String?
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization       Organization      @relation("CalendarItems", fields: [organizationId], references: [id])
+  responsible        User?             @relation("CalendarResponsible", fields: [responsibleId], references: [id])
+  regulatoryChange   RegulatoryChange? @relation(fields: [regulatoryChangeId], references: [id])
+
+  @@index([organizationId, eventDate])
+  @@index([organizationId, status])
+  @@map("compliance_calendar_items")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPRINT PREMIUM — New enterprise-grade modules
+// ═══════════════════════════════════════════════════════════════
+
+// ── DORA Register of Information ──────────────────────────────
+
+model DoraRegisterEntry {
+  id                String   @id @default(uuid())
+  organizationId    String
+  // Article 28 fields (ICT third-party service providers)
+  providerName      String
+  providerLei       String?   // LEI code
+  providerCnpj      String?
+  providerCountry   String    @default("PT")
+  serviceType       String    // ICT_SERVICES | CLOUD | SAAS | DATA_CENTER | NETWORK | OTHER
+  serviceDescription String?
+  contractRef       String?
+  contractStart     DateTime?
+  contractEnd       DateTime?
+  isCritical        Boolean   @default(false)  // Critical or important function?
+  subContractors    Json?     // array of sub-ICT providers
+  dataTypes         String[]  // types of data processed
+  dataLocations     String[]  // countries where data is processed
+  exitStrategy      String?
+  substitutability  String?   // EASY | MODERATE | DIFFICULT | IMPOSSIBLE
+  concentrationRisk Boolean   @default(false)
+  lastAssessedAt    DateTime?
+  status            String    @default("ACTIVE") // ACTIVE | TERMINATED | UNDER_REVIEW
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isCritical])
+  @@index([organizationId, status])
+  @@map("dora_register_entries")
+}
+
+// ── NIS2 Incident Notifications ───────────────────────────────
+
+model Nis2IncidentNotification {
+  id                String   @id @default(uuid())
+  organizationId    String
+  incidentRef       String   // AUTO: NIS2-INC-XXXXXX
+  title             String
+  description       String?
+  incidentDate      DateTime
+  detectionDate     DateTime
+  severity          String   // SIGNIFICANT | MAJOR | CRITICAL
+  affectedSystems   String[]
+  affectedServices  String[]
+  rootCause         String?
+  impactDescription String?
+  // NIS2 Article 23 timeline
+  earlyWarningAt    DateTime?  // 24h deadline
+  initialReportAt   DateTime?  // 72h deadline
+  finalReportAt     DateTime?  // 1 month deadline
+  earlyWarningText  String?    @db.Text
+  initialReportText String?    @db.Text
+  finalReportText   String?    @db.Text
+  // Authority submission
+  authorityName     String?   // e.g. "CNCS", "BSI", "ANSSI"
+  authorityCountry  String?   // PT, DE, FR, ES, etc.
+  submittedAt       DateTime?
+  submissionRef     String?   // reference given by authority
+  status            String    @default("DRAFT") // DRAFT | EARLY_WARNING_SENT | INITIAL_REPORT_SENT | FINAL_REPORT_SENT | CLOSED
+  responsibleId     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  responsible  User?        @relation("Nis2IncidentResponsible", fields: [responsibleId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, incidentDate])
+  @@map("nis2_incident_notifications")
+}
+
+// ── External Auditor Portal ────────────────────────────────────
+
+model AuditorSession {
+  id             String   @id @default(uuid())
+  organizationId String
+  auditId        String?  // linked audit if applicable
+  token          String   @unique @default(uuid())
+  auditorName    String
+  auditorFirm    String?
+  auditorEmail   String
+  scope          Json?    // what they can access: { frameworks, dateRange, modules }
+  permissions    String[] // EVIDENCE | CONTROLS | FINDINGS | POLICIES | RISKS
+  expiresAt      DateTime
+  lastAccessAt   DateTime?
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requests     AuditorRequest[]
+
+  @@index([organizationId, isActive])
+  @@map("auditor_sessions")
+}
+
+model AuditorRequest {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     AuditorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type        String   // EVIDENCE_REQUEST | CLARIFICATION | FINDING
+  subject     String
+  message     String?  @db.Text
+  entityType  String?  // Evidence | Control | Policy | Risk
+  entityId    String?
+  status      String   @default("OPEN") // OPEN | RESPONDED | CLOSED
+  response    String?  @db.Text
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, status])
+  @@map("auditor_requests")
+}
+
+// ── Management Body Liability (NIS2 Art. 20) ──────────────────
+
+model ManagementBodyMember {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  title          String   // e.g. "CEO", "CFO", "Board Member"
+  email          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actions      ManagementBodyAction[]
+
+  @@index([organizationId, isActive])
+  @@map("management_body_members")
+}
+
+model ManagementBodyAction {
+  id          String   @id @default(uuid())
+  memberId    String
+  member      ManagementBodyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  type        String   // APPROVAL | AWARENESS | TRAINING | REVIEW | SIGN_OFF
+  title       String
+  description String?
+  framework   String?  // NIS2, DORA, GDPR, etc.
+  documentUrl String?
+  acknowledgedAt DateTime?
+  evidenceRef  String?
+  createdAt   DateTime @default(now())
+
+  @@index([memberId, type])
+  @@map("management_body_actions")
+}
+
+// ── Board Reports ──────────────────────────────────────────────
+
+model BoardReport {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  period         String   // e.g. "Q1 2025", "Annual 2025"
+  sections       Json?    // selected sections to include
+  status         String   @default("DRAFT") // DRAFT | PENDING_APPROVAL | APPROVED | PUBLISHED
+  pdfUrl         String?
+  approvedById   String?
+  approvedAt     DateTime?
+  publishedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  signoffs     BoardReportSignoff[]
+
+  @@index([organizationId, status])
+  @@map("board_reports")
+}
+
+model BoardReportSignoff {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    BoardReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  memberId  String?  // ManagementBodyMember
+  name      String
+  email     String
+  role      String?
+  signedAt  DateTime?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("board_report_signoffs")
+}
+
+// ── Regulatory Intelligence Feed ──────────────────────────────
+
+model RegulatoryFeedItem {
+  id             String   @id @default(uuid())
+  source         String   // EU_OJ | ENISA | EBA | EIOPA | ESMA | CNCS | BSI | ANSSI | CNPD | OTHER
+  sourceUrl      String?
+  title          String
+  summary        String?  @db.Text
+  publishedAt    DateTime
+  frameworks     String[] // affected frameworks
+  jurisdiction   String   @default("EU")
+  importance     String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  isRead         Boolean  @default(false)
+  aiSummary      String?  @db.Text // AI-generated plain language summary
+  affectedControls Json?  // suggested control IDs to review
+  createdAt      DateTime @default(now())
+
+  @@index([publishedAt])
+  @@index([importance])
+  @@map("regulatory_feed_items")
+}
+
+// ── Client Hub (multi-client for consultants) ─────────────────
+
+model ClientHubMembership {
+  id             String   @id @default(uuid())
+  hubOrgId       String   // the consultancy org
+  clientOrgId    String   // the client org
+  role           String   @default("MANAGER") // MANAGER | VIEWER | AUDITOR
+  isActive       Boolean  @default(true)
+  addedById      String?
+  createdAt      DateTime @default(now())
+
+  hubOrg    Organization @relation("HubConsultancy", fields: [hubOrgId], references: [id], onDelete: Cascade)
+  clientOrg Organization @relation("HubClient",      fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  @@unique([hubOrgId, clientOrgId])
+  @@map("client_hub_memberships")
+}
+
+// ── RACI Matrix ───────────────────────────────────────────────
+// Universal RACI assignment — attaches to any entity type
+
+model RaciAssignment {
+  id             String     @id @default(uuid())
+  organizationId String
+  entityType     RaciEntityType
+  entityId       String
+  userId         String
+  role           RaciRole
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId, role])
+  @@index([organizationId, entityType])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("raci_assignments")
+}
+
+enum RaciRole {
+  R  // Responsible  — does the work
+  A  // Accountable  — owns the outcome, signs off
+  C  // Consulted    — provides input before decisions
+  I  // Informed     — notified of decisions/progress
+}
+
+enum RaciEntityType {
+  CONTROL
+  RISK
+  POLICY
+  AUDIT
+  CAPA
+  PROCESS        // GDPR data processing activities
+  VENDOR         // TPRM / third-party
+  INCIDENT       // NIS2 / ITSM incidents
+  BOARD_REPORT
+  PROJECT
+  TASK
+}
+
+// ── Approvals ─────────────────────────────────────────────────
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+  ABSTAIN
+}
+
+enum ApprovalEntityType {
+  POLICY
+  CAPA
+  AUDIT
+  RISK
+  BOARD_REPORT
+  SOA_STATEMENT
+  EVIDENCE
+  PROJECT
+  DOCUMENT
+}
+
+model ApprovalRequest {
+  id             String             @id @default(uuid())
+  organizationId String
+  entityType     ApprovalEntityType
+  entityId       String
+  title          String
+  description    String?
+  requestedById  String
+  status         ApprovalStatus     @default(PENDING)
+  threshold      Int                @default(1)  // min approvals needed
+  dueDate        DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  requestedBy  User            @relation("ApprovalRequester", fields: [requestedById], references: [id])
+  votes        ApprovalVote[]
+
+  @@index([organizationId, status])
+  @@index([entityType, entityId])
+  @@map("approval_requests")
+}
+
+model ApprovalVote {
+  id                String           @id @default(uuid())
+  approvalRequestId String
+  approverId        String
+  decision          ApprovalDecision?
+  comment           String?
+  votedAt           DateTime?
+  createdAt         DateTime         @default(now())
+
+  request  ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  approver User            @relation("ApprovalVoter", fields: [approverId], references: [id])
+
+  @@unique([approvalRequestId, approverId])
+  @@map("approval_votes")
+}
+
+// ─── Intake Forms ─────────────────────────────────────────────
+
+model IntakeForm {
+  id             String    @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  fields         Json      // Array of { id, type, label, required, options? }
+  publicToken    String    @unique @default(uuid())
+  isActive       Boolean   @default(true)
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  createdBy    User            @relation("IntakeFormCreator", fields: [createdById], references: [id])
+  submissions  IntakeSubmission[]
+
+  @@index([organizationId])
+  @@map("intake_forms")
+}
+
+model IntakeSubmission {
+  id           String   @id @default(uuid())
+  intakeFormId String
+  answers      Json     // { fieldId: value }
+  submitterName  String?
+  submitterEmail String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  form IntakeForm @relation(fields: [intakeFormId], references: [id], onDelete: Cascade)
+
+  @@index([intakeFormId])
+  @@map("intake_submissions")
+}
+
+// ─── Action Plans (Timeline / Gantt) ─────────────────────────
+
+enum ActionPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ActionTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+model ActionPlan {
+  id             String           @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?          @db.Text
+  entityType     String?
+  entityId       String?
+  status         ActionPlanStatus @default(DRAFT)
+  startDate      DateTime?
+  endDate        DateTime?
+  ownerId        String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization       Organization       @relation(fields: [organizationId], references: [id])
+  owner              User               @relation("ActionPlanOwner", fields: [ownerId], references: [id])
+  tasks              ActionTask[]
+  programActivation  ProgramActivation?
+
+  @@index([organizationId, status])
+  @@map("action_plans")
+}
+
+model ActionTask {
+  id           String          @id @default(uuid())
+  actionPlanId String
+  title        String
+  description  String?
+  assigneeId   String?
+  status       ActionTaskStatus @default(TODO)
+  progress     Int             @default(0)
+  startDate    DateTime?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  sortOrder    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  plan     ActionPlan  @relation(fields: [actionPlanId], references: [id], onDelete: Cascade)
+  assignee User?       @relation("ActionTaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([actionPlanId])
+  @@map("action_tasks")
+}
+
+// ─── Program Templates ────────────────────────────────────────
+
+model ProgramTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  framework   String
+  category    String?
+  tasks       Json     // Array of { title, description, durationDays, order }
+  isGlobal    Boolean  @default(false)
+  organizationId String?
+  createdAt   DateTime @default(now())
+
+  organization  Organization?      @relation(fields: [organizationId], references: [id])
+  activations   ProgramActivation[]
+
+  @@index([framework])
+  @@map("program_templates")
+}
+
+model ProgramActivation {
+  id                String   @id @default(uuid())
+  programTemplateId String
+  organizationId    String
+  activatedById     String
+  actionPlanId      String?  @unique
+  startDate         DateTime
+  status            ActionPlanStatus @default(ACTIVE)
+  createdAt         DateTime @default(now())
+
+  template     ProgramTemplate @relation(fields: [programTemplateId], references: [id])
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  activatedBy  User            @relation("ProgramActivator", fields: [activatedById], references: [id])
+  actionPlan   ActionPlan?     @relation(fields: [actionPlanId], references: [id])
+
+  @@index([organizationId])
+  @@map("program_activations")
+}
+
+// ─── Plan Feature Flags (plan-tier gating) ───────────────────
+
+model PlanFeatureFlag {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  label        String
+  description  String?
+  category     String   @default("COMPLIANCE")
+  requiredPlan String   @default("FREE")   // FREE | STARTER | PROFESSIONAL | ENTERPRISE
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([requiredPlan])
+  @@map("plan_feature_flags")
+}
+
+// ─── Automation Engine ────────────────────────────────────────
+
+enum AutomationTrigger {
+  RISK_SCORE_HIGH
+  AUDIT_DUE_SOON
+  CONTROL_EXPIRING
+  CAPA_OVERDUE
+  TASK_OVERDUE
+  FORM_SUBMITTED
+  APPROVAL_RESOLVED
+  MANUAL
+}
+
+enum AutomationActionType {
+  CREATE_TASK
+  SEND_NOTIFICATION
+  UPDATE_RAG_STATUS
+  ASSIGN_USER
+  CREATE_APPROVAL
+}
+
+model AutomationRule {
+  id             String               @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  trigger        AutomationTrigger
+  conditions     Json                 // { field, operator, value }[]
+  actions        Json                 // { type: AutomationActionType, params }[]
+  isActive       Boolean              @default(true)
+  lastRunAt      DateTime?
+  runCount       Int                  @default(0)
+  createdById    String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  createdBy    User            @relation("AutomationRuleCreator", fields: [createdById], references: [id])
+  logs         AutomationLog[]
+
+  @@index([organizationId, isActive])
+  @@map("automation_rules")
+}
+
+model AutomationLog {
+  id               String   @id @default(uuid())
+  automationRuleId String
+  triggeredAt      DateTime @default(now())
+  success          Boolean
+  result           Json?
+  errorMessage     String?
+
+  rule AutomationRule @relation(fields: [automationRuleId], references: [id], onDelete: Cascade)
+
+  @@index([automationRuleId])
+  @@map("automation_logs")
+}
+
+// ─── Evidence Integrations (Automatic Evidence Collection) ────
+
+enum EvidenceProvider {
+  AWS_CLOUDTRAIL
+  GITHUB
+  AZURE_AD
+  GCP_AUDIT
+  MANUAL_API
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+model EvidenceIntegration {
+  id             String           @id @default(cuid())
+  organizationId String
+  provider       EvidenceProvider
+  name           String
+  description    String?
+  config         Json             // provider-specific config (API keys, regions, etc.)
+  isActive       Boolean          @default(true)
+  lastSyncAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  syncLogs       IntegrationSyncLog[]
+
+  @@index([organizationId])
+  @@map("evidence_integrations")
+}
+
+model IntegrationSyncLog {
+  id              String              @id @default(cuid())
+  integrationId   String
+  status          SyncStatus
+  evidencesFound  Int                 @default(0)
+  evidencesAdded  Int                 @default(0)
+  error           String?
+  details         Json?
+  startedAt       DateTime            @default(now())
+  completedAt     DateTime?
+
+  integration     EvidenceIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+  @@map("integration_sync_logs")
+}
+
+// ─── Management Body Meetings ─────────────────────────────────
+
+enum MeetingType {
+  ORDINARY
+  EXTRAORDINARY
+  COMMITTEE
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  REMOTE
+  ABSENT
+}
+
+enum DecisionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Meeting {
+  id             String        @id @default(cuid())
+  organizationId String
+  title          String
+  type           MeetingType   @default(ORDINARY)
+  status         MeetingStatus @default(SCHEDULED)
+  scheduledAt    DateTime
+  location       String?
+  videoUrl       String?
+  agenda         String?       // newline-separated agenda items
+  minutes        String?       // full meeting minutes text
+  minutesSavedAt DateTime?
+  notes          String?
+  quorumRequired Int           @default(0)
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User                @relation("MeetingCreator", fields: [createdById], references: [id])
+  attendances    MeetingAttendance[]
+  decisions      MeetingDecision[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, scheduledAt])
+  @@map("meetings")
+}
+
+model MeetingAttendance {
+  id        String           @id @default(cuid())
+  meetingId String
+  userId    String
+  name      String           // denormalized in case user is external
+  status    AttendanceStatus @default(ABSENT)
+
+  meeting   Meeting          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([meetingId, userId])
+  @@map("meeting_attendances")
+}
+
+model MeetingDecision {
+  id          String         @id @default(cuid())
+  meetingId   String
+  text        String
+  responsible String?
+  deadline    DateTime?
+  status      DecisionStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  meeting     Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("meeting_decisions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// iGuard — Endpoint & Server Compliance Agent
+// Monitors employee devices, servers and network infrastructure
+// ─────────────────────────────────────────────────────────────
+
+enum AgentStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  REVOKED
+}
+
+enum DeviceType {
+  ENDPOINT        // Laptops / desktops
+  SERVER          // Linux/Windows servers
+  NETWORK_DEVICE  // Managed via NetworkProbe
+}
+
+enum ProbeStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+model DeviceAgent {
+  id                  String      @id @default(cuid())
+  organizationId      String
+  userId              String
+  deviceToken         String      @unique @default(cuid())
+  deviceName          String
+  hostname            String?
+  os                  String      // "macos" | "windows" | "linux"
+  osVersion           String?
+  arch                String?     // "arm64" | "amd64"
+  agentVersion        String?
+  deviceType          DeviceType  @default(ENDPOINT)
+  status              AgentStatus @default(PENDING)
+
+  // Compliance checks — endpoints (last reported values)
+  diskEncryption      Boolean?
+  screenLock          Boolean?
+  antivirusEnabled    Boolean?
+  osUpToDate          Boolean?
+  passwordManager     Boolean?
+  screenLockTimeout   Int?        // minutes
+
+  // Compliance checks — servers
+  sshRootLoginDisabled Boolean?
+  firewallActive       Boolean?
+  pendingPatches       Int?
+  openPorts            Json?      // string[]
+
+  // Computed
+  complianceScore     Int?        // 0-100
+
+  lastSeenAt          DateTime?
+  registeredAt        DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports             DeviceReport[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, deviceType])
+  @@index([userId])
+  @@map("device_agents")
+}
+
+model DeviceReport {
+  id                  String   @id @default(cuid())
+  deviceId            String
+  agentVersion        String?
+  osVersion           String?
+
+  // Endpoint fields
+  diskEncryption      Boolean
+  screenLock          Boolean
+  antivirusEnabled    Boolean
+  osUpToDate          Boolean
+  passwordManager     Boolean?
+  screenLockTimeout   Int?
+
+  // Server fields
+  sshRootLoginDisabled Boolean?
+  firewallActive       Boolean?
+  pendingPatches       Int?
+  openPorts            Json?
+
+  complianceScore     Int
+
+  rawData             Json?
+  reportedAt          DateTime @default(now())
+
+  device              DeviceAgent @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, reportedAt])
+  @@map("device_reports")
+}
+
+// ─── iGuard — Network Probe ──────────────────────────────────
+
+model NetworkProbe {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  subnetCIDR     String
+  probeToken     String       @unique @default(cuid())
+  status         ProbeStatus  @default(INACTIVE)
+  credentials    Json?        // SSH/SNMP credentials (encrypted)
+  lastScannedAt  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  discoveredDevices DiscoveredDevice[]
+
+  @@index([organizationId])
+  @@map("network_probes")
+}
+
+model DiscoveredDevice {
+  id             String   @id @default(cuid())
+  probeId        String
+  ipAddress      String
+  hostname       String?
+  macAddress     String?
+  vendor         String?
+  deviceCategory String?  // "firewall" | "switch" | "router" | "server" | "printer" | "unknown"
+  os             String?
+  firmwareVersion String?
+  openPorts      Json?    // number[]
+  isManaged      Boolean  @default(false)
+  riskScore      Int?     // 0-100
+  issues         Json?    // string[]
+  lastSeenAt     DateTime @default(now())
+  firstSeenAt    DateTime @default(now())
+
+  probe          NetworkProbe @relation(fields: [probeId], references: [id], onDelete: Cascade)
+
+  @@unique([probeId, ipAddress])
+  @@index([probeId])
+  @@map("discovered_devices")
+}
+
+// ─── Integration Hub ─────────────────────────────────────────
+
+model PlatformIntegration {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  key          String
+  displayName  String
+  category     String       @default("other")
+  isConnected  Boolean      @default(false)
+  credentials  Json?
+  settings     Json?
+  lastTestedAt DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("platform_integrations")
+}
+
+// ─── Support Tickets ──────────────────────────────────────────
+
+enum SupportCategory {
+  ONBOARDING
+  TECHNICAL_ISSUE
+  BILLING
+  FEATURE_REQUEST
+  BUG_REPORT
+  SECURITY
+  OTHER
+}
+
+enum SupportPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+  CLOSED
+}
+
+model SupportTicket {
+  id             String          @id @default(cuid())
+  ticketNumber   String          @unique
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User            @relation("TicketAuthor", fields: [userId], references: [id])
+  category       SupportCategory @default(OTHER)
+  priority       SupportPriority @default(MEDIUM)
+  subject        String
+  description    String
+  status         TicketStatus    @default(OPEN)
+  assignedToId   String?
+  assignedTo     User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  replies        TicketReply[]
+  attachments    TicketAttachment[]
+  resolvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model TicketReply {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User          @relation("TicketReplies", fields: [authorId], references: [id])
+  body       String
+  isInternal Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  attachments TicketAttachment[]
+
+  @@index([ticketId])
+  @@map("ticket_replies")
+}
+
+model TicketAttachment {
+  id             String         @id @default(uuid())
+  ticketId       String?
+  replyId        String?
+  organizationId String
+  s3Key          String
+  fileName       String
+  fileSize       Int
+  mimeType       String
+  createdAt      DateTime       @default(now())
+
+  ticket         SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  reply          TicketReply?   @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+
+  @@map("ticket_attachments")
 }

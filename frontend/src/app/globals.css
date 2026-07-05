@@ -75,3 +75,50 @@
 .risk-high { @apply bg-orange-100 text-orange-800 border-orange-200; }
 .risk-medium { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
 .risk-low { @apply bg-green-100 text-green-800 border-green-200; }
+
+/* ── Board Reports – Print styles ───────────────────────────── */
+@media print {
+  /* Hide navigation chrome */
+  nav, aside, header,
+  [data-sidebar], [data-topbar] {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    font-size: 11pt;
+    color: #111;
+  }
+
+  /* Show only the board-reports main content */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Gradient header becomes a flat band */
+  .print\:bg-indigo-700 {
+    background: #4338ca !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Avoid page breaks inside cards / tables */
+  .page-break-inside-avoid,
+  .bg-white,
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Force new page for the print-only sections */
+  .print\:block > .page-break-inside-avoid + .page-break-inside-avoid {
+    page-break-before: always;
+  }
+
+  /* Make recharts invisible in print (SVG charts don't print well without colours) */
+  .recharts-wrapper {
+    display: none !important;
+  }
+
+  a { text-decoration: none; color: inherit; }
+}
