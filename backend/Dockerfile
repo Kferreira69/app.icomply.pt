@@ -11,6 +11,10 @@ RUN npm install
 COPY . .
 
 # Generate Prisma client + compile TypeScript
+# prisma.config.ts (Prisma 7) resolves DATABASE_URL via env() even for `generate`,
+# which needs no real DB connection — a placeholder unblocks the build; the real
+# value is injected at container runtime via docker-compose `environment:`.
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN npx prisma generate
 RUN npm run build
 
