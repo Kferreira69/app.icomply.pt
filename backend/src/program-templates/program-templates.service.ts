@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ActionPlanStatus } from '@prisma/client';
+import { ActionPlanStatus } from '../generated/prisma/client';
 
 const BUILT_IN_TEMPLATES = [
   {

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { SoaImplementationStatus } from '@prisma/client';
+import { SoaImplementationStatus } from '../generated/prisma/client';
 
 // ISO 27001:2022 — all 93 controls across 4 themes
 const ISO_CONTROLS = [

@@ -5,7 +5,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { RaciService } from './raci.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole, RaciEntityType, RaciRole } from '@prisma/client';
+import { UserRole, RaciEntityType, RaciRole } from '../generated/prisma/client';
 
 @ApiTags('RACI')
 @ApiBearerAuth('JWT')

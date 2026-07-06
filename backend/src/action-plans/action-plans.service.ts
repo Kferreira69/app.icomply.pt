@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ActionPlanStatus, ActionTaskStatus } from '@prisma/client';
+import { ActionPlanStatus, ActionTaskStatus } from '../generated/prisma/client';
 
 @Injectable()
 export class ActionPlansService {

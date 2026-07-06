@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { Nis2MeasureStatus } from '@prisma/client';
+import { Nis2MeasureStatus } from '../generated/prisma/client';
 
 // ── NIS2 Article 21 — 10 mandatory security measures ────────
 // Directive (EU) 2022/2555, Article 21(2) a-j

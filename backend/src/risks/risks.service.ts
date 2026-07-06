@@ -3,7 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
-import { RiskStatus, NotificationType } from '@prisma/client';
+import { RiskStatus, NotificationType } from '../generated/prisma/client';
 
 // Likelihood and impact map 1-5
 // Includes aliases for extended enum values that may appear in DTOs or imports

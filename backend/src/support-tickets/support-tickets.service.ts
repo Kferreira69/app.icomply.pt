@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
-import { UserRole, TicketStatus } from '@prisma/client';
+import { UserRole, TicketStatus } from '../generated/prisma/client';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateReplyDto } from './dto/create-reply.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
