@@ -1,6 +1,6 @@
 import { IsEmail, IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../generated/prisma/client';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'ana.silva@empresa.pt' })

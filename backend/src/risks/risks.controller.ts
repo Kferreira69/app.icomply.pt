@@ -7,7 +7,7 @@ import { RisksService } from './risks.service';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { RiskStatus } from '@prisma/client';
+import { RiskStatus } from '../generated/prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';

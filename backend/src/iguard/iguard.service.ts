@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { DeviceReportDto } from './dto/device-report.dto';
-import { DeviceAgent, DeviceReport, NetworkProbe, DiscoveredDevice } from '@prisma/client';
+import { DeviceAgent, DeviceReport, NetworkProbe, DiscoveredDevice } from '../generated/prisma/client';
 
 @Injectable()
 export class IGuardService {

@@ -10,7 +10,7 @@ import { MailService } from '../common/mail/mail.service';
 import { StorageService } from '../common/storage/storage.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Prisma, UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '../generated/prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 

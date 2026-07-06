@@ -8,7 +8,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole, ProjectStatus } from '@prisma/client';
+import { UserRole, ProjectStatus } from '../generated/prisma/client';
 
 @ApiTags('Projects')
 @ApiBearerAuth('JWT')

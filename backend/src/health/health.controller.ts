@@ -5,7 +5,7 @@ import { MailService } from '../common/mail/mail.service';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../generated/prisma/client';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
 

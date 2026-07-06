@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { SupportCategory, SupportPriority } from '@prisma/client';
+import { SupportCategory, SupportPriority } from '../../generated/prisma/client';
 
 export class CreateTicketDto {
   @IsEnum(SupportCategory)

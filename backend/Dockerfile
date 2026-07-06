@@ -36,12 +36,25 @@ RUN npm install --omit=dev && \
 # Compiled app
 COPY --from=builder /app/dist ./dist
 
-# Prisma client (generated binary for linux-musl)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# @prisma/client package (runtime helpers) — the actual generated client code
+# lives under src/generated (custom `output` path, Prisma 7 no longer writes
+# it to node_modules/.prisma) and is copied separately below.
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Prisma CLI, pinned to the version installed at build time — prevents
+# docker-entrypoint.sh's `npx prisma` from silently fetching npm's `latest`
+# dist-tag on every container start.
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Schema + migrations (needed for prisma migrate deploy)
 COPY --from=builder /app/prisma ./prisma
+
+# prisma.config.ts (v7: datasource URL + seed command live here, not in schema.prisma)
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+
+# Generated Prisma Client source (safety net for any non-.ts assets the
+# generator emits that tsc's dist/ compile step wouldn't copy)
+COPY --from=builder /app/src/generated ./src/generated
 
 # Seed tsconfig (needed for npm run seed)
 COPY --from=builder /app/tsconfig.seed.json ./tsconfig.seed.json

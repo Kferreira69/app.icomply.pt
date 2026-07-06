@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FindingSeverity } from '@prisma/client';
+import { FindingSeverity } from '../../generated/prisma/client';
 
 export class CreateFindingDto {
   @ApiProperty()

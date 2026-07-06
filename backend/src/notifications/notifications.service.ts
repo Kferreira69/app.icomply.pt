@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MailService } from '../common/mail/mail.service';
 import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType } from '../generated/prisma/client';
 
 interface CreateNotificationDto {
   organizationId: string;

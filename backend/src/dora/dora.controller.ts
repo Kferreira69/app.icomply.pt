@@ -13,7 +13,7 @@ import {
 import {
   DoraIncidentSeverity, DoraIncidentStatus, DoraIncidentCategory,
   DoraTestType, DoraTestStatus,
-} from '@prisma/client';
+} from '../generated/prisma/client';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';
 

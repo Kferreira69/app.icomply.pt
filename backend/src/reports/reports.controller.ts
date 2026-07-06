@@ -5,7 +5,7 @@ import { StreamableFile } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { ReportType, ReportFormat } from '@prisma/client';
+import { ReportType, ReportFormat } from '../generated/prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';

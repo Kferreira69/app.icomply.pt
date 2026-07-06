@@ -4,7 +4,7 @@ import { AuditsService } from './audits.service';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { CreateFindingDto } from './dto/create-finding.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { AuditStatus } from '@prisma/client';
+import { AuditStatus } from '../generated/prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';

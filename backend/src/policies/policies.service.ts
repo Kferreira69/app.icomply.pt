@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreatePolicyDto } from './dto/create-policy.dto';
-import { PolicyStatus } from '@prisma/client';
+import { PolicyStatus } from '../generated/prisma/client';
 
 @Injectable()
 export class PoliciesService {

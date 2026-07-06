@@ -3,7 +3,7 @@ import {
   IsDateString, MaxLength, MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VendorStatus, VendorRiskLevel } from '@prisma/client';
+import { VendorStatus, VendorRiskLevel } from '../../generated/prisma/client';
 
 export class CreateVendorDto {
   @ApiProperty()
