@@ -125,7 +125,7 @@ jobs:
           set -e
 
           echo "=== Sync config files (docker-compose, traefik, .env.example) ==="
-          cd /opt/icomply
+          cd /opt/icomply/production
           git fetch origin main
           git reset --hard origin/main
           echo "Commit: $(git rev-parse --short HEAD)"
