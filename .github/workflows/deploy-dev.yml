@@ -28,9 +28,8 @@ jobs:
           set -e
 
           echo "=== Sync develop branch ==="
-          cd /opt/icomply
+          cd /opt/icomply/dev
           git fetch origin develop
-          git checkout -B develop origin/develop
           git reset --hard origin/develop
           git clean -fd -e '.env*' -e 'traefik/'
           echo "Commit: $(git rev-parse --short HEAD)"

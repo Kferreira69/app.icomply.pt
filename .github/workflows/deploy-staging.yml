@@ -28,9 +28,8 @@ jobs:
           set -e
 
           echo "=== Sync staging branch ==="
-          cd /opt/icomply
+          cd /opt/icomply/staging
           git fetch origin staging
-          git checkout -B staging origin/staging
           git reset --hard origin/staging
           git clean -fd -e '.env*' -e 'traefik/'
           echo "Commit: $(git rev-parse --short HEAD)"
