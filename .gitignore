@@ -41,6 +41,11 @@ coverage/
 # Prisma
 backend/prisma/migrations/dev.db
 backend/prisma/*.db
+backend/src/generated/
+backend/prisma.config.js
+backend/prisma.config.js.map
+backend/prisma.config.d.ts
+backend/tsconfig.build.tsbuildinfo
 
 # Docker volumes
 .docker/

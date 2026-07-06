@@ -3,7 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CapaService } from './capa.service';
 import { CreateCapaDto } from './dto/create-capa.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CapaStatus } from '@prisma/client';
+import { CapaStatus } from '../generated/prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';

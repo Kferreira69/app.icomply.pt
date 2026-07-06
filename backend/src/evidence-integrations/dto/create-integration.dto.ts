@@ -1,6 +1,6 @@
 import { IsString, IsEnum, IsObject, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EvidenceProvider } from '@prisma/client';
+import { EvidenceProvider } from '../../generated/prisma/client';
 
 export class CreateIntegrationDto {
   @ApiProperty()

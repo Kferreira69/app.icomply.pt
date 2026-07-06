@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { MailService } from '../common/mail/mail.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateProcessingActivityDto } from './dto/create-processing-activity.dto';
-import { ProcessingActivityStatus, DpiaStatus, DpiaOutcome, BreachStatus, BreachSeverity } from '@prisma/client';
+import { ProcessingActivityStatus, DpiaStatus, DpiaOutcome, BreachStatus, BreachSeverity } from '../generated/prisma/client';
 
 @Injectable()
 export class GdprService {

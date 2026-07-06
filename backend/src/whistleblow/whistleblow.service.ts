@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { WhistleblowStatus, WhistleblowTimelineEvent } from '@prisma/client';
+import { WhistleblowStatus, WhistleblowTimelineEvent } from '../generated/prisma/client';
 import { randomBytes } from 'crypto';
 
 // ── Reference code generator ──────────────────────────────────

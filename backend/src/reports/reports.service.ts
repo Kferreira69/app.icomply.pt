@@ -7,7 +7,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
 import { MailService } from '../common/mail/mail.service';
 import { ComplianceMetricsService } from '../common/services/compliance-metrics.service';
-import { ReportType, ReportFormat } from '@prisma/client';
+import { ReportType, ReportFormat } from '../generated/prisma/client';
 
 const BRAND = {
   primary: '#1E40AF',

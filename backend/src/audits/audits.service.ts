@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { CreateFindingDto } from './dto/create-finding.dto';
-import { AuditStatus, FindingSeverity } from '@prisma/client';
+import { AuditStatus, FindingSeverity } from '../generated/prisma/client';
 
 @Injectable()
 export class AuditsService {

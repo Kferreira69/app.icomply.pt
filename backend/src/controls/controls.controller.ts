@@ -1,7 +1,7 @@
 import { Controller, Get, Patch, Param, Query, Body } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ControlsService } from './controls.service';
-import { ControlStatus } from '@prisma/client';
+import { ControlStatus } from '../generated/prisma/client';
 
 @ApiTags('Controls')
 @ApiBearerAuth('JWT')

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { EvidenceProvider, SyncStatus, EvidenceStatus } from '@prisma/client';
+import { EvidenceProvider, SyncStatus, EvidenceStatus } from '../generated/prisma/client';
 import { CreateIntegrationDto } from './dto/create-integration.dto';
 import { UpdateIntegrationDto } from './dto/update-integration.dto';
 import { fetchGitHubAuditLog, EvidenceItem } from './providers/github.provider';

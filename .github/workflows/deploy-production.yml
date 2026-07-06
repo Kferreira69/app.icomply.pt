@@ -33,6 +33,8 @@ jobs:
 
       - name: Generate Prisma client
         working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/icomply"
         run: npx prisma generate
 
       - name: Run backend unit tests
@@ -41,6 +43,8 @@ jobs:
 
       - name: TypeScript type check (backend)
         working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/icomply"
         run: npx tsc --noEmit
 
       - name: TypeScript type check (frontend)

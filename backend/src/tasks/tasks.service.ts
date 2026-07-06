@@ -3,7 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { TaskStatus, TaskPriority, NotificationType } from '@prisma/client';
+import { TaskStatus, TaskPriority, NotificationType } from '../generated/prisma/client';
 
 @Injectable()
 export class TasksService {

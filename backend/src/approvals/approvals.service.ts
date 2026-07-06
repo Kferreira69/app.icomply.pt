@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ApprovalEntityType, ApprovalDecision, ApprovalStatus } from '@prisma/client';
+import { ApprovalEntityType, ApprovalDecision, ApprovalStatus } from '../generated/prisma/client';
 
 @Injectable()
 export class ApprovalsService {

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { RaciRole, RaciEntityType } from '@prisma/client';
+import { RaciRole, RaciEntityType } from '../generated/prisma/client';
 
 @Injectable()
 export class RaciService {
