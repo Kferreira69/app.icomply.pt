@@ -36,8 +36,9 @@ RUN npm install --omit=dev && \
 # Compiled app
 COPY --from=builder /app/dist ./dist
 
-# Prisma client (generated binary for linux-musl)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# @prisma/client package (runtime helpers) — the actual generated client code
+# lives under src/generated (custom `output` path, Prisma 7 no longer writes
+# it to node_modules/.prisma) and is copied separately below.
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Prisma CLI, pinned to the version installed at build time — prevents
