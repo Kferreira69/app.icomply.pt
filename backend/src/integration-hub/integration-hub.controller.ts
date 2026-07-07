@@ -16,7 +16,10 @@ import { UpsertIntegrationDto } from './dto/upsert-integration.dto';
 export class IntegrationHubController {
   constructor(private readonly svc: IntegrationHubService) {}
 
+  // Listing integration configs exposes each integration's stored credentials
+  // (API keys/secrets) — ADMIN+ only, same as the rest of this controller.
   @Get()
+  @Roles(UserRole.ADMIN)
   list(@Req() req: any) {
     return this.svc.findAll(req.user.organizationId);
   }
