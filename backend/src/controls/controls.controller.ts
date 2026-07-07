@@ -1,7 +1,8 @@
 import { Controller, Get, Patch, Param, Query, Body } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ControlsService } from './controls.service';
-import { ControlStatus } from '../generated/prisma/client';
+import { ControlStatus, UserRole } from '../generated/prisma/client';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @ApiTags('Controls')
 @ApiBearerAuth('JWT')
@@ -23,7 +24,10 @@ export class ControlsController {
     return this.service.findOne(id);
   }
 
+  // Reading the control catalogue is fine for any authenticated user; only
+  // changing an implementation status requires at least a compliance role.
   @Patch(':id/status')
+  @Roles(UserRole.COMPLIANCE_MANAGER)
   updateStatus(
     @Param('id') id: string,
     @Body('status') status: ControlStatus,

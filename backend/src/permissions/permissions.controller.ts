@@ -2,6 +2,8 @@ import {
   Controller, Get, Put, Param, Body, UseGuards, Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../generated/prisma/client';
 import { PermissionsService } from './permissions.service';
 
 @UseGuards(JwtAuthGuard)
@@ -15,8 +17,11 @@ export class PermissionsController {
     return this.service.getUserPermissions(req.user.userId);
   }
 
-  // GET /permissions/:userId  — another user's permissions (admin only)
+  // GET /permissions/:userId  — another user's permissions (admin only).
+  // Was missing this check entirely — any authenticated user could read
+  // anyone else's per-module permission levels.
   @Get(':userId')
+  @Roles(UserRole.ADMIN)
   getUserPermissions(@Param('userId') userId: string) {
     return this.service.getUserPermissions(userId);
   }
