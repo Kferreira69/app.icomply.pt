@@ -14,6 +14,18 @@ export class IntegrationHubService {
     return this.prisma.platformIntegration.findMany({
       where: { orgId },
       orderBy: [{ isConnected: 'desc' }, { displayName: 'asc' }],
+      select: {
+        id: true,
+        orgId: true,
+        key: true,
+        displayName: true,
+        category: true,
+        isConnected: true,
+        settings: true,
+        lastTestedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
