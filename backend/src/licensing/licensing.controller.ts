@@ -3,6 +3,8 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../generated/prisma/client';
 import { LicensingService } from './licensing.service';
 
 @UseGuards(JwtAuthGuard)
@@ -40,8 +42,11 @@ export class LicensingController {
   }
 
   // ── Stripe self-service ───────────────────────────────────────
+  // ADMIN+ only: initiating checkout or opening the billing portal changes
+  // the organization's subscription/payment method, not a read-only action.
 
   @Post('stripe/checkout')
+  @Roles(UserRole.ADMIN)
   stripeCheckout(
     @CurrentUser('organizationId') orgId: string,
     @Body() body: { plan: string; billingCycle: string },
@@ -50,6 +55,7 @@ export class LicensingController {
   }
 
   @Post('stripe/portal')
+  @Roles(UserRole.ADMIN)
   stripePortal(@CurrentUser('organizationId') orgId: string) {
     return this.svc.getStripePortalUrl(orgId);
   }
