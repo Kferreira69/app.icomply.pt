@@ -3,7 +3,8 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { RedisModule } from './common/redis/redis.module';
+import { RedisModule, REDIS_CLIENT } from './common/redis/redis.module';
+import { ThrottlerStorageRedisService } from './common/redis/throttler-storage-redis.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -90,11 +91,21 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 
     // ── Rate limiting (global defaults) ────────────────────
     // Auth endpoints override via @Throttle() in auth.controller.ts
-    ThrottlerModule.forRoot([
-      { name: 'short',  ttl: 1000,    limit: 10  },  // 10 req/s  per IP
-      { name: 'medium', ttl: 60000,   limit: 100 },  // 100 req/min per IP
-      { name: 'long',   ttl: 3600000, limit: 1000 }, // 1000 req/h per IP
-    ]),
+    // Storage is Redis-backed so limits are shared across backend instances
+    // (previously in-memory per-process, which meant each container had its
+    // own independent counter and the limits weren't actually enforced
+    // cluster-wide).
+    ThrottlerModule.forRootAsync({
+      inject: [REDIS_CLIENT],
+      useFactory: (redis) => ({
+        throttlers: [
+          { name: 'short',  ttl: 1000,    limit: 10  },  // 10 req/s  per IP
+          { name: 'medium', ttl: 60000,   limit: 100 },  // 100 req/min per IP
+          { name: 'long',   ttl: 3600000, limit: 1000 }, // 1000 req/h per IP
+        ],
+        storage: new ThrottlerStorageRedisService(redis),
+      }),
+    }),
 
     // ── Scheduler (cron jobs) ────────────────────────────────
     ScheduleModule.forRoot(),
