@@ -45,6 +45,12 @@ async function bootstrap() {
   // ── Trust proxy — required behind Traefik/nginx ───────────────
   app.set('trust proxy', 1);
 
+  // ── Preserve Express 4's nested/bracket query parsing ─────────
+  // Express 5 (bundled by @nestjs/platform-express v11) defaults to the
+  // 'simple' query parser; several controllers type @Query() as `any` and
+  // may expect the old 'extended' (qs-based) nested-object parsing.
+  app.set('query parser', 'extended');
+
   // ── Graceful shutdown ─────────────────────────────────────────
   app.enableShutdownHooks();
 
