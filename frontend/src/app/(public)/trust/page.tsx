@@ -291,11 +291,12 @@ async function fetchTrustData(slug: string): Promise<TrustData | null> {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 interface PageProps {
-  searchParams: { org?: string };
+  searchParams: Promise<{ org?: string }>;
 }
 
 export default async function TrustCenterPublicPage({ searchParams }: PageProps) {
-  const slug = searchParams?.org ?? '';
+  const resolvedSearchParams = await searchParams;
+  const slug = resolvedSearchParams?.org ?? '';
   const fetched = slug ? await fetchTrustData(slug) : null;
 
   const isDemo = !fetched;

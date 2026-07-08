@@ -5,7 +5,7 @@ const isProd = process.env.NODE_ENV === 'production';
 /**
  * Static security headers — applied to every route via next.config.js.
  * Content-Security-Policy is intentionally NOT here; it is set per-request
- * by src/middleware.ts with a unique nonce (required for A+ on securityheaders.com).
+ * by src/proxy.ts with a unique nonce (required for A+ on securityheaders.com).
  */
 const securityHeaders = [
   // Prevent MIME-type sniffing
@@ -55,12 +55,12 @@ const nextConfig = {
 
   // ── Images ──────────────────────────────────────────────────────
   images: {
-    domains: [
-      'localhost',
-      'api.icomply.pt',
-      'storage.icomply.pt',
-      'files.icomply.pt',
-      'api.staging.icomply.pt',
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost' },
+      { protocol: 'https', hostname: 'api.icomply.pt' },
+      { protocol: 'https', hostname: 'storage.icomply.pt' },
+      { protocol: 'https', hostname: 'files.icomply.pt' },
+      { protocol: 'https', hostname: 'api.staging.icomply.pt' },
     ],
   },
 
