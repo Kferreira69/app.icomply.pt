@@ -13,6 +13,7 @@ import * as argon2 from 'argon2';
 import * as bcrypt from 'bcryptjs'; // kept for migrating legacy bcrypt hashes
 import { v4 as uuid } from 'uuid';
 import { authenticator } from 'otplib';
+import type { StringValue } from 'ms';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const QRCode = require('qrcode') as { toDataURL: (text: string) => Promise<string> };
 import { LoginDto } from './dto/login.dto';
@@ -112,13 +113,13 @@ export class AuthService {
       jti,
     };
 
-    const expiresIn = this.config.get<string>('JWT_EXPIRES_IN', '8h');
+    const expiresIn = this.config.get<string>('JWT_EXPIRES_IN', '8h') as StringValue;
     const accessToken = this.jwt.sign(payload, { expiresIn });
     const refreshToken = this.jwt.sign(
       { sub: user.id, jti: uuid() },
       {
         secret: this.config.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+        expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d') as StringValue,
       },
     );
 
