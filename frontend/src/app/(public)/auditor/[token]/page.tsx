@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { auditorPortalApi } from '@/lib/api';
 import { Shield, FileText, Loader2, AlertCircle, CheckCircle, MessageSquare, Download, Search, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-export default function AuditorPortalPage({ params }: { params: { token: string } }) {
+export default function AuditorPortalPage() {
+  const params = useParams<{ token: string }>();
   const [data, setData]         = useState<any>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { vendorQuestionnaireApi } from '@/lib/api';
 import { CheckCircle, Loader2, Shield, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,7 +11,8 @@ import { cn } from '@/lib/utils';
 type Section = { key: string; label: string; questions: Question[] };
 type Question = { key: string; label: string; type: string; options?: string[] };
 
-export default function VendorAssessmentPage({ params }: { params: { token: string } }) {
+export default function VendorAssessmentPage() {
+  const params = useParams<{ token: string }>();
   const [form, setForm]           = useState<any>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);

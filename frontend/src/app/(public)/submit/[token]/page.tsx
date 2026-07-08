@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { intakeApi, IntakeField } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -66,7 +67,8 @@ function FieldInput({ field, value, onChange }: {
   );
 }
 
-export default function SubmitPage({ params }: { params: { token: string } }) {
+export default function SubmitPage() {
+  const params = useParams<{ token: string }>();
   const [answers, setAnswers]   = useState<Record<string, any>>({});
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
