@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const locale = (cookieStore.get('locale')?.value || defaultLocale) as Locale;
 
   // Load messages server-side — bundled as static JSON, zero round-trip

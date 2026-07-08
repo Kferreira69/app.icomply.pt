@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Shield, Loader2, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-export default function DsarPublicPage({ params }: { params: { orgSlug: string } }) {
+export default function DsarPublicPage() {
+  const params = useParams<{ orgSlug: string }>();
   const [info, setInfo]       = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);

@@ -20,7 +20,7 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...array));
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // ── admin.icomply.pt → auto-redirect to backoffice ────────────────────────
   const host = request.headers.get('host') ?? '';
   if (host.startsWith('admin.')) {
