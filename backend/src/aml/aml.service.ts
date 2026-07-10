@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { IdentityVerificationService } from '../identity-verification/identity-verification.service';
 
 @Injectable()
 export class AmlService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private identityVerification: IdentityVerificationService,
+  ) {}
 
   async getDashboard(orgId: string) {
     const db = this.prisma as any;
@@ -110,13 +114,48 @@ export class AmlService {
     });
   }
 
+  // dto.automated=true routes the check through the real KYC/KYB/AML provider
+  // (requires the `identity_verification` addon) instead of just recording
+  // whatever the user typed in manually.
   async createScreening(orgId: string, dto: any, screenedBy: string) {
+    const { automated, ...screeningDto } = dto;
+
+    if (!automated) {
+      return (this.prisma as any).amlScreening.create({
+        data: {
+          ...screeningDto,
+          organizationId: orgId,
+          screenedBy,
+          screenedAt: new Date(),
+        },
+      });
+    }
+
+    const isBusiness = dto.subjectType === 'BUSINESS' || dto.subjectType === 'ENTITY';
+    const verification = isBusiness
+      ? await this.identityVerification.verifyBusiness(orgId, screenedBy, {
+          legalName: dto.subjectName,
+          country: dto.country,
+          vatNumber: dto.vatNumber,
+        })
+      : await this.identityVerification.verifyIndividual(orgId, screenedBy, {
+          fullName: dto.subjectName,
+          country: dto.country,
+          documentNumber: dto.documentNumber,
+        });
+
+    const resultMap: Record<string, string> = {
+      APPROVED: 'CLEAR', REJECTED: 'MATCH', REVIEW: 'REVIEW', PENDING: 'PENDING', ERROR: 'ERROR',
+    };
+
     return (this.prisma as any).amlScreening.create({
       data: {
-        ...dto,
+        ...screeningDto,
         organizationId: orgId,
         screenedBy,
         screenedAt: new Date(),
+        result: resultMap[verification.status] ?? 'PENDING',
+        notes: `Verificação automática (${verification.provider}), ref: ${verification.providerRefId ?? verification.id}`,
       },
     });
   }
