@@ -85,6 +85,7 @@ import { QualityDocumentsModule } from './quality-documents/quality-documents.mo
 import { SearchModule } from './search/search.module';
 import { EnvironmentModule } from './environment/environment.module';
 import { StandardsModule } from './standards/standards.module';
+import { IdentityVerificationModule } from './identity-verification/identity-verification.module';
 
 @Module({
   imports: [
@@ -198,6 +199,7 @@ import { StandardsModule } from './standards/standards.module';
     SearchModule,
     EnvironmentModule,
     StandardsModule,
+    IdentityVerificationModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

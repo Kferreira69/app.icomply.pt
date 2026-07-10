@@ -68,6 +68,22 @@ export class LicensingController {
     return this.svc.getStats();
   }
 
+  @Get('catalogue/addons')
+  async listAddonCatalogue(@Request() req: any) {
+    await this.svc.assertSuperAdmin(req.user.userId);
+    return this.svc.listAddonCatalogue();
+  }
+
+  @Put('catalogue/addons/:key')
+  async updateAddonCatalogueItem(
+    @Param('key') key: string,
+    @Body() dto: { costPrice?: number; marginMultiplier?: number; monthlyPrice?: number; annualPrice?: number; label?: string; active?: boolean },
+    @Request() req: any,
+  ) {
+    await this.svc.assertSuperAdmin(req.user.userId);
+    return this.svc.updateAddonCatalogueItem(key, dto);
+  }
+
   @Get('clients')
   async listAll(@Request() req: any) {
     await this.svc.assertSuperAdmin(req.user.userId);

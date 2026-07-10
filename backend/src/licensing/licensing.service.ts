@@ -108,6 +108,7 @@ export const ADDON_CATALOGUE = [
   { key: 'ai_inventory',        label: 'AI Inventory',             monthlyPrice: 29,  annualPrice: 290  },
   { key: 'fria_engine',         label: 'FRIA Engine',              monthlyPrice: 39,  annualPrice: 390  },
   { key: 'model_monitoring',    label: 'Model Monitoring',         monthlyPrice: 49,  annualPrice: 490  },
+  { key: 'identity_verification', label: 'Verificação de Identidade (KYC/KYB/AML)', monthlyPrice: 0, annualPrice: 0 },
 ];
 
 // ── Plans (bundles) ───────────────────────────────────────────
@@ -156,8 +157,48 @@ export class LicensingService {
 
   // ── Catalogue ────────────────────────────────────────────────
 
-  getCatalogue() {
-    return { modules: MODULE_CATALOGUE, plans: PLANS, suites: GOVERNANCE_SUITES, addons: ADDON_CATALOGUE };
+  async getCatalogue() {
+    const dbAddons = await (this.prisma as any).addonCatalogueItem.findMany({ where: { active: true } });
+    const addons = dbAddons.length > 0
+      ? dbAddons.map((a: any) => ({ key: a.key, label: a.label, monthlyPrice: Number(a.monthlyPrice), annualPrice: Number(a.annualPrice) }))
+      : ADDON_CATALOGUE;
+    return { modules: MODULE_CATALOGUE, plans: PLANS, suites: GOVERNANCE_SUITES, addons };
+  }
+
+  // ── Add-on catalogue (superadmin cost/price management) ───────
+
+  async listAddonCatalogue() {
+    const items = await (this.prisma as any).addonCatalogueItem.findMany({ orderBy: { key: 'asc' } });
+    if (items.length > 0) return items;
+    // Not seeded yet — surface the static defaults with costPrice=0 so the
+    // superadmin UI has something to edit before the first real seed runs.
+    return ADDON_CATALOGUE.map(a => ({
+      key: a.key, label: a.label, costPrice: 0,
+      monthlyPrice: a.monthlyPrice, annualPrice: a.annualPrice,
+      marginMultiplier: 1.5, active: true,
+    }));
+  }
+
+  async updateAddonCatalogueItem(
+    key: string,
+    dto: { costPrice?: number; marginMultiplier?: number; monthlyPrice?: number; annualPrice?: number; label?: string; active?: boolean },
+  ) {
+    const existing = await (this.prisma as any).addonCatalogueItem.findUnique({ where: { key } });
+    const catalogEntry = ADDON_CATALOGUE.find(a => a.key === key);
+    const label = dto.label ?? existing?.label ?? catalogEntry?.label ?? key;
+    const marginMultiplier = dto.marginMultiplier ?? Number(existing?.marginMultiplier ?? 1.5);
+    const costPrice = dto.costPrice ?? Number(existing?.costPrice ?? 0);
+
+    // Sell price is auto-computed from cost × margin unless the superadmin
+    // explicitly overrides it in the same request.
+    const monthlyPrice = dto.monthlyPrice ?? Number((costPrice * marginMultiplier).toFixed(2));
+    const annualPrice = dto.annualPrice ?? Number((monthlyPrice * 10).toFixed(2)); // 2 months free, same convention as existing catalogue entries
+
+    return (this.prisma as any).addonCatalogueItem.upsert({
+      where: { key },
+      create: { key, label, costPrice, monthlyPrice, annualPrice, marginMultiplier, active: dto.active ?? true },
+      update: { label, costPrice, monthlyPrice, annualPrice, marginMultiplier, ...(dto.active !== undefined ? { active: dto.active } : {}) },
+    });
   }
 
   // ── List all orgs ─────────────────────────────────────────────
@@ -518,14 +559,25 @@ export class LicensingService {
     return (this.prisma as any).licenseAddon.findMany({ where: { licenseId: license.id } });
   }
 
+  async hasActiveAddon(organizationId: string, addonKey: string): Promise<boolean> {
+    const license = await this.prisma.license.findUnique({ where: { organizationId } });
+    if (!license) return false;
+    const addon = await (this.prisma as any).licenseAddon.findUnique({
+      where: { licenseId_addonKey: { licenseId: license.id, addonKey } },
+    });
+    return !!addon?.enabled;
+  }
+
   async toggleAddon(organizationId: string, addonKey: string, enabled: boolean, actorId?: string) {
     const license = await this.prisma.license.findUnique({ where: { organizationId } });
     if (!license) throw new NotFoundException('License not found');
 
+    const dbEntry = await (this.prisma as any).addonCatalogueItem.findUnique({ where: { key: addonKey } });
     const catalogEntry = ADDON_CATALOGUE.find(a => a.key === addonKey);
+    const price = dbEntry ? Number(dbEntry.monthlyPrice) : (catalogEntry?.monthlyPrice ?? 0);
     const result = await (this.prisma as any).licenseAddon.upsert({
       where: { licenseId_addonKey: { licenseId: license.id, addonKey } },
-      create: { licenseId: license.id, addonKey, enabled, price: catalogEntry?.monthlyPrice ?? 0 },
+      create: { licenseId: license.id, addonKey, enabled, price },
       update: { enabled },
     });
 
