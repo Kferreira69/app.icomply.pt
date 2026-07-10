@@ -60,6 +60,101 @@ function StatCard({ icon: Icon, label, value, sub, color }: { icon: any; label: 
   );
 }
 
+// ── Add-on catalogue (superadmin cost/margin editor) ───────────
+
+function AddonCatalogueSection() {
+  const qc = useQueryClient();
+  const [edits, setEdits] = useState<Record<string, { costPrice?: number; marginMultiplier?: number; monthlyPrice?: number; annualPrice?: number }>>({});
+
+  const { data: items, isLoading } = useQuery({
+    queryKey: ['addon-catalogue'],
+    queryFn: () => licensingApi.listAddonCatalogue().then(r => r.data),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: ({ key, data }: { key: string; data: any }) => licensingApi.updateAddonCatalogueItem(key, data),
+    onSuccess: (_res, { key }) => {
+      qc.invalidateQueries({ queryKey: ['addon-catalogue'] });
+      qc.invalidateQueries({ queryKey: ['licence-catalogue'] });
+      setEdits(p => { const { [key]: _omit, ...rest } = p; return rest; });
+    },
+  });
+
+  const getValue = (item: any, field: string) => edits[item.key]?.[field as keyof typeof edits[string]] ?? Number(item[field]);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="text-base font-semibold text-gray-900">Catálogo de Add-ons — Custo &amp; Margem</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Preço de custo (o que a iComply paga ao fornecedor) e margem — o preço de venda ao cliente é calculado automaticamente (custo × margem), mas pode ser sobreposto manualmente.
+        </p>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-24"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                {['Add-on', 'Custo (€/mês)', 'Margem', 'Preço venda (€/mês)', 'Preço venda (€/ano)', ''].map(h => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(items || []).map((item: any) => {
+                const dirty = !!edits[item.key];
+                const costPrice = getValue(item, 'costPrice');
+                const marginMultiplier = getValue(item, 'marginMultiplier');
+                const computedMonthly = Number((costPrice * marginMultiplier).toFixed(2));
+                const monthlyPrice = edits[item.key]?.monthlyPrice ?? computedMonthly;
+                const annualPrice = edits[item.key]?.annualPrice ?? Number(item.annualPrice ?? monthlyPrice * 10);
+                return (
+                  <tr key={item.key} className="border-b border-gray-50">
+                    <td className="px-4 py-2.5 text-sm text-gray-900">{item.label}</td>
+                    <td className="px-4 py-2.5">
+                      <input type="number" step="0.01" value={costPrice}
+                        onChange={e => setEdits(p => ({ ...p, [item.key]: { ...p[item.key], costPrice: Number(e.target.value) } }))}
+                        className="w-24 border border-gray-200 rounded px-2 py-1 text-xs text-right" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <input type="number" step="0.1" value={marginMultiplier}
+                        onChange={e => setEdits(p => ({ ...p, [item.key]: { ...p[item.key], marginMultiplier: Number(e.target.value) } }))}
+                        className="w-16 border border-gray-200 rounded px-2 py-1 text-xs text-right" />
+                      <span className="text-xs text-gray-400 ml-1">×</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <input type="number" step="0.01" value={monthlyPrice}
+                        onChange={e => setEdits(p => ({ ...p, [item.key]: { ...p[item.key], monthlyPrice: Number(e.target.value) } }))}
+                        className="w-24 border border-gray-200 rounded px-2 py-1 text-xs text-right font-medium" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <input type="number" step="0.01" value={annualPrice}
+                        onChange={e => setEdits(p => ({ ...p, [item.key]: { ...p[item.key], annualPrice: Number(e.target.value) } }))}
+                        className="w-24 border border-gray-200 rounded px-2 py-1 text-xs text-right" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <button
+                        disabled={!dirty || saveMutation.isPending}
+                        onClick={() => saveMutation.mutate({ key: item.key, data: edits[item.key] })}
+                        className={cn('px-3 py-1 rounded-lg text-xs font-medium transition-colors',
+                          dirty ? 'bg-primary text-white hover:bg-primary/90' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}
+                      >
+                        Guardar
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Client drawer ─────────────────────────────────────────────
 
 const MODULE_CATALOGUE_MAP: Record<string, string> = {
@@ -692,6 +787,9 @@ export default function LicensingPage() {
           </div>
         )}
       </div>
+
+      {/* ── Catálogo de add-ons (custo/margem) ─────────────────── */}
+      <AddonCatalogueSection />
 
       {/* Drawer */}
       {selectedOrg && <ClientDrawer org={selectedOrg} onClose={() => setSelectedOrg(null)} />}

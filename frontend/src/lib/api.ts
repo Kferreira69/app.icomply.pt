@@ -538,6 +538,9 @@ export const licensingApi = {
   markPaid:        (invoiceId: string, data?: any)  => api.put(`/licensing/invoices/${invoiceId}/paid`, data || {}),
   toggleAddon:     (orgId: string, addonKey: string, enabled: boolean) => api.patch(`/licensing/clients/${orgId}/addons/${addonKey}`, { enabled }),
   setFeatureFlag:  (orgId: string, key: string, enabled: boolean, expiresAt?: string) => api.patch(`/licensing/clients/${orgId}/feature-flags/${key}`, { enabled, expiresAt }),
+  listAddonCatalogue: () => api.get('/licensing/catalogue/addons'),
+  updateAddonCatalogueItem: (key: string, data: { costPrice?: number; marginMultiplier?: number; monthlyPrice?: number; annualPrice?: number; active?: boolean }) =>
+    api.put(`/licensing/catalogue/addons/${key}`, data),
 };
 
 // ── Org Profile ───────────────────────────────────────────────

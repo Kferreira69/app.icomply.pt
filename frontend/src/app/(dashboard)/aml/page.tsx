@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { amlApi } from '@/lib/api';
+import { amlApi, licensingApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   Scale, Plus, Pencil, X, Shield, Search, FileText,
@@ -125,8 +125,15 @@ function CaseModal({ initial, onClose, onSave }: { initial?: any; onClose: () =>
 }
 
 function ScreeningModal({ onClose, onSave }: { onClose: () => void; onSave: (d: any) => void }) {
-  const [form, setForm] = useState({ subjectName: '', subjectType: 'INDIVIDUAL', screeningType: 'KYC', result: 'CLEAR', notes: '' });
+  const [form, setForm] = useState({ subjectName: '', subjectType: 'INDIVIDUAL', screeningType: 'KYC', result: 'CLEAR', notes: '', country: '', automated: false });
   const s = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  const { data: myAddons } = useQuery({
+    queryKey: ['my-addons'],
+    queryFn: () => licensingApi.myAddons().then(r => r.data),
+  });
+  const hasIdentityVerification = !!myAddons?.find((a: any) => a.addonKey === 'identity_verification' && a.enabled);
+
   return (
     <ModalShell title="Novo Screening" onClose={onClose}>
       <div className="p-5 space-y-3">
@@ -140,15 +147,34 @@ function ScreeningModal({ onClose, onSave }: { onClose: () => void; onSave: (d: 
             <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.screeningType} onChange={e => s('screeningType', e.target.value)}>
               {['KYC','SANCTIONS','PEP','ADVERSE_MEDIA'].map(v => <option key={v} value={v}>{v}</option>)}</select></div>
         </div>
-        <div><label className="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
-          <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.result} onChange={e => s('result', e.target.value)}>
-            {Object.entries(SCREENING_RESULT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
+        {hasIdentityVerification ? (
+          <>
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <input type="checkbox" id="automated" checked={form.automated} onChange={e => s('automated', e.target.checked)} />
+              <label htmlFor="automated" className="text-sm text-blue-700 font-medium">Verificar automaticamente (KYC/KYB/AML)</label>
+            </div>
+            {form.automated && (
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">País *</label>
+                <input placeholder="PT, BR, ES..." maxLength={2} className="w-full border rounded-lg px-3 py-2 text-sm uppercase" value={form.country} onChange={e => s('country', e.target.value.toUpperCase())} /></div>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-gray-400">Verificação automática não disponível — addon &quot;Verificação de Identidade&quot; não está ativo para esta organização.</p>
+        )}
+        {!form.automated && (
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
+            <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.result} onChange={e => s('result', e.target.value)}>
+              {Object.entries(SCREENING_RESULT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
+        )}
         <div><label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
           <textarea className="w-full border rounded-lg px-3 py-2 text-sm resize-none" rows={2} value={form.notes} onChange={e => s('notes', e.target.value)} /></div>
       </div>
       <div className="p-5 border-t flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-        <Button size="sm" disabled={!form.subjectName} onClick={() => onSave({ ...form, notes: form.notes || undefined })}>Registar</Button>
+        <Button size="sm" disabled={!form.subjectName || (form.automated && !form.country)}
+          onClick={() => onSave({ ...form, notes: form.notes || undefined, country: form.country || undefined })}>
+          {form.automated ? 'Verificar' : 'Registar'}
+        </Button>
       </div>
     </ModalShell>
   );

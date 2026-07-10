@@ -369,6 +369,7 @@ model Organization {
   amlTrainingRecords     AmlTrainingRecord[]
   amlRegulatoryUpdates   AmlRegulatoryUpdate[]
   amlAuditItems          AmlAuditItem[]
+  identityVerifications  IdentityVerification[]
   iso27701Controls       Iso27701Control[]
   soc2Criteria           Soc2Criterion[]
 
@@ -2214,6 +2215,20 @@ model LicenseAddon {
   @@map("license_addons")
 }
 
+// ── Add-on catalogue (superadmin-editable cost + auto-margin sell price) ──
+model AddonCatalogueItem {
+  key              String   @id
+  label            String
+  costPrice        Decimal  @default(0) @db.Decimal(10,2)
+  monthlyPrice     Decimal  @default(0) @db.Decimal(10,2)
+  annualPrice      Decimal  @default(0) @db.Decimal(10,2)
+  marginMultiplier Decimal  @default(1.5) @db.Decimal(4,2)
+  active           Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+
+  @@map("addon_catalogue_items")
+}
+
 // ── Subscription lifecycle event log ─────────────────────────
 
 model SubscriptionEvent {
@@ -3135,6 +3150,31 @@ model AmlAuditItem {
 
   @@index([organizationId, category])
   @@map("aml_audit_items")
+}
+
+// ─── Identity Verification (KYC/KYB) — real provider-backed checks ──
+// Distinct from AmlCase/AmlScreening (manual case/audit tracking above):
+// this is the engine that actually calls out to Sumsub/Trulioo/etc.
+model IdentityVerification {
+  id             String    @id @default(uuid())
+  organizationId String
+  subjectType    String    // INDIVIDUAL | BUSINESS
+  provider       String    // SUMSUB | TRULIOO
+  providerRefId  String?
+  status         String    @default("PENDING") // PENDING | APPROVED | REJECTED | REVIEW | ERROR
+  riskScore      Int?
+  country        String?
+  subjectName    String
+  rawResult      Json?
+  requestedById  String
+  amlScreeningId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("identity_verifications")
 }
 
 // ─── ISO 27701 — Privacy Information Management ───────────────

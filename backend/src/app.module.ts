@@ -80,6 +80,7 @@ import { IntegrationHubModule } from './integration-hub/integration-hub.module';
 import { CommonServicesModule } from './common/services/common-services.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { IdentityVerificationModule } from './identity-verification/identity-verification.module';
 
 @Module({
   imports: [
@@ -188,6 +189,7 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
     IntegrationHubModule,
     SupportTicketsModule,
     FeatureFlagsModule,
+    IdentityVerificationModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──
