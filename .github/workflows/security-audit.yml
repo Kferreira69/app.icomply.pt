@@ -49,6 +49,12 @@ jobs:
         working-directory: backend
         run: npm install
 
+      - name: Generate Prisma client
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+        run: npx prisma generate
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install
