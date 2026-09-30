@@ -334,6 +334,14 @@ export const policiesApi = {
   revertToDraft: (id: string) => api.post(`/policies/${id}/revert`),
   acknowledge: (id: string) => api.post(`/policies/${id}/acknowledge`),
   acknowledgmentStatus: (id: string) => api.get(`/policies/${id}/acknowledgment-status`),
+  // Attachments — multipart; `Content-Type: undefined` lets the browser set the boundary.
+  addAttachment: (id: string, form: FormData) =>
+    api.post(`/policies/${id}/attachments`, form, { headers: { 'Content-Type': undefined } }),
+  addAttachmentVersion: (id: string, attId: string, form: FormData) =>
+    api.post(`/policies/${id}/attachments/${attId}/versions`, form, { headers: { 'Content-Type': undefined } }),
+  attachmentFile: (id: string, attId: string, versionId?: string) =>
+    api.get<Blob>(`/policies/${id}/attachments/${attId}/file`, { params: { versionId }, responseType: 'blob' }),
+  removeAttachment: (id: string, attId: string) => api.delete(`/policies/${id}/attachments/${attId}`),
 };
 
 // ── Quality documents (controlled documents, ISO 9001 §7.5) ────

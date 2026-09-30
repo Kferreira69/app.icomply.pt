@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import {
   Plus, BookOpen, CheckCircle2, Archive,
   Eye, Pencil, Trash2, ThumbsUp, Send,
-  RotateCcw, FileText,
+  RotateCcw, FileText, Paperclip, Download, Upload, History,
 } from 'lucide-react';
+import { saveBlobResponse } from '@/lib/download';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
 import { format } from 'date-fns';
@@ -128,11 +129,166 @@ function PolicyModal({
   );
 }
 
+// ── Attachments (Word/PDF/… with version history) ────────────
+const ATTACH_ACCEPT = '.pdf,.doc,.docx,.odt,.xls,.xlsx,.ods,.csv,.ppt,.pptx,.odp,.txt,.png,.jpg,.jpeg,.vsdx';
+const attErr = (e: any) => e?.response?.data?.message || e?.message || 'Erro inesperado';
+const attSize = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+function PolicyAttachments({ policy, readOnly }: { policy: any; readOnly: boolean }) {
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState('');
+  const [addFile, setAddFile] = useState<File | null>(null);
+  const [versioningId, setVersioningId] = useState<string | null>(null);
+  const [changeNote, setChangeNote] = useState('');
+  const [verFile, setVerFile] = useState<File | null>(null);
+  const [openHistory, setOpenHistory] = useState<Record<string, boolean>>({});
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['policies'] });
+  const attachments: any[] = policy.attachments ?? [];
+  const warnRevert = policy.status === 'APPROVED' || policy.status === 'IN_REVIEW';
+
+  const addMut = useMutation({
+    mutationFn: (fd: FormData) => policiesApi.addAttachment(policy.id, fd),
+    onSuccess: () => { refresh(); setAdding(false); setTitle(''); setAddFile(null); },
+    onError: (e) => alert(attErr(e)),
+  });
+  const verMut = useMutation({
+    mutationFn: ({ attId, fd }: { attId: string; fd: FormData }) => policiesApi.addAttachmentVersion(policy.id, attId, fd),
+    onSuccess: () => { refresh(); setVersioningId(null); setChangeNote(''); setVerFile(null); },
+    onError: (e) => alert(attErr(e)),
+  });
+  const delMut = useMutation({
+    mutationFn: (attId: string) => policiesApi.removeAttachment(policy.id, attId),
+    onSuccess: refresh,
+    onError: (e) => alert(attErr(e)),
+  });
+
+  const confirmRevert = () =>
+    !warnRevert || confirm('Esta política está em revisão/aprovada. Alterar os anexos volta a colocá-la em rascunho e terá de ser aprovada de novo. Continuar?');
+
+  async function download(attId: string, versionId?: string) {
+    try { saveBlobResponse(await policiesApi.attachmentFile(policy.id, attId, versionId)); }
+    catch (e) { alert(attErr(e)); }
+  }
+
+  function submitAdd() {
+    if (!addFile || !confirmRevert()) return;
+    const fd = new FormData();
+    if (title) fd.append('title', title);
+    fd.append('file', addFile);
+    addMut.mutate(fd);
+  }
+
+  function submitVersion(attId: string) {
+    if (!verFile || !confirmRevert()) return;
+    const fd = new FormData();
+    if (changeNote) fd.append('changeNote', changeNote);
+    fd.append('file', verFile);
+    verMut.mutate({ attId, fd });
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+          <Paperclip className="w-4 h-4" /> Anexos ({attachments.length})
+        </h3>
+        {!readOnly && !adding && (
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => setAdding(true)}>
+            <Plus className="w-3 h-3" /> Adicionar ficheiro
+          </Button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="border rounded-lg p-3 mb-3 space-y-2 bg-blue-50/40">
+          <input className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Título (opcional — por defeito o nome do ficheiro)"
+            value={title} onChange={e => setTitle(e.target.value)} />
+          <input type="file" accept={ATTACH_ACCEPT} className="w-full text-sm" onChange={e => setAddFile(e.target.files?.[0] ?? null)} />
+          <p className="text-xs text-gray-500">Word, PDF, Excel, PowerPoint, imagens… até 25 MB.</p>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" onClick={() => { setAdding(false); setAddFile(null); setTitle(''); }}>Cancelar</Button>
+            <Button size="sm" disabled={!addFile || addMut.isPending} onClick={submitAdd}>{addMut.isPending ? 'A carregar…' : 'Carregar'}</Button>
+          </div>
+        </div>
+      )}
+
+      {attachments.length === 0 && !adding && (
+        <p className="text-sm text-gray-400">Sem anexos. Pode anexar, por exemplo, a versão Word da política.</p>
+      )}
+
+      <div className="space-y-2">
+        {attachments.map((a: any) => {
+          const cur = a.versions?.find((v: any) => v.version === a.currentVersion) ?? a.versions?.[0];
+          return (
+            <div key={a.id} className="border rounded-lg">
+              <div className="flex flex-wrap items-center gap-3 px-3 py-2">
+                <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-[180px]">
+                  <p className="text-sm font-medium text-gray-900">{a.title} <span className="text-xs font-mono text-gray-500">v{a.currentVersion}</span></p>
+                  {cur && (
+                    <p className="text-xs text-gray-400">
+                      {cur.fileName} · {attSize(cur.fileSize)} · {cur.uploadedBy?.firstName} {cur.uploadedBy?.lastName} · {format(new Date(cur.createdAt), 'dd/MM/yyyy')}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button title="Descarregar versão atual" className="p-1.5 rounded hover:bg-gray-100" onClick={() => download(a.id)}><Download className="w-4 h-4" /></button>
+                  <button title="Histórico de versões" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setOpenHistory(p => ({ ...p, [a.id]: !p[a.id] }))}><History className="w-4 h-4" /></button>
+                  {!readOnly && (
+                    <>
+                      <button title="Carregar nova versão" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setVersioningId(versioningId === a.id ? null : a.id)}><Upload className="w-4 h-4" /></button>
+                      <button title="Eliminar anexo" className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                        onClick={() => { if (confirmRevert() && confirm(`Eliminar "${a.title}" e todas as suas versões?`)) delMut.mutate(a.id); }}><Trash2 className="w-4 h-4" /></button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {versioningId === a.id && (
+                <div className="border-t px-3 py-2 space-y-2 bg-blue-50/40">
+                  <input className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Nota de alteração (o que mudou?)" value={changeNote} onChange={e => setChangeNote(e.target.value)} />
+                  <input type="file" accept={ATTACH_ACCEPT} className="w-full text-sm" onChange={e => setVerFile(e.target.files?.[0] ?? null)} />
+                  <div className="flex gap-2 justify-end">
+                    <Button size="sm" variant="outline" onClick={() => { setVersioningId(null); setVerFile(null); setChangeNote(''); }}>Cancelar</Button>
+                    <Button size="sm" disabled={!verFile || verMut.isPending} onClick={() => submitVersion(a.id)}>{verMut.isPending ? 'A carregar…' : 'Carregar versão'}</Button>
+                  </div>
+                </div>
+              )}
+
+              {openHistory[a.id] && (
+                <div className="border-t bg-gray-50 px-3 py-2 space-y-1.5">
+                  {a.versions.map((v: any) => (
+                    <div key={v.id} className="flex items-center gap-3 text-xs text-gray-600">
+                      <span className="font-mono font-semibold w-12">v{v.version}</span>
+                      <span className="flex-1 truncate">{v.fileName} · {attSize(v.fileSize)}{v.changeNote ? ` · ${v.changeNote}` : ''}</span>
+                      <span className="text-gray-400 whitespace-nowrap">{v.uploadedBy?.firstName} {v.uploadedBy?.lastName} · {format(new Date(v.createdAt), 'dd/MM/yyyy')}</span>
+                      <button title="Descarregar esta versão" className="text-primary hover:text-primary/70" onClick={() => download(a.id, v.id)}><Download className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Modal: View Policy ────────────────────────────────────────
 function ViewPolicyModal({
-  policy, onClose, onAction, currentUserId,
+  policy: listPolicy, onClose, onAction, currentUserId,
 }: { policy: any; onClose: () => void; onAction: (action: string) => void; currentUserId?: string }) {
   const t = useTranslations('policies');
+  // The list row has no attachments; load the full detail (also reflects a status
+  // change caused by editing attachments, e.g. APPROVED -> DRAFT).
+  const { data: detail } = useQuery({
+    queryKey: ['policies', 'detail', listPolicy.id],
+    queryFn: () => policiesApi.get(listPolicy.id).then(r => r.data),
+  });
+  const policy = detail ?? listPolicy;
 
   const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
     DRAFT:     { bg: 'bg-gray-100',   text: 'text-gray-700',   label: t('status.DRAFT') },
@@ -240,6 +396,9 @@ function ViewPolicyModal({
           <div className="bg-gray-50 rounded-lg p-4">
             <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 leading-relaxed">{policy.content}</pre>
           </div>
+
+          {/* Attachments */}
+          <PolicyAttachments policy={policy} readOnly={policy.status === 'ARCHIVED'} />
 
           {/* Stats */}
           {policy._count && (

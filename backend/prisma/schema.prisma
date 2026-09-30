@@ -465,6 +465,7 @@ model User {
   qualityDocumentsOwned      QualityDocument[]        @relation("QualityDocOwner")
   qualityDocumentsApproved   QualityDocument[]        @relation("QualityDocApprover")
   qualityDocumentVersions    QualityDocumentVersion[] @relation("QualityDocVersionUploader")
+  policyAttachmentVersions   PolicyAttachmentVersion[] @relation("PolicyAttachmentVersionUploader")
   policyAcknowledgments PolicyAcknowledgment[]
   controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
   ownedDpias       Dpia[]       @relation("DpiaOwner")
@@ -1178,10 +1179,50 @@ model Policy {
   framework       Framework?             @relation(fields: [frameworkId], references: [id])
   versions        PolicyVersion[]
   acknowledgments PolicyAcknowledgment[]
+  attachments     PolicyAttachment[]
 
   @@index([organizationId, status])
   @@index([organizationId, category])
   @@map("policies")
+}
+
+// Files attached to a policy (e.g. the Word version of the policy or a Quality
+// Manual). Each attachment keeps its own file version history; any change to
+// the attachments of an approved/in-review policy sends the policy back to
+// DRAFT so the new files go through review + approval again.
+model PolicyAttachment {
+  id             String   @id @default(uuid())
+  policyId       String
+  title          String
+  description    String?
+  currentVersion String   @default("1.0")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  policy   Policy                    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  versions PolicyAttachmentVersion[]
+
+  @@index([policyId])
+  @@map("policy_attachments")
+}
+
+model PolicyAttachmentVersion {
+  id           String   @id @default(uuid())
+  attachmentId String
+  version      String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  s3Key        String
+  changeNote   String?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  attachment PolicyAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  uploadedBy User             @relation("PolicyAttachmentVersionUploader", fields: [uploadedById], references: [id])
+
+  @@index([attachmentId])
+  @@map("policy_attachment_versions")
 }
 
 // ─── Quality documents (controlled documents, ISO 9001 §7.5) ──────
