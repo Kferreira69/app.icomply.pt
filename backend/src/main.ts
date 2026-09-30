@@ -101,6 +101,8 @@ async function bootstrap() {
     credentials: true, // required for cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
+    // Lets the frontend read the file name when downloading (e.g. quality documents)
+    exposedHeaders: ['Content-Disposition'],
   });
 
   // ── Global exception filter (no stack traces in prod) ─────────
