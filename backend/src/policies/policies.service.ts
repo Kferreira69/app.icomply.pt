@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { PolicyStatus } from '../generated/prisma/client';
+import { PolicyAttachmentsService } from './policy-attachments.service';
 
 @Injectable()
 export class PoliciesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private attachments: PolicyAttachmentsService,
+  ) {}
 
   // ── Create ────────────────────────────────────────────────────
 
@@ -49,7 +53,7 @@ export class PoliciesService {
         owner: { select: { id: true, firstName: true, lastName: true } },
         approver: { select: { id: true, firstName: true, lastName: true } },
         framework: { select: { id: true, name: true, code: true } },
-        _count: { select: { acknowledgments: true, versions: true } },
+        _count: { select: { acknowledgments: true, versions: true, attachments: true } },
       },
     });
   }
@@ -61,6 +65,15 @@ export class PoliciesService {
         ...this.defaultInclude(),
         versions: { orderBy: { createdAt: 'desc' }, include: { changedBy: { select: { id: true, firstName: true, lastName: true } } } },
         acknowledgments: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+        attachments: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            versions: {
+              orderBy: { createdAt: 'desc' },
+              include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
+            },
+          },
+        },
       },
     });
     if (!policy) throw new NotFoundException('Policy not found');
@@ -115,6 +128,11 @@ export class PoliciesService {
     if (policy.ownerId === approverId) {
       throw new ForbiddenException('O criador da política não pode aprovar a sua própria política (separação de funções)');
     }
+    // Same principle for the attached files: whoever uploaded the latest file
+    // version cannot be the one approving it.
+    if ((await this.attachments.lastUploaderId(id)) === approverId) {
+      throw new ForbiddenException('Quem carregou o último anexo não pode aprovar a política (separação de funções)');
+    }
     return this.prisma.policy.update({
       where: { id },
       data: { status: PolicyStatus.APPROVED, approverId, approvedAt: new Date() },
@@ -166,6 +184,7 @@ export class PoliciesService {
   async remove(id: string, organizationId: string) {
     const policy = await this.prisma.policy.findFirst({ where: { id, organizationId } });
     if (!policy) throw new NotFoundException('Policy not found');
+    await this.attachments.deleteAllFilesOfPolicy(id);
     return this.prisma.policy.delete({ where: { id } });
   }
 
@@ -195,7 +214,7 @@ export class PoliciesService {
       owner: { select: { id: true, firstName: true, lastName: true } },
       approver: { select: { id: true, firstName: true, lastName: true } },
       framework: { select: { id: true, name: true, code: true } },
-      _count: { select: { acknowledgments: true, versions: true } },
+      _count: { select: { acknowledgments: true, versions: true, attachments: true } },
     };
   }
 }

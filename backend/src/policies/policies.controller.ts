@@ -1,22 +1,39 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param,
-  Query, UseGuards, Req, HttpCode,
+  BadRequestException, Controller, Get, Post, Patch, Delete, Body, Param,
+  Query, UseGuards, Req, Res, HttpCode, StreamableFile, UploadedFile, UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PoliciesService } from './policies.service';
+import { PolicyAttachmentsService } from './policy-attachments.service';
+import { DOC_MAX_BYTES, isAllowedDocFile } from '../common/storage/upload-rules';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { PolicyStatus } from '../generated/prisma/client';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequireModule } from '../permissions/require-module.decorator';
+
+const attachmentUpload = FileInterceptor('file', {
+  limits: { fileSize: DOC_MAX_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!isAllowedDocFile(file.originalname)) {
+      return cb(new BadRequestException('Tipo de ficheiro não permitido'), false);
+    }
+    cb(null, true);
+  },
+});
 
 @ApiTags('Policies')
 @ApiBearerAuth('JWT')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('policies')
 export class PoliciesController {
-  constructor(private readonly service: PoliciesService) {}
+  constructor(
+    private readonly service: PoliciesService,
+    private readonly attachments: PolicyAttachmentsService,
+  ) {}
 
   @Post()
   @RequireModule('policies', 2)
@@ -107,6 +124,74 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Get acknowledgment statistics for a policy' })
   getAcknowledgmentStatus(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.getAcknowledgmentStatus(id, user.organizationId);
+  }
+
+  // ── Attachments (Word/PDF/… files with their own version history) ──
+
+  @Get(':id/attachments')
+  @RequireModule('policies', 1)
+  @ApiOperation({ summary: 'List policy attachments with version history' })
+  listAttachments(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
+    return this.attachments.list(id, orgId);
+  }
+
+  @Post(':id/attachments')
+  @RequireModule('policies', 2)
+  @UseInterceptors(attachmentUpload)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Attach a file to a policy (sends an approved policy back to DRAFT)' })
+  addAttachment(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.attachments.add(id, user.organizationId, user.userId, body, file);
+  }
+
+  @Post(':id/attachments/:attId/versions')
+  @RequireModule('policies', 2)
+  @UseInterceptors(attachmentUpload)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a new version of an attachment (sends an approved policy back to DRAFT)' })
+  addAttachmentVersion(
+    @Param('id') id: string,
+    @Param('attId') attId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.attachments.addVersion(id, attId, user.organizationId, user.userId, body, file);
+  }
+
+  @Get(':id/attachments/:attId/file')
+  @RequireModule('policies', 1)
+  @ApiOperation({ summary: 'Download the current (or a given) version of an attachment' })
+  async downloadAttachment(
+    @Param('id') id: string,
+    @Param('attId') attId: string,
+    @CurrentUser('organizationId') orgId: string,
+    @Res({ passthrough: true }) res: Response,
+    @Query('versionId') versionId?: string,
+  ) {
+    const f = await this.attachments.getFile(id, attId, versionId, orgId);
+    res.set({
+      'Content-Type': 'application/octet-stream', // never render user-supplied files inline
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return new StreamableFile(f.buffer);
+  }
+
+  @Delete(':id/attachments/:attId')
+  @RequireModule('policies', 2)
+  @ApiOperation({ summary: 'Delete an attachment and all its versions' })
+  removeAttachment(
+    @Param('id') id: string,
+    @Param('attId') attId: string,
+    @CurrentUser('organizationId') orgId: string,
+  ) {
+    return this.attachments.remove(id, attId, orgId);
   }
 
   @Delete(':id')

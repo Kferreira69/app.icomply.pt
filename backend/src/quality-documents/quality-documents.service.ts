@@ -1,15 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { StorageService } from '../common/storage/storage.service';
+import {
+  DOC_ALLOWED_EXT, DOC_MAX_BYTES, isAllowedDocFile, nextMinorVersion,
+} from '../common/storage/upload-rules';
 
 export const QUALITY_DOC_TYPES = ['MANUAL', 'PROCEDURE', 'INSTRUCTION', 'FORM', 'RECORD', 'OTHER'] as const;
-export const QUALITY_DOC_MAX_BYTES = 25 * 1024 * 1024;
-// Extension whitelist (mime types are client-supplied and not trusted). No
-// html/svg/js/exe: these files are served back to other users.
-export const QUALITY_DOC_ALLOWED_EXT = [
-  'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'csv',
-  'ppt', 'pptx', 'odp', 'txt', 'png', 'jpg', 'jpeg', 'vsdx',
-];
+export const QUALITY_DOC_MAX_BYTES = DOC_MAX_BYTES;
+export const QUALITY_DOC_ALLOWED_EXT = DOC_ALLOWED_EXT;
 
 const USER_SELECT = { select: { id: true, firstName: true, lastName: true } };
 
@@ -21,8 +19,7 @@ export class QualityDocumentsService {
   ) {}
 
   static isAllowedFile(originalName: string): boolean {
-    const ext = (originalName.split('.').pop() || '').toLowerCase();
-    return QUALITY_DOC_ALLOWED_EXT.includes(ext);
+    return isAllowedDocFile(originalName);
   }
 
   private assertFile(file?: Express.Multer.File): Express.Multer.File {
@@ -48,12 +45,6 @@ export class QualityDocumentsService {
     if (!raw || typeof raw !== 'string') return null;
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
-  }
-
-  /** "1.0" -> "1.1", "2.3" -> "2.4"; anything unparseable -> "<v>.1" */
-  private nextVersion(current: string): string {
-    const m = /^(\d+)\.(\d+)$/.exec(current);
-    return m ? `${m[1]}.${Number(m[2]) + 1}` : `${current}.1`;
   }
 
   async list(orgId: string, filters: { clause?: string; status?: string; docType?: string }) {
@@ -154,7 +145,7 @@ export class QualityDocumentsService {
   async addVersion(id: string, orgId: string, userId: string, body: any, file?: Express.Multer.File) {
     const doc = await this.get(id, orgId);
     const f = this.assertFile(file);
-    const version = String(body?.version ?? '').trim() || this.nextVersion(doc.currentVersion);
+    const version = String(body?.version ?? '').trim() || nextMinorVersion(doc.currentVersion);
     if (doc.versions.some(v => v.version === version)) {
       throw new BadRequestException(`A versão ${version} já existe`);
     }
@@ -199,7 +190,16 @@ export class QualityDocumentsService {
     return this.transition(id, orgId, ['DRAFT'], { status: 'IN_REVIEW' });
   }
 
-  approve(id: string, orgId: string, approverId: string) {
+  async approve(id: string, orgId: string, approverId: string) {
+    // Segregation of duties (same principle as policy approval): whoever
+    // uploaded the version being approved cannot approve it.
+    const doc = await this.get(id, orgId);
+    const current = doc.versions.find(v => v.version === doc.currentVersion);
+    if (current && current.uploadedById === approverId) {
+      throw new ForbiddenException(
+        'Quem carregou esta versão não pode aprová-la (separação de funções)',
+      );
+    }
     return this.transition(id, orgId, ['IN_REVIEW'], {
       status: 'APPROVED', approverId, approvedAt: new Date(),
     });
