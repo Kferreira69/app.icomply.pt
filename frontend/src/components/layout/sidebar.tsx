@@ -659,7 +659,10 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         },
         {
           key: 'quality', label: t('qualityOps'), icon: ClipboardList, color: 'bg-cyan-600 text-white',
-          items: [{ href: '/quality', label: 'ISO 9001 · CAPA', icon: ClipboardList }],
+          items: [
+            { href: '/quality', label: 'ISO 9001 · CAPA', icon: ClipboardList },
+            { href: '/quality/documents', label: 'Documentos da Qualidade', icon: FileText },
+          ],
         },
         {
           key: 'regulatory', label: t('regulatoryChangeDomain'), icon: CalendarDays, color: 'bg-pink-600 text-white',
