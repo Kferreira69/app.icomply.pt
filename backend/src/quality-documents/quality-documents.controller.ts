@@ -1,7 +1,8 @@
 import {
   BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query,
-  UploadedFile, UseGuards, UseInterceptors,
+  Res, StreamableFile, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -47,15 +48,22 @@ export class QualityDocumentsController {
     return this.service.get(id, orgId);
   }
 
-  @Get(':id/download')
+  @Get(':id/file')
   @RequireModule('quality', 1)
-  @ApiOperation({ summary: 'Short-lived download URL for the current (or a given) version' })
-  download(
+  @ApiOperation({ summary: 'Download the current (or a given) version of the file' })
+  async file(
     @Param('id') id: string,
     @CurrentUser('organizationId') orgId: string,
+    @Res({ passthrough: true }) res: Response,
     @Query('versionId') versionId?: string,
   ) {
-    return this.service.getDownloadUrl(id, versionId, orgId);
+    const f = await this.service.getFile(id, versionId, orgId);
+    res.set({
+      'Content-Type': 'application/octet-stream', // never let the browser render user-supplied files inline
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return new StreamableFile(f.buffer);
   }
 
   @Post()

@@ -351,8 +351,8 @@ export const qualityDocumentsApi = {
   approve: (id: string) => api.post(`/quality-documents/${id}/approve`),
   obsolete: (id: string) => api.post(`/quality-documents/${id}/obsolete`),
   revert: (id: string) => api.post(`/quality-documents/${id}/revert`),
-  downloadUrl: (id: string, versionId?: string) =>
-    api.get(`/quality-documents/${id}/download`, { params: { versionId } }),
+  file: (id: string, versionId?: string) =>
+    api.get<Blob>(`/quality-documents/${id}/file`, { params: { versionId }, responseType: 'blob' }),
   remove: (id: string) => api.delete(`/quality-documents/${id}`),
 };
 
