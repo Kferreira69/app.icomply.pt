@@ -219,8 +219,16 @@ export default function QualityDocumentsPage() {
 
   async function download(id: string, versionId?: string) {
     try {
-      const { data } = await qualityDocumentsApi.downloadUrl(id, versionId);
-      window.open(data.url, '_blank', 'noopener');
+      const res = await qualityDocumentsApi.file(id, versionId);
+      // File name comes from the Content-Disposition header (RFC 5987 filename*).
+      const cd = String(res.headers['content-disposition'] ?? '');
+      const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+      const name = m ? decodeURIComponent(m[1]) : 'documento';
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
     } catch (e) { onError(e); }
   }
 

@@ -215,14 +215,21 @@ export class QualityDocumentsService {
     });
   }
 
-  async getDownloadUrl(id: string, versionId: string | undefined, orgId: string) {
+  /**
+   * Streams the file through the API instead of handing out a storage URL:
+   * the S3 endpoint is an internal Docker hostname (not reachable from a
+   * browser) and this way every download is authenticated + org-scoped.
+   */
+  async getFile(id: string, versionId: string | undefined, orgId: string) {
     const doc = await this.get(id, orgId);
     const version = versionId
       ? doc.versions.find(v => v.id === versionId)
       : doc.versions.find(v => v.version === doc.currentVersion) ?? doc.versions[0];
     if (!version) throw new NotFoundException('Versão não encontrada');
-    const url = await this.storage.getPresignedUrl(version.s3Key, 300);
-    return { url, fileName: version.fileName, version: version.version };
+    const buffer =
+      this.storage.readLocalFile(version.s3Key) ?? (await this.storage.readS3Buffer(version.s3Key));
+    if (!buffer) throw new NotFoundException('Ficheiro não encontrado no armazenamento');
+    return { buffer, fileName: version.fileName, mimeType: version.mimeType };
   }
 
   async remove(id: string, orgId: string) {
