@@ -336,6 +336,26 @@ export const policiesApi = {
   acknowledgmentStatus: (id: string) => api.get(`/policies/${id}/acknowledgment-status`),
 };
 
+// ── Quality documents (controlled documents, ISO 9001 §7.5) ────
+export const qualityDocumentsApi = {
+  list: (params?: { clause?: string; status?: string; docType?: string }) =>
+    api.get('/quality-documents', { params }),
+  get: (id: string) => api.get(`/quality-documents/${id}`),
+  // `Content-Type: undefined` lets the browser set the multipart boundary.
+  create: (form: FormData) =>
+    api.post('/quality-documents', form, { headers: { 'Content-Type': undefined } }),
+  addVersion: (id: string, form: FormData) =>
+    api.post(`/quality-documents/${id}/versions`, form, { headers: { 'Content-Type': undefined } }),
+  update: (id: string, data: any) => api.patch(`/quality-documents/${id}`, data),
+  submit: (id: string) => api.post(`/quality-documents/${id}/submit`),
+  approve: (id: string) => api.post(`/quality-documents/${id}/approve`),
+  obsolete: (id: string) => api.post(`/quality-documents/${id}/obsolete`),
+  revert: (id: string) => api.post(`/quality-documents/${id}/revert`),
+  downloadUrl: (id: string, versionId?: string) =>
+    api.get(`/quality-documents/${id}/download`, { params: { versionId } }),
+  remove: (id: string) => api.delete(`/quality-documents/${id}`),
+};
+
 export const gdprApi = {
   dashboard: () => api.get('/gdpr/dashboard'),
   // ROPA / Processing Activities

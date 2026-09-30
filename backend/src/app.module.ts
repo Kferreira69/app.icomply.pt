@@ -81,6 +81,7 @@ import { CommonServicesModule } from './common/services/common-services.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { IdentityVerificationModule } from './identity-verification/identity-verification.module';
+import { QualityDocumentsModule } from './quality-documents/quality-documents.module';
 
 @Module({
   imports: [
@@ -190,6 +191,7 @@ import { IdentityVerificationModule } from './identity-verification/identity-ver
     SupportTicketsModule,
     FeatureFlagsModule,
     IdentityVerificationModule,
+    QualityDocumentsModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──
