@@ -369,6 +369,7 @@ model Organization {
   amlTrainingRecords     AmlTrainingRecord[]
   amlRegulatoryUpdates   AmlRegulatoryUpdate[]
   amlAuditItems          AmlAuditItem[]
+  qualityDocuments       QualityDocument[]
   iso27701Controls       Iso27701Control[]
   soc2Criteria           Soc2Criterion[]
 
@@ -461,6 +462,9 @@ model User {
   ownedPolicies    Policy[]     @relation("PolicyOwner")
   approvedPolicies Policy[]     @relation("PolicyApprover")
   policyVersions   PolicyVersion[]
+  qualityDocumentsOwned      QualityDocument[]        @relation("QualityDocOwner")
+  qualityDocumentsApproved   QualityDocument[]        @relation("QualityDocApprover")
+  qualityDocumentVersions    QualityDocumentVersion[] @relation("QualityDocVersionUploader")
   policyAcknowledgments PolicyAcknowledgment[]
   controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
   ownedDpias       Dpia[]       @relation("DpiaOwner")
@@ -1178,6 +1182,59 @@ model Policy {
   @@index([organizationId, status])
   @@index([organizationId, category])
   @@map("policies")
+}
+
+// ─── Quality documents (controlled documents, ISO 9001 §7.5) ──────
+// One row per controlled document (Quality Manual, procedures, forms, ...),
+// filed under the ISO clause it belongs to — mirrors the clause-per-folder
+// layout consultants already use ("4 e 5 Manual da Qualidade", "7.5 ...").
+// Each version is a real file; approving a version makes it the current one.
+model QualityDocument {
+  id             String   @id @default(uuid())
+  organizationId String
+  clause         String   // ISO 9001 clause, e.g. "4", "5.3", "7.5", "8.2"
+  code           String?  // internal document code, e.g. "MQ-01"
+  title          String
+  docType        String   @default("OTHER") // MANUAL | PROCEDURE | INSTRUCTION | FORM | RECORD | OTHER
+  description    String?
+  status         String   @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | OBSOLETE
+  currentVersion String   @default("1.0")
+  ownerId        String
+  approverId     String?
+  approvedAt     DateTime?
+  effectiveDate  DateTime?
+  reviewDate     DateTime?
+  tags           String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization            @relation(fields: [organizationId], references: [id])
+  owner        User                    @relation("QualityDocOwner", fields: [ownerId], references: [id])
+  approver     User?                   @relation("QualityDocApprover", fields: [approverId], references: [id])
+  versions     QualityDocumentVersion[]
+
+  @@index([organizationId, clause])
+  @@index([organizationId, status])
+  @@map("quality_documents")
+}
+
+model QualityDocumentVersion {
+  id           String   @id @default(uuid())
+  documentId   String
+  version      String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  s3Key        String
+  changeNote   String?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  document   QualityDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User            @relation("QualityDocVersionUploader", fields: [uploadedById], references: [id])
+
+  @@index([documentId])
+  @@map("quality_document_versions")
 }
 
 model PolicyVersion {
