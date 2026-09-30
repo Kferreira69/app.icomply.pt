@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qualityDocumentsApi } from '@/lib/api';
+import { saveBlobResponse } from '@/lib/download';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
@@ -219,16 +220,7 @@ export default function QualityDocumentsPage() {
 
   async function download(id: string, versionId?: string) {
     try {
-      const res = await qualityDocumentsApi.file(id, versionId);
-      // File name comes from the Content-Disposition header (RFC 5987 filename*).
-      const cd = String(res.headers['content-disposition'] ?? '');
-      const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
-      const name = m ? decodeURIComponent(m[1]) : 'documento';
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      saveBlobResponse(await qualityDocumentsApi.file(id, versionId));
     } catch (e) { onError(e); }
   }
 
