@@ -194,6 +194,9 @@ export class QualityDocumentsService {
     // Segregation of duties (same principle as policy approval): whoever
     // uploaded the version being approved cannot approve it.
     const doc = await this.get(id, orgId);
+    if (doc.status !== 'IN_REVIEW') {
+      throw new BadRequestException(`Transição inválida a partir do estado ${doc.status}`);
+    }
     const current = doc.versions.find(v => v.version === doc.currentVersion);
     if (current && current.uploadedById === approverId) {
       throw new ForbiddenException(
