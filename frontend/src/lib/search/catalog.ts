@@ -45,7 +45,7 @@ const hl = (t: string) => `hl=${encodeURIComponent(t.slice(0, 80))}`;
 const GUIDE_HREF: Record<string, string> = {
   dashboard: '/dashboard', risks: '/risks', projects: '/projects', tasks: '/tasks', evidence: '/evidence',
   reports: '/reports', audits: '/audits', capa: '/capa', policies: '/policies', vendors: '/vendors',
-  settings: '/settings/organization',
+  settings: '/settings/organization', environment: '/environment',
 };
 
 let cache: CatalogEntry[] | null = null;

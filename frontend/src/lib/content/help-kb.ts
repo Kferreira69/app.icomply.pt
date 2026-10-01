@@ -1,6 +1,6 @@
 // Help-centre content (FAQ + knowledge-base articles) — shared by the Help page and the global search.
-import { 
-AlertTriangle, BarChart3, CheckCircle2, Database, FileText, Globe, Laptop, Settings, Target
+import {
+AlertTriangle, BarChart3, CheckCircle2, Database, FileText, Globe, Laptop, Recycle, Settings, Target
  } from 'lucide-react';
 
 // ── FAQ ───────────────────────────────────────────────────────
@@ -37,6 +37,14 @@ export const FAQ = [
     q: 'Posso personalizar os frameworks de conformidade?',
     a: 'Sim. O iComply suporta ISO 27001, NIS2, RGPD, SOC2 e frameworks personalizados. Contacta o suporte para configurar frameworks específicos do teu sector.',
   },
+  {
+    q: 'O iComply cobre a ISO 14001 (gestão ambiental)?',
+    a: 'Sim. O módulo Ambiente (ISO 14001) inclui a checklist das cláusulas 4 a 10, o registo de aspetos e impactos ambientais com avaliação de significância, os objetivos e metas ambientais e o registo de requisitos legais com avaliação do cumprimento. Os documentos (manual, procedimentos, registos) guardam-se na Gestão Documental.',
+  },
+  {
+    q: 'Onde guardo o Manual da Qualidade e os procedimentos?',
+    a: 'Na Gestão Documental (menu Gerir → Políticas & Relatórios): escolhe a norma (por exemplo, ISO 9001), a cláusula e carrega o ficheiro Word ou PDF. Cada documento tem versões e fluxo de aprovação.',
+  },
 ];
 
 // ── Knowledge Base ────────────────────────────────────────────
@@ -66,6 +74,10 @@ export const KB_CATEGORIES = [
       {
         title: 'Posso importar dados de um sistema anterior?',
         body: 'Sim. O iComply aceita importação via Excel (.xlsx) para Tarefas, Riscos e Controlos. Vai a Definições → Importar dados e descarrega o template correspondente. Preenche com os teus dados e faz upload. O sistema processa de forma assíncrona e envia notificação quando termina.',
+      },
+      {
+        title: 'Como pesquisar em todo o programa (Ctrl+K)',
+        body: 'Prime Ctrl+K (Cmd+K no Mac) ou clica em "Pesquisar" no topo e escreve 2 ou mais letras. A pesquisa ignora acentos e maiúsculas, encontra qualquer palavra dentro do conteúdo (títulos, descrições, texto das políticas, nomes de ficheiros) e tolera pequenos erros de escrita.\n\nOs resultados aparecem por prioridade:\n• Correspondência exata — contêm todas as palavras\n• Correspondência parcial — contêm algumas das palavras\n• Relacionados — o mesmo assunto com outras palavras (por exemplo, "formação" sugere o Centro de Formação, vídeos e ajuda)\n\n"Ver todos os resultados" abre uma página com filtros por tipo. Só aparecem registos dos módulos a que tens acesso. Ao abrir um resultado, a página faz scroll até ao item e destaca-o.',
       },
     ],
   },
@@ -146,6 +158,38 @@ export const KB_CATEGORIES = [
       {
         title: 'O que é a análise de lacunas de evidências?',
         body: 'Em Evidências → Gap Analysis, o sistema mostra para cada controlo ISO 27001 se tem evidência associada (✓) ou não (⚠). Os controlos sem evidência são listados como prioridades de recolha. Este relatório é fundamental para preparar uma auditoria de certificação.',
+      },
+      {
+        title: 'Como anexar documentos Word ou PDF a uma política',
+        body: 'Abre a política (ícone de olho) e, na secção Anexos, adiciona o ficheiro (PDF, Word, Excel, PowerPoint, imagens… até 25 MB). Cada anexo guarda o seu histórico de versões (1.0, 1.1…) com nota de alteração, e podes descarregar qualquer versão.\n\nRegras de controlo: alterar os anexos de uma política Em Revisão ou Aprovada devolve-a a Rascunho para nova aprovação; quem carregou o último ficheiro não pode aprovar a política (separação de funções); políticas arquivadas ficam só de leitura.',
+      },
+      {
+        title: 'O que é a Gestão Documental e como a uso',
+        body: 'A Gestão Documental guarda os documentos controlados de cada sistema de gestão (informação documentada, cláusula 7.5): manuais, procedimentos, instruções de trabalho, formulários e registos. Encontras em Gerir → Políticas & Relatórios → Gestão Documental, ou nos menus de Qualidade e Ambiente.\n\n1. Escolhe a norma no seletor (ISO 9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001 ou Geral)\n2. Clica em "Novo documento": indica a cláusula (4, 5.3, 7.5, 8.2…), o código, o título, o tipo e carrega o ficheiro\n3. Os documentos aparecem agrupados por cláusula, com o histórico de versões\n4. Fluxo: Rascunho → Em revisão → Aprovado → Obsoleto. Uma nova versão volta a Rascunho; quem carregou a versão não a pode aprovar\n\nCada pessoa só vê e altera os documentos das normas a que o seu perfil dá acesso.',
+      },
+    ],
+  },
+  {
+    id: 'ambiente-iso14001',
+    label: 'Ambiente (ISO 14001)',
+    icon: Recycle,
+    color: 'bg-lime-100 text-lime-700',
+    articles: [
+      {
+        title: 'O que cobre o módulo Ambiente (ISO 14001)',
+        body: 'O módulo Ambiente apoia o Sistema de Gestão Ambiental (SGA) com quatro separadores:\n• Requisitos ISO 14001 — checklist das cláusulas 4 a 10 com estado, evidência e score\n• Aspetos e Impactos — registo dos aspetos ambientais e avaliação da significância (6.1.2)\n• Objetivos e Metas — objetivos mensuráveis com indicador, meta, prazo e progresso (6.2)\n• Requisitos Legais — leis, licenças e outros requisitos, com avaliação do cumprimento (6.1.3 e 9.1.2)\n\nA política ambiental escreve-se em Políticas e o manual, procedimentos e registos guardam-se na Gestão Documental (norma ISO 14001).',
+      },
+      {
+        title: 'Como registar aspetos e impactos ambientais e saber quais são significativos',
+        body: 'Em Ambiente → Aspetos e Impactos → Novo aspeto, indica a atividade (ex.: Produção), o aspeto ambiental (ex.: Consumo de energia elétrica), o impacto (ex.: Esgotamento de recursos), a condição (normal, anormal ou emergência) e a fase do ciclo de vida.\n\nAvalia a severidade e a probabilidade de 1 a 5. A significância é severidade × probabilidade (máx. 25): o aspeto é Significativo a partir de 12 pontos, ou numa emergência com severidade 4 ou mais. Os aspetos significativos devem ter controlos operacionais (8.1) e originar objetivos ambientais (6.2).',
+      },
+      {
+        title: 'Como definir objetivos ambientais e acompanhar o progresso',
+        body: 'Em Ambiente → Objetivos e Metas → Novo objetivo, descreve o objetivo (ex.: Reduzir o consumo de eletricidade em 10%) e indica o indicador, a unidade, o valor de partida, a meta e o prazo. Vai atualizando o valor atual: a barra de progresso mede o caminho entre o valor de partida e a meta, quer o objetivo seja aumentar ou reduzir. Objetivos fora de prazo ficam destacados no resumo.',
+      },
+      {
+        title: 'Como manter o registo de requisitos legais e avaliar o cumprimento',
+        body: 'Em Ambiente → Requisitos Legais regista cada lei, licença ou outro requisito aplicável (fonte, categoria, o que é exigido e onde se aplica). Avalia o cumprimento — Cumpre, Cumpre em parte ou Não cumpre — e define a data da próxima avaliação. Ao avaliar, a data da última avaliação fica registada. Avaliações em atraso e requisitos por avaliar são sinalizados no topo da página.',
       },
     ],
   },
