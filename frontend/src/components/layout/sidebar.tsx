@@ -10,7 +10,7 @@ import {
   Settings, Upload, ChevronDown, Pin, PinOff,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Bot, Brain,
-  Briefcase, Scale, Users, Layers, Zap, ScrollText,
+  Briefcase, Scale, Users, Layers, Zap, ScrollText, Inbox,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
@@ -704,6 +704,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         ...(isCCAdmin ? [
           { href: '/backoffice/licensing',      label: t('backoffice'), icon: Layers },
           { href: '/backoffice/feature-flags',  label: 'Feature Flags', icon: Flag   },
+          { href: '/backoffice/leads',          label: 'Leads do site', icon: Inbox  },
         ] : []),
       ],
     },

@@ -70,6 +70,7 @@ import { ClientHubModule } from './client-hub/client-hub.module';
 import { RaciModule } from './raci/raci.module';
 import { ApprovalsModule } from './approvals/approvals.module';
 import { IntakeModule } from './intake/intake.module';
+import { PublicCatalogModule } from './public-catalog/public-catalog.module';
 import { ActionPlansModule } from './action-plans/action-plans.module';
 import { ProgramTemplatesModule } from './program-templates/program-templates.module';
 import { AutomationModule } from './automation/automation.module';
@@ -183,6 +184,7 @@ import { StandardsModule } from './standards/standards.module';
     RaciModule,
     ApprovalsModule,
     IntakeModule,
+    PublicCatalogModule,
     ActionPlansModule,
     ProgramTemplatesModule,
     AutomationModule,

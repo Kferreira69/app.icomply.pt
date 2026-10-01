@@ -11,7 +11,7 @@
 | Página ESG — "Normas & leis cobertas" | CSRD, ESRS, ISO 14001, GRI, EU Taxonomy… | **Manter** |
 | Página ESG — subtítulo | "Corra reporte CSRD e ESRS, dupla materialidade, KPI ambientais e sociais…" | Acrescentar o SGA (secção 2) |
 | Página ESG — "O que está incluído" | 8 cartões; o único ambiental é "KPIs ambientais" | Acrescentar 4 cartões (secção 3) |
-| Página ESG — legenda "Controlos partilhados: uma métrica de sustentabilidade evidencia a CSRD, os ESRS e a ISO 14001 — de uma só vez" | Promete ligação automática entre métricas e ISO 14001 | **Rever** (secção 4): hoje as métricas ESG e o módulo ISO 14001 não estão ligados entre si |
+| Página ESG — legenda "Controlos partilhados: uma métrica de sustentabilidade evidencia a CSRD, os ESRS e a ISO 14001 — de uma só vez" | Promete ligação entre métricas e ISO 14001 | **Mantém-se verdadeira desde a 1.1.0**: os objetivos ambientais ligam-se às métricas ESG (secção 4 traz o texto comercial) |
 | Página ESG — nova secção | — | Acrescentar "Sistema de Gestão Ambiental ISO 14001" (secção 5) |
 | Documentação → Domínios de governança → ESG | "…Frameworks: CSRD, ESRS, ISO 14001, GRI, Taxonomia UE" | Atualizar o parágrafo (secção 6) |
 | Página Qualidade & Operações — "Controlo de documentos" | "Documentos controlados versionados e aprovações" | Passa a servir **todas** as normas ISO (secção 7) |
@@ -20,7 +20,7 @@
 
 ### Pontos a confirmar antes de publicar
 1. **Plano:** na aplicação o módulo ISO 14001 está no plano *Professional* (como o ESG). Confirmar que o texto de preços não o trata como domínio à parte.
-2. **A frase dos "controlos partilhados"** (secção 4) — decidir entre a versão prudente ou, no futuro, ligar objetivos ambientais às métricas ESG na aplicação.
+2. **A frase dos "controlos partilhados"** (secção 4) — já é verdadeira: na aplicação um objetivo ambiental pode ser ligado a uma métrica ESG (CSRD/GRI) e passa a mostrar o valor atual dessa métrica.
 3. **Capturas de ecrã** com dados fictícios (secção 8).
 
 ---
@@ -46,8 +46,8 @@
 4. **Requisitos legais ambientais** — Leis e licenças aplicáveis, avaliação do cumprimento e alertas de avaliações em atraso.
 
 ## 4. Legenda "Controlos partilhados" — texto de substituição
-- **Versão prudente (recomendada):** Um só domínio para o reporte e para o sistema de gestão: os KPI CSRD/GRI de um lado, os aspetos, objetivos e requisitos legais ISO 14001 do outro — com a mesma gestão documental, auditorias e ações corretivas.
-- *(Evitar, por agora: "uma métrica … evidencia a CSRD, os ESRS e a ISO 14001 de uma só vez" — na aplicação as métricas ESG e o módulo ISO 14001 ainda não estão ligados automaticamente.)*
+- **Texto (verdadeiro desde a 1.1.0):** Meça uma vez, reporte duas. Ligue cada objetivo ambiental ISO 14001 à métrica ESG correspondente (energia, emissões, resíduos…): o valor que reporta na CSRD/GRI é o mesmo que o auditor da ISO 14001 vê no objetivo — sem reintroduzir números, sem divergências.
+- *Rigor:* a ligação é feita por objetivo (escolhe a métrica); não é automática para todas as métricas. Quem não tem acesso ao ESG vê o valor guardado no objetivo, sem aceder aos dados ESG.
 
 ## 5. Nova secção na página ESG — "Sistema de Gestão Ambiental ISO 14001"
 
@@ -66,6 +66,7 @@ Registe atividade, aspeto e impacto, em condição normal, anormal ou de emergê
 ### 5.3 Objetivos e metas
 Objetivos mensuráveis com indicador, unidade, valor de partida, meta e prazo. Atualize o valor atual e acompanhe o progresso — a reduzir (energia, resíduos) ou a aumentar (reciclagem).
 - Barra de progresso · estados planeado, em curso, alcançado, não alcançado · objetivos fora de prazo destacados
+- **Ligado às métricas ESG:** associe o objetivo a uma métrica CSRD/GRI e o valor atual passa a ser o da métrica — o mesmo número no reporte e no sistema de gestão.
 
 ### 5.4 Requisitos legais e outros requisitos
 Leis, licenças e outros requisitos por categoria (resíduos, emissões, água, ruído, energia, químicos, licenças), com avaliação periódica do cumprimento.
@@ -167,7 +168,7 @@ A mesma versão traz uma **Gestão Documental** única para todas as normas ISO 
 4. **Environmental legal requirements** — Applicable laws and permits, compliance evaluation, and alerts for overdue evaluations.
 
 ## 4. Caption "Shared controls" — replacement
-Prudent version: One domain for reporting and for the management system: CSRD/GRI KPIs on one side, ISO 14001 aspects, objectives and legal requirements on the other — with the same document control, audits and corrective actions.
+Measure once, report twice. Link each ISO 14001 environmental objective to its ESG metric (energy, emissions, waste…): the figure you report under CSRD/GRI is the one the ISO 14001 auditor sees on the objective — no re-keying, no mismatches. (The link is set per objective; users without ESG access see the objective's stored value only.)
 
 ## 5. New section — "ISO 14001 Environmental Management System"
 **Title:** From KPI to environmental management system

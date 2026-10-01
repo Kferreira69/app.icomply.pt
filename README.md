@@ -37,16 +37,20 @@ iComply is a European SaaS Compliance Operating System that helps organizations 
 
 | Domain | Standard / scope | Module key |
 |--------|------------------|------------|
-| Security & Governance | ISO 27001 (SoA), NIS2, DORA, SOC 2, CIS v8, TISAX | `soa`, `nis2`, `dora`, `soc2`, `cis`, `tisax` |
-| Privacy | GDPR (ROPA, DPIA, DSAR), ISO 27701 | `gdpr`, `iso27701` |
-| AI Governance | EU AI Act, ISO 42001 | `aiGovernance` |
+| Security & Governance | ISO 27001 (SoA), NIS2, DORA, SOC 2, CIS v8, TISAX, **ISO 20000-1** (checklist) | `soa`, `nis2`, `dora`, `soc2`, `cis`, `tisax`, `itsm` |
+| Privacy | GDPR (ROPA, DPIA, DSAR), ISO 27701, **ISO 27018** (checklist) | `gdpr`, `iso27701` |
+| AI Governance | EU AI Act, ISO 42001, **NIST AI RMF**, **ISO 23894** (checklists) | `aiGovernance` |
 | Ethics & Speak-up | Whistleblowing channel, AML/KYC, ISO 37001 anti-bribery | `denuncias`, `aml`, `antiBribery` |
 | Workforce | HR compliance, ISO 45001 | `hrCompliance`, `workforce` |
-| Third parties | Vendor risk (TPRM) | `vendors` |
+| Third parties | Vendor risk (TPRM), **ISO 27036** (checklist) | `vendors` |
 | ESG & Sustainability | CSRD / ESRS / GRI reporting metrics **+ ISO 14001 environmental management system** (requirements checklist, environmental aspects & impacts, objectives & targets, legal requirements) — ISO 14001 is part of this domain, not a domain of its own | `esg`, `environment` |
 | Resilience | ISO 22301 (BCP / DR) | `bcp` |
-| Quality | ISO 9001, CAPA, non-conformances | `quality` |
+| Quality | ISO 9001, **ISO 22000**, **ISO 13485** (checklists), CAPA, non-conformances | `quality` |
 | Regulatory change | Regulatory horizon, calendar | `regulatoryChange` |
+
+**Generic standards engine** (`backend/src/standards/`): ISO 22000, ISO 13485, ISO 20000-1, ISO 27018, ISO 27036, NIST AI RMF and ISO 23894 share one table (`StandardRequirement`) and one set of endpoints (`/standards`, `/standards/:key`); the requirement lists are data in `backend/src/standards/data/` and are copied to each organisation on its first visit. Adding a standard = a data file + an entry in `standards.registry.ts` + its key in `quality-documents/document-standards.ts` (no migration, controller or page). Environmental objectives (ISO 14001) can be linked to ESG metrics so the value is measured once.
+
+**Website ↔ app:** `GET /api/v1/public/catalog` publishes what the product offers (single source: `backend/src/public-catalog/catalog.data.ts` — update it with every module/domain/standard); `POST /api/v1/public/leads` receives demo requests, contacts and feature requests from the website into the backoffice (*Leads do site*). See `docs/website/INTEGRATION.md`.
 
 Controlled documents (manuals, procedures, forms, records) of **any** ISO standard live in one module (*Gestão Documental*, `/quality/documents`): each document belongs to a standard, is filed under a clause (4–10), has real file versions and an approval workflow with segregation of duties, and is visible only to roles with access to that standard's module.
 
@@ -138,6 +142,8 @@ icomply-mvp/
 │   │   ├── policies/         # Policies + file attachments (versions, approval)
 │   │   ├── quality-documents/ # Document control per ISO standard
 │   │   ├── environment/      # ISO 14001 environmental management (ESG domain)
+│   │   ├── standards/        # Generic checklist engine (ISO 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894)
+│   │   ├── public-catalog/   # Public product catalog + website leads
 │   │   ├── search/           # Global search (ranked, accent/typo tolerant)
 │   │   ├── reports/          # Reporting & export
 │   │   ├── excel-import/     # Excel import engine
