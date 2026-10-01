@@ -253,7 +253,7 @@ export const helpContent: Record<string, HelpContent> = {
   environment: {
     title: 'Gestão Ambiental (ISO 14001)',
     description:
-      'O módulo Ambiente apoia a implementação e manutenção de um Sistema de Gestão Ambiental (SGA) segundo a ISO 14001: checklist de requisitos, registo de aspetos e impactos, objetivos e metas, e requisitos legais.',
+      'A ISO 14001 faz parte do domínio ESG & Sustentabilidade e apoia a implementação e manutenção de um Sistema de Gestão Ambiental (SGA): checklist de requisitos, registo de aspetos e impactos, objetivos e metas, e requisitos legais. As métricas de reporte (CSRD, GRI) ficam em ESG.',
     sections: [
       {
         heading: 'Requisitos ISO 14001',
