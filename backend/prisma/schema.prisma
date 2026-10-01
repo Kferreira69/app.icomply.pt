@@ -1342,13 +1342,18 @@ model EnvironmentalObjective {
   status         String    @default("PLANNED") // PLANNED | IN_PROGRESS | ACHIEVED | NOT_ACHIEVED | CANCELLED
   actions        String?   // how it will be achieved (6.2.2)
   responsibleId  String?
+  // Optional link to an ESG (CSRD/GRI) metric: when set, the metric's reported value is the
+  // objective's current value, so the EMS and the sustainability report share one number.
+  esgMetricId    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   organization Organization @relation("EnvironmentalObjectives", fields: [organizationId], references: [id])
   responsible  User?        @relation("EnvironmentalObjectiveResponsible", fields: [responsibleId], references: [id])
+  esgMetric    EsgMetric?   @relation("EnvironmentalObjectiveEsgMetric", fields: [esgMetricId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+  @@index([esgMetricId])
   @@map("environmental_objectives")
 }
 
@@ -2953,6 +2958,7 @@ model EsgMetric {
 
   organization   Organization @relation(fields: [organizationId], references: [id])
   report         EsgReport?   @relation(fields: [reportId], references: [id])
+  environmentalObjectives EnvironmentalObjective[] @relation("EnvironmentalObjectiveEsgMetric")
 
   @@unique([organizationId, standardCode, year, framework])
   @@index([organizationId, pillar])

@@ -51,22 +51,28 @@ export class EnvironmentController {
   }
 
   // ── objectives & targets ──
+  @Get('esg-metrics')
+  @RequireModule('environment', 1)
+  listEsgMetrics(@CurrentUser() user: any) {
+    return this.service.listEsgMetrics(user.organizationId, user.userId);
+  }
+
   @Get('objectives')
   @RequireModule('environment', 1)
-  listObjectives(@CurrentUser('organizationId') orgId: string) {
-    return this.service.listObjectives(orgId);
+  listObjectives(@CurrentUser() user: any) {
+    return this.service.listObjectives(user.organizationId, user.userId);
   }
 
   @Post('objectives')
   @RequireModule('environment', 2)
-  createObjective(@Body() dto: any, @CurrentUser('organizationId') orgId: string) {
-    return this.service.createObjective(orgId, dto);
+  createObjective(@Body() dto: any, @CurrentUser() user: any) {
+    return this.service.createObjective(user.organizationId, user.userId, dto);
   }
 
   @Patch('objectives/:id')
   @RequireModule('environment', 2)
-  updateObjective(@Param('id') id: string, @Body() dto: any, @CurrentUser('organizationId') orgId: string) {
-    return this.service.updateObjective(orgId, id, dto);
+  updateObjective(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
+    return this.service.updateObjective(user.organizationId, user.userId, id, dto);
   }
 
   @Delete('objectives/:id')

@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { PermissionsService } from '../permissions/permissions.service';
 import { date, intBetween, num, oneOf, required, text } from '../common/utils/input';
 import { ISO14001_REQUIREMENTS } from './environment.requirements';
 
@@ -14,6 +15,10 @@ export const OBLIGATION_STATUSES = ['NOT_ASSESSED', 'COMPLIANT', 'PARTIAL', 'NON
 export const SIGNIFICANCE_THRESHOLD = 12;
 
 const RESPONSIBLE = { select: { id: true, firstName: true, lastName: true } };
+const ESG_METRIC_SELECT = {
+  id: true, framework: true, standardCode: true, indicator: true, unit: true,
+  year: true, actualValue: true, targetValue: true,
+} as const;
 
 const scale15 = (v: unknown, label: string): number => intBetween(v, 1, 5, label);
 
@@ -27,7 +32,7 @@ export function computeSignificance(severity: number, probability: number, condi
 
 @Injectable()
 export class EnvironmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly permissions: PermissionsService) {}
 
   private async assertResponsible(orgId: string, userId: unknown): Promise<string | null> {
     const id = text(userId, 100);
@@ -199,17 +204,64 @@ export class EnvironmentService {
 
   // ── objectives & targets (6.2) ───────────────────────────────────────────
 
-  listObjectives(orgId: string) {
-    return this.prisma.environmentalObjective.findMany({
-      where: { organizationId: orgId },
-      orderBy: [{ deadline: 'asc' }, { createdAt: 'desc' }],
-      include: { responsible: RESPONSIBLE },
+  // An objective can follow an ESG metric (CSRD / GRI): its current value then IS the metric's
+  // reported value, so the management system and the sustainability report share one number.
+  // ESG data is only shown to people who can read the ESG module.
+
+  private async canSeeEsg(userId: string): Promise<boolean> {
+    const perms = await this.permissions.getUserPermissions(userId);
+    return (perms['esg'] ?? 0) >= 1;
+  }
+
+  private present(o: any, canSeeEsg: boolean) {
+    const metric = canSeeEsg ? o.esgMetric ?? null : null;
+    return {
+      ...o,
+      esgMetric: metric,
+      esgLinked: !!o.esgMetricId,
+      effectiveCurrent: metric?.actualValue ?? o.current ?? null,
+    };
+  }
+
+  private async resolveMetric(orgId: string, userId: string, raw: unknown): Promise<string | null> {
+    const id = text(raw, 100);
+    if (!id) return null;
+    if (!(await this.canSeeEsg(userId))) throw new ForbiddenException('Sem acesso às métricas ESG');
+    const metric = await this.prisma.esgMetric.findFirst({
+      where: { id, organizationId: orgId, pillar: 'ENVIRONMENTAL' },
+      select: { id: true },
+    });
+    if (!metric) throw new BadRequestException('Métrica ESG inválida (tem de ser uma métrica ambiental da organização)');
+    return metric.id;
+  }
+
+  /** Environmental ESG metrics an objective can be linked to (empty without ESG access). */
+  async listEsgMetrics(orgId: string, userId: string) {
+    if (!(await this.canSeeEsg(userId))) return [];
+    return this.prisma.esgMetric.findMany({
+      where: { organizationId: orgId, pillar: 'ENVIRONMENTAL' },
+      orderBy: [{ year: 'desc' }, { standardCode: 'asc' }],
+      select: { ...ESG_METRIC_SELECT, status: true },
     });
   }
 
-  async createObjective(orgId: string, dto: any) {
-    return this.prisma.environmentalObjective.create({
+  async listObjectives(orgId: string, userId: string) {
+    const [rows, canSeeEsg] = await Promise.all([
+      this.prisma.environmentalObjective.findMany({
+        where: { organizationId: orgId },
+        orderBy: [{ deadline: 'asc' }, { createdAt: 'desc' }],
+        include: { responsible: RESPONSIBLE, esgMetric: { select: ESG_METRIC_SELECT } },
+      }),
+      this.canSeeEsg(userId),
+    ]);
+    return rows.map(o => this.present(o, canSeeEsg));
+  }
+
+  async createObjective(orgId: string, userId: string, dto: any) {
+    const esgMetricId = await this.resolveMetric(orgId, userId, dto.esgMetricId);
+    const created = await this.prisma.environmentalObjective.create({
       data: {
+        esgMetricId,
         organizationId: orgId,
         title: required(dto.title, 'Título'),
         description: text(dto.description),
@@ -223,14 +275,16 @@ export class EnvironmentService {
         actions: text(dto.actions),
         responsibleId: await this.assertResponsible(orgId, dto.responsibleId),
       },
-      include: { responsible: RESPONSIBLE },
+      include: { responsible: RESPONSIBLE, esgMetric: { select: ESG_METRIC_SELECT } },
     });
+    return this.present(created, await this.canSeeEsg(userId));
   }
 
-  async updateObjective(orgId: string, id: string, dto: any) {
+  async updateObjective(orgId: string, userId: string, id: string, dto: any) {
     const current = await this.prisma.environmentalObjective.findFirst({ where: { id, organizationId: orgId } });
     if (!current) throw new NotFoundException('Objetivo não encontrado');
     const data: any = {};
+    if (dto.esgMetricId !== undefined) data.esgMetricId = await this.resolveMetric(orgId, userId, dto.esgMetricId);
     if (dto.title !== undefined) data.title = required(dto.title, 'Título');
     if (dto.description !== undefined) data.description = text(dto.description);
     if (dto.indicator !== undefined) data.indicator = text(dto.indicator, 300);
@@ -242,7 +296,10 @@ export class EnvironmentService {
     if (dto.status !== undefined) data.status = oneOf(dto.status, OBJECTIVE_STATUSES, 'Estado');
     if (dto.actions !== undefined) data.actions = text(dto.actions);
     if (dto.responsibleId !== undefined) data.responsibleId = await this.assertResponsible(orgId, dto.responsibleId);
-    return this.prisma.environmentalObjective.update({ where: { id }, data, include: { responsible: RESPONSIBLE } });
+    const updated = await this.prisma.environmentalObjective.update({
+      where: { id }, data, include: { responsible: RESPONSIBLE, esgMetric: { select: ESG_METRIC_SELECT } },
+    });
+    return this.present(updated, await this.canSeeEsg(userId));
   }
 
   async removeObjective(orgId: string, id: string) {
