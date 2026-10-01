@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PermissionsService } from '../permissions/permissions.service';
 import { DOC_STANDARDS, standardLabel } from '../quality-documents/document-standards';
+import { findStandard } from '../standards/standards.registry';
 import {
   ParsedQuery, SearchField, TIER_ORDER, Tier, makeSnippet, matchFields, parseQuery,
 } from './search-text';
@@ -529,6 +530,28 @@ export class SearchService {
         title: r => `${r.caseId} — ${r.subjectName}`,
         subtitle: r => st(r.status),
         href: r => link('/aml', r.subjectName),
+      },
+      {
+        // Generic checklist standards (ISO 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894):
+        // access is per standard, through the permission module of each one.
+        type: 'standard-requirement', label: 'Requisito de norma', module: '*',
+        rowAllowed: (r, perms) => {
+          const def = findStandard(r.standardKey);
+          return !!def && (perms[def.module] ?? 0) >= 1;
+        },
+        find: org => p.standardRequirement.findMany({
+          where: { organizationId: org }, orderBy, take: CAP,
+          select: { id: true, standardKey: true, clause: true, title: true, description: true, evidence: true, notes: true, status: true },
+        }),
+        fields: r => [
+          { key: 'title', text: r.title, weight: W.TITLE, fuzzy: true },
+          { key: 'code', text: `${findStandard(r.standardKey)?.name ?? ''} ${r.clause}`, weight: W.CODE },
+          { key: 'description', text: r.description ?? '', weight: W.DESC },
+          { key: 'note', text: `${r.evidence ?? ''} ${r.notes ?? ''}`, weight: W.NOTE },
+        ],
+        title: r => `${r.clause} — ${r.title}`,
+        subtitle: r => dot(findStandard(r.standardKey)?.name, st(r.status)),
+        href: r => link(`/standards/${r.standardKey}`, r.title),
       },
       {
         type: 'environmental-requirement', label: 'Requisito ISO 14001', module: 'environment',
