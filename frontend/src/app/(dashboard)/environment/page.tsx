@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { environmentApi } from '@/lib/api';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ModuleGuard } from '@/components/module-guard';
+import { HelpButton } from '@/components/help/HelpButton';
 import { Button } from '@/components/ui/button';
 import {
   Recycle, CheckCircle2, XCircle, AlertCircle, MinusCircle, Pencil, Plus, Trash2, FileText, Scale, Target,
@@ -552,6 +553,7 @@ export default function EnvironmentPage() {
       <Suspense fallback={null}>
         <EnvironmentInner />
       </Suspense>
+      <HelpButton page="environment" />
     </ModuleGuard>
   );
 }

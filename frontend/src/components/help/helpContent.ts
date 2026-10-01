@@ -231,7 +231,15 @@ export const helpContent: Record<string, HelpContent> = {
       },
       {
         heading: 'Categorias e Pesquisa',
-        text: 'Organize políticas por categoria (Segurança, RGPD, Operacional, etc.) para facilitar a navegação. A pesquisa por título e conteúdo permite localizar rapidamente documentos específicos.',
+        text: 'Organize políticas por categoria (Segurança, RGPD, Operacional, etc.) para facilitar a navegação. A pesquisa global (Ctrl+K) encontra qualquer palavra do título, descrição e texto das políticas.',
+      },
+      {
+        heading: 'Anexos (Word, PDF…) com versões e aprovação',
+        text: 'Cada política pode ter vários ficheiros anexos (por exemplo, o Word da política). Cada anexo mantém o seu histórico de versões com nota de alteração. Alterar anexos de uma política em revisão ou aprovada devolve-a a Rascunho para nova aprovação, e quem carregou o último ficheiro não a pode aprovar.',
+      },
+      {
+        heading: 'Documentos controlados',
+        text: 'Manuais, procedimentos, instruções de trabalho, formulários e registos de cada norma ISO (9001, 14001, 45001, 27001…) gerem-se na Gestão Documental, organizados por cláusula.',
       },
     ],
     tips: [
@@ -239,6 +247,36 @@ export const helpContent: Record<string, HelpContent> = {
       'Políticas expiradas devem ser atualizadas antes de auditorias externas.',
       'Comunique aprovações de novas políticas a todos os colaboradores afetados.',
       'Mantenha uma política mestra de segurança da informação sempre atualizada.',
+    ],
+  },
+
+  environment: {
+    title: 'Gestão Ambiental (ISO 14001)',
+    description:
+      'O módulo Ambiente apoia a implementação e manutenção de um Sistema de Gestão Ambiental (SGA) segundo a ISO 14001: checklist de requisitos, registo de aspetos e impactos, objetivos e metas, e requisitos legais.',
+    sections: [
+      {
+        heading: 'Requisitos ISO 14001',
+        text: 'A lista das cláusulas 4 a 10 é criada automaticamente para a sua organização. Marque cada requisito como Implementado, Parcial, Não implementado ou N/A e indique onde está a evidência (documento, registo, ata). O score de conformidade conta os parciais como metade e ignora os N/A.',
+      },
+      {
+        heading: 'Aspetos e impactos ambientais (6.1.2)',
+        text: 'Para cada atividade, produto ou serviço registe o aspeto ambiental (ex.: consumo de energia), o impacto (ex.: esgotamento de recursos), a condição (normal, anormal ou emergência) e avalie severidade e probabilidade de 1 a 5. É significativo quando severidade × probabilidade chega a 12, ou numa emergência com severidade 4 ou mais.',
+      },
+      {
+        heading: 'Objetivos e metas (6.2)',
+        text: 'Defina objetivos mensuráveis com indicador, unidade, valor de partida, meta e prazo. Atualize o valor atual para acompanhar o progresso; objetivos fora de prazo são destacados.',
+      },
+      {
+        heading: 'Requisitos legais (6.1.3 e 9.1.2)',
+        text: 'Registe leis, licenças e outros requisitos aplicáveis, avalie o cumprimento (Cumpre, Cumpre em parte, Não cumpre) e agende a próxima avaliação. Avaliações em atraso são sinalizadas no topo da página.',
+      },
+    ],
+    tips: [
+      'Os aspetos significativos devem ter controlos operacionais (8.1) e originar objetivos (6.2).',
+      'Guarde o manual, os procedimentos e os registos na Gestão Documental, escolhendo a norma ISO 14001.',
+      'Escreva a política ambiental em Políticas e associe-lhe o ficheiro Word como anexo.',
+      'Use o botão "Documentos ISO 14001" no topo para abrir os documentos já filtrados.',
     ],
   },
 
@@ -303,7 +341,7 @@ export const helpContent: Record<string, HelpContent> = {
       },
       {
         heading: 'Paleta de Comandos',
-        text: 'Prima Ctrl+K (ou Cmd+K no Mac) para abrir a paleta de comandos e navegar rapidamente para qualquer secção da aplicação. É a forma mais rápida de aceder a qualquer funcionalidade.',
+        text: 'Prima Ctrl+K (ou Cmd+K no Mac) para abrir a pesquisa global. Encontra páginas, registos (políticas, riscos, documentos, auditorias…), artigos de ajuda e vídeos; ignora acentos e maiúsculas, tolera erros de escrita e mostra primeiro as correspondências exatas, depois as parciais e por fim os assuntos relacionados.',
       },
       {
         heading: 'Suporte',
