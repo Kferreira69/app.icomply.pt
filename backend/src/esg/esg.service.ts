@@ -82,12 +82,19 @@ export class EsgService {
 
     if (toCreate.length > 0) {
       await (this.prisma as any).esgMetric.createMany({
+        // The seed lists carry a `title`, the table column is `indicator` (required): spreading the
+        // seed straight in made Prisma reject the unknown field, so "Initialize CSRD metrics" always failed.
         data: toCreate.map(m => ({
-          ...m,
           organizationId,
           year,
+          framework: m.framework,
+          standardCode: m.standardCode,
+          pillar: m.pillar,
+          indicator: m.title,
+          unit: m.unit,
           status: 'NOT_REPORTED',
         })),
+        skipDuplicates: true,
       });
     }
 
