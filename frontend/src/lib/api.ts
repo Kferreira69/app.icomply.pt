@@ -1104,6 +1104,13 @@ export const searchApi = {
     api.get('/search', { params: { q, limit }, signal }),
 };
 
+// ── Generic standards checklists (ISO 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894) ──
+export const standardsApi = {
+  list:   () => api.get('/standards'),
+  get:    (key: string) => api.get(`/standards/${key}`),
+  update: (key: string, id: string, data: any) => api.patch(`/standards/${key}/requirements/${id}`, data),
+};
+
 // ── ISO 14001 — Environmental management ─────────────────────
 export const environmentApi = {
   dashboard:        () => api.get('/environment/dashboard'),

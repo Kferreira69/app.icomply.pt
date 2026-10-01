@@ -1,0 +1,50 @@
+import { StandardDefinition } from '../standards.types';
+import { HLS_CHAPTERS, fromRows } from './helpers';
+
+// ISO 22000:2018 — Food safety management systems. Structure follows the standard's clauses
+// (high-level structure + the hazard-control clauses of §8). Titles are plain-language
+// paraphrases; the standard itself holds the normative text.
+export const ISO_22000: StandardDefinition = {
+  key: 'ISO_22000',
+  name: 'ISO 22000',
+  fullName: 'ISO 22000:2018 — Sistemas de gestão da segurança alimentar',
+  domain: 'quality',
+  module: 'quality',
+  description: 'Sistema de gestão da segurança alimentar (HACCP, programas de pré-requisitos e controlo de perigos).',
+  scope: 'Checklist das cláusulas da ISO 22000:2018 para acompanhar o estado de implementação e a evidência. Os documentos (manual, plano HACCP, PPR) guardam-se na Gestão Documental.',
+  requirements: fromRows(HLS_CHAPTERS, [
+    ['4.1', 'Compreender a organização e o seu contexto'],
+    ['4.2', 'Compreender as necessidades e expectativas das partes interessadas'],
+    ['4.3', 'Determinar o âmbito do sistema de gestão da segurança alimentar'],
+    ['4.4', 'Sistema de gestão da segurança alimentar'],
+    ['5.1', 'Liderança e compromisso'],
+    ['5.2', 'Política de segurança alimentar'],
+    ['5.3', 'Funções, responsabilidades e autoridades na organização', 'Inclui a equipa de segurança alimentar e o seu líder.'],
+    ['6.1', 'Ações para abordar riscos e oportunidades'],
+    ['6.2', 'Objetivos do sistema de gestão da segurança alimentar e planeamento para os atingir'],
+    ['6.3', 'Planeamento de alterações'],
+    ['7.1', 'Recursos', 'Pessoas, infraestrutura, ambiente de trabalho, elementos desenvolvidos externamente e controlo de processos, produtos e serviços fornecidos externamente.'],
+    ['7.2', 'Competência'],
+    ['7.3', 'Sensibilização'],
+    ['7.4', 'Comunicação', 'Comunicação externa (fornecedores, clientes, autoridades) e interna.'],
+    ['7.5', 'Informação documentada'],
+    ['8.1', 'Planeamento e controlo operacionais'],
+    ['8.2', 'Programas de pré-requisitos (PPR)'],
+    ['8.3', 'Sistema de rastreabilidade'],
+    ['8.4', 'Preparação e resposta a emergências'],
+    ['8.5.1', 'Controlo de perigos — etapas preliminares para a análise de perigos', 'Equipa, características do produto, utilização prevista, fluxogramas e descrição dos processos.'],
+    ['8.5.2', 'Controlo de perigos — análise de perigos', 'Identificação, avaliação e seleção das medidas de controlo.'],
+    ['8.5.3', 'Controlo de perigos — validação das medidas de controlo'],
+    ['8.5.4', 'Controlo de perigos — plano de controlo de perigos (HACCP / PPRO)', 'Pontos críticos de controlo, limites críticos, monitorização e ações corretivas.'],
+    ['8.6', 'Atualização da informação sobre PPR e plano de controlo de perigos'],
+    ['8.7', 'Controlo da monitorização e da medição'],
+    ['8.8', 'Verificação relacionada com os PPR e o plano de controlo de perigos'],
+    ['8.9', 'Controlo de não conformidades de produto e de processo', 'Correções, ações corretivas, tratamento de produtos potencialmente inseguros, retiradas e recolhas.'],
+    ['9.1', 'Monitorização, medição, análise e avaliação'],
+    ['9.2', 'Auditoria interna'],
+    ['9.3', 'Revisão pela gestão'],
+    ['10.1', 'Não conformidade e ação corretiva'],
+    ['10.2', 'Melhoria contínua'],
+    ['10.3', 'Atualização do sistema de gestão da segurança alimentar'],
+  ]),
+};
