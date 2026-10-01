@@ -1107,6 +1107,7 @@ export const searchApi = {
 // ── ISO 14001 — Environmental management ─────────────────────
 export const environmentApi = {
   dashboard:        () => api.get('/environment/dashboard'),
+  esgMetrics:       () => api.get('/environment/esg-metrics'),
   updateRequirement: (id: string, data: any) => api.patch(`/environment/requirements/${id}`, data),
   aspects: {
     list:   () => api.get('/environment/aspects'),
