@@ -137,8 +137,13 @@ jobs:
           echo "=== Login to GHCR ==="
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_OWNER" --password-stdin
 
-          echo "=== Pull latest images ==="
-          docker compose -f docker-compose.vps.yml --env-file .env.production pull
+          # Only pull the images this pipeline builds. A bare `pull` also tries
+          # every third-party image, and minio/minio:latest no longer exists on
+          # Docker Hub ("pull access denied") — that made the whole deploy fail
+          # before restarting anything. The third-party images already on the
+          # VPS keep running untouched.
+          echo "=== Pull latest app images ==="
+          docker compose -f docker-compose.vps.yml --env-file .env.production pull backend frontend
 
           echo "=== Restart services (zero-downtime rolling) ==="
           docker compose -f docker-compose.vps.yml --env-file .env.production up -d --remove-orphans
