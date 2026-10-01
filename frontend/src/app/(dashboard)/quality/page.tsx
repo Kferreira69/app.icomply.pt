@@ -6,8 +6,9 @@ import { qualityApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   ShieldCheck, Plus, Pencil, X, ClipboardList, AlertTriangle,
-  XCircle, BarChart2,
+  XCircle, BarChart2, FileText,
 } from 'lucide-react';
+import Link from 'next/link';
 import { format } from 'date-fns';
 
 // ── Config ────────────────────────────────────────────────────
@@ -473,16 +474,24 @@ export default function QualityPage() {
             <p className="text-sm text-gray-500">ISO 9001:2015 Quality Management System — CAPA Management</p>
           </div>
         </div>
-        {tab === 'capas' && (
-          <Button onClick={() => setShowNewCapa(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />New CAPA
-          </Button>
-        )}
-        {tab === 'nc' && (
-          <Button onClick={() => setShowNewNC(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />Nova NC
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/quality/documents"
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <FileText className="w-4 h-4 text-cyan-600" /> Documentos da Qualidade
+          </Link>
+          {tab === 'capas' && (
+            <Button onClick={() => setShowNewCapa(true)}>
+              <Plus className="w-4 h-4 mr-1.5" />New CAPA
+            </Button>
+          )}
+          {tab === 'nc' && (
+            <Button onClick={() => setShowNewNC(true)}>
+              <Plus className="w-4 h-4 mr-1.5" />Nova NC
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
