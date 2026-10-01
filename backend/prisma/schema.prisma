@@ -4764,3 +4764,28 @@ model TicketAttachment {
 
   @@map("ticket_attachments")
 }
+
+// Inbound leads from the public website (demo requests, contact, feature requests, newsletter).
+// Standalone on purpose: no organization/user relations — the sender has no account yet.
+model ProductLead {
+  id         String    @id @default(uuid())
+  type       String    // DEMO | CONTACT | FEATURE_REQUEST | NEWSLETTER
+  name       String
+  email      String
+  company    String?
+  role       String?
+  phone      String?
+  domains    String[]  @default([])
+  message    String?
+  sourceUrl  String?
+  locale     String?
+  status     String    @default("NEW") // NEW | CONTACTED | QUALIFIED | CLOSED
+  notes      String?
+  consentAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+  @@map("product_leads")
+}

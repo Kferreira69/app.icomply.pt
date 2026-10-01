@@ -165,7 +165,7 @@ export const KB_CATEGORIES = [
       },
       {
         title: 'O que é a Gestão Documental e como a uso',
-        body: 'A Gestão Documental guarda os documentos controlados de cada sistema de gestão (informação documentada, cláusula 7.5): manuais, procedimentos, instruções de trabalho, formulários e registos. Encontras em Gerir → Políticas & Relatórios → Gestão Documental, ou nos menus de Qualidade e Ambiente.\n\n1. Escolhe a norma no seletor (ISO 9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001 ou Geral)\n2. Clica em "Novo documento": indica a cláusula (4, 5.3, 7.5, 8.2…), o código, o título, o tipo e carrega o ficheiro\n3. Os documentos aparecem agrupados por cláusula, com o histórico de versões\n4. Fluxo: Rascunho → Em revisão → Aprovado → Obsoleto. Uma nova versão volta a Rascunho; quem carregou a versão não a pode aprovar\n\nCada pessoa só vê e altera os documentos das normas a que o seu perfil dá acesso.',
+        body: 'A Gestão Documental guarda os documentos controlados de cada sistema de gestão (informação documentada, cláusula 7.5): manuais, procedimentos, instruções de trabalho, formulários e registos. Encontras em Gerir → Políticas & Relatórios → Gestão Documental, ou nos menus de Qualidade e Ambiente.\n\n1. Escolhe a norma no seletor (ISO 9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001, 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894 ou Geral)\n2. Clica em "Novo documento": indica a cláusula (4, 5.3, 7.5, 8.2…), o código, o título, o tipo e carrega o ficheiro\n3. Os documentos aparecem agrupados por cláusula, com o histórico de versões\n4. Fluxo: Rascunho → Em revisão → Aprovado → Obsoleto. Uma nova versão volta a Rascunho; quem carregou a versão não a pode aprovar\n\nCada pessoa só vê e altera os documentos das normas a que o seu perfil dá acesso.',
       },
     ],
   },
@@ -188,8 +188,28 @@ export const KB_CATEGORIES = [
         body: 'Em Ambiente → Objetivos e Metas → Novo objetivo, descreve o objetivo (ex.: Reduzir o consumo de eletricidade em 10%) e indica o indicador, a unidade, o valor de partida, a meta e o prazo. Vai atualizando o valor atual: a barra de progresso mede o caminho entre o valor de partida e a meta, quer o objetivo seja aumentar ou reduzir. Objetivos fora de prazo ficam destacados no resumo.',
       },
       {
+        title: 'Como ligar um objetivo ambiental a uma métrica ESG',
+        body: 'Para medir uma vez e reportar duas, liga o objetivo à métrica do módulo ESG (CSRD/GRI) que o mede — por exemplo, o consumo de energia. Em Ambiente → Objetivos e Metas, abre o objetivo e escolhe a métrica em "Métrica ESG". Daí em diante o valor atual do objetivo é o valor atual da métrica, e o progresso acompanha-o.\n\nSe a lista de métricas estiver vazia, abre ESG & Sustentabilidade e usa "Inicializar métricas CSRD/GRI". Só vês as métricas se o teu perfil tiver acesso ao módulo ESG; quem não tem acesso vê o valor guardado no objetivo.',
+      },
+      {
         title: 'Como manter o registo de requisitos legais e avaliar o cumprimento',
         body: 'Em Ambiente → Requisitos Legais regista cada lei, licença ou outro requisito aplicável (fonte, categoria, o que é exigido e onde se aplica). Avalia o cumprimento — Cumpre, Cumpre em parte ou Não cumpre — e define a data da próxima avaliação. Ao avaliar, a data da última avaliação fica registada. Avaliações em atraso e requisitos por avaliar são sinalizados no topo da página.',
+      },
+    ],
+  },
+  {
+    id: 'normas-checklists',
+    label: 'Normas ISO e referenciais (checklists)',
+    icon: Recycle,
+    color: 'bg-blue-100 text-blue-700',
+    articles: [
+      {
+        title: 'Que normas têm checklist própria e onde as encontro',
+        body: 'Além dos módulos dedicados, há checklists completas para sete normas, cada uma no domínio onde faz sentido:\n• ISO 22000 (segurança alimentar) e ISO 13485 (dispositivos médicos) — Qualidade e Operações\n• ISO/IEC 20000-1 (gestão de serviços de TI) — Segurança\n• ISO/IEC 27018 (dados pessoais na cloud) — Privacidade\n• ISO/IEC 27036 (segurança na cadeia de fornecimento) — Terceiros\n• NIST AI RMF e ISO/IEC 23894 (risco de IA) — Governança de IA\n\nSó vês as normas dos domínios a que o teu perfil dá acesso.',
+      },
+      {
+        title: 'Como trabalhar uma checklist de norma',
+        body: 'Abre a norma no menu do domínio. Na primeira visita a lista de requisitos é criada para a tua organização. Para cada requisito indica o estado (Não implementado, Parcial, Implementado, Não aplicável), a evidência, notas, o responsável e o prazo. O score no topo mede o progresso e atualiza-se sozinho; ao marcar um requisito como implementado fica registada a data de conclusão.\n\nOs documentos da norma (manual, procedimentos, registos) guardam-se na Gestão Documental, escolhendo a mesma norma. Perfis só de leitura, como o auditor externo, veem a checklist mas não a alteram.',
       },
     ],
   },
