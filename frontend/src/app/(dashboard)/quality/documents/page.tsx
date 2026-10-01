@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qualityDocumentsApi } from '@/lib/api';
 import { saveBlobResponse } from '@/lib/download';
@@ -13,7 +14,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-// ISO 9001:2015 main clauses — used to label the folders the consultants already think in.
+// Main clauses 4-10 are the same in every ISO management-system standard (high-level structure)
+// and are the folders consultants already think in.
 const CLAUSE_TITLES: Record<string, string> = {
   '4': 'Contexto da organização',
   '5': 'Liderança',
@@ -64,8 +66,11 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
-function NewDocumentModal({ onClose, onSave, busy }: { onClose: () => void; onSave: (f: FormData) => void; busy: boolean }) {
-  const [form, setForm] = useState({ clause: '', title: '', code: '', docType: 'MANUAL', description: '', version: '1.0', reviewDate: '', tags: '' });
+function NewDocumentModal({ onClose, onSave, busy, standards, initialStandard }: {
+  onClose: () => void; onSave: (f: FormData) => void; busy: boolean;
+  standards: Standard[]; initialStandard: string;
+}) {
+  const [form, setForm] = useState({ standard: initialStandard, clause: '', title: '', code: '', docType: 'MANUAL', description: '', version: '1.0', reviewDate: '', tags: '' });
   const [file, setFile] = useState<File | null>(null);
   const s = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
   const valid = /^\d+(\.\d+)*$/.test(form.clause) && form.title.trim() && file;
@@ -78,11 +83,17 @@ function NewDocumentModal({ onClose, onSave, busy }: { onClose: () => void; onSa
   }
 
   return (
-    <ModalShell title="Novo documento da qualidade" onClose={onClose}>
+    <ModalShell title="Novo documento" onClose={onClose}>
       <div className="p-5 space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Sistema de gestão *</label>
+          <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.standard} onChange={e => s('standard', e.target.value)}>
+            {standards.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+          </select>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cláusula ISO *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cláusula *</label>
             <input className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="4, 5.3, 7.5…" value={form.clause} onChange={e => s('clause', e.target.value)} />
           </div>
           <div>
@@ -96,7 +107,7 @@ function NewDocumentModal({ onClose, onSave, busy }: { onClose: () => void; onSa
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-          <input className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Manual da Qualidade" value={form.title} onChange={e => s('title', e.target.value)} />
+          <input className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Manual da Qualidade, Procedimento de gestão de resíduos…" value={form.title} onChange={e => s('title', e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -189,8 +200,12 @@ function VersionHistory({ id, onDownload }: { id: string; onDownload: (id: strin
   );
 }
 
-export default function QualityDocumentsPage() {
+interface Standard { key: string; label: string; canWrite: boolean }
+
+function DocumentsInner() {
   const qc = useQueryClient();
+  const params = useSearchParams();
+  const [standard, setStandard] = useState(params.get('standard') ?? '');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -198,10 +213,24 @@ export default function QualityDocumentsPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Record<string, boolean>>({});
 
+  // Standards (ISO 9001, 14001, 45001…) this user may see; each is gated by its own module permission.
+  const { data: standards = [], isLoading: loadingStandards } = useQuery<Standard[]>({
+    queryKey: ['quality-document-standards'],
+    queryFn: () => qualityDocumentsApi.standards().then(r => r.data),
+  });
+  useEffect(() => {
+    if (standards.length && !standards.some(x => x.key === standard)) {
+      setStandard(standards.find(x => x.key === 'ISO_9001')?.key ?? standards[0].key);
+    }
+  }, [standards, standard]);
+  const current = standards.find(x => x.key === standard);
+  const canWrite = !!current?.canWrite;
+
   const { data: docs = [], isLoading } = useQuery({
-    queryKey: ['quality-documents', statusFilter, typeFilter],
+    queryKey: ['quality-documents', standard, statusFilter, typeFilter],
+    enabled: !!current,
     queryFn: () => qualityDocumentsApi
-      .list({ status: statusFilter || undefined, docType: typeFilter || undefined })
+      .list({ standard, status: statusFilter || undefined, docType: typeFilter || undefined })
       .then(r => r.data),
   });
 
@@ -236,10 +265,13 @@ export default function QualityDocumentsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Documentos da Qualidade</h1>
-          <p className="text-sm text-gray-500">Documentos controlados ISO 9001 (§7.5), organizados por cláusula, com versões e aprovação.</p>
+          <h1 className="text-xl font-bold text-gray-900">Gestão Documental</h1>
+          <p className="text-sm text-gray-500">Documentos controlados (informação documentada, §7.5), organizados por cláusula, com versões e aprovação.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="border rounded-lg px-3 py-2 text-sm font-medium bg-white" value={standard} onChange={e => setStandard(e.target.value)}>
+            {standards.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+          </select>
           <select className="border rounded-lg px-3 py-2 text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="">Todos os estados</option>
             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -248,14 +280,16 @@ export default function QualityDocumentsPage() {
             <option value="">Todos os tipos</option>
             {Object.entries(DOC_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <Button size="sm" onClick={() => setShowNew(true)}><Plus className="w-4 h-4 mr-1" /> Novo documento</Button>
+          {canWrite && <Button size="sm" onClick={() => setShowNew(true)}><Plus className="w-4 h-4 mr-1" /> Novo documento</Button>}
         </div>
       </div>
 
-      {isLoading ? (
+      {loadingStandards || (current && isLoading) ? (
         <TableSkeleton rows={5} cols={5} />
+      ) : !current ? (
+        <EmptyState icon={FileText} title="Sem acesso a documentos" description="A sua função não tem acesso a documentos de nenhum sistema de gestão." />
       ) : orderedGroups.length === 0 ? (
-        <EmptyState icon={FileText} title="Sem documentos da qualidade" description="Carregue o Manual da Qualidade e os restantes documentos, organizados por cláusula ISO 9001." />
+        <EmptyState icon={FileText} title={`Sem documentos — ${current.label}`} description="Carregue o manual, procedimentos, instruções e registos, organizados por cláusula." />
       ) : (
         orderedGroups.map(([clause, items]) => {
           const open = expanded[clause] ?? true;
@@ -285,13 +319,13 @@ export default function QualityDocumentsPage() {
                       <div className="flex items-center gap-1">
                         <button title="Descarregar versão atual" className="p-1.5 rounded hover:bg-gray-100" onClick={() => download(d.id)}><Download className="w-4 h-4" /></button>
                         <button title="Histórico de versões" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setHistory(p => ({ ...p, [d.id]: !showHist }))}><History className="w-4 h-4" /></button>
-                        <button title="Nova versão" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setVersionFor(d)}><Upload className="w-4 h-4" /></button>
-                        {d.status === 'DRAFT' && <button title="Submeter para revisão" className="p-1.5 rounded hover:bg-amber-50 text-amber-600" onClick={() => actionMut.mutate({ id: d.id, action: 'submit' })}><Send className="w-4 h-4" /></button>}
-                        {d.status === 'IN_REVIEW' && <button title="Aprovar" className="p-1.5 rounded hover:bg-green-50 text-green-600" onClick={() => actionMut.mutate({ id: d.id, action: 'approve' })}><CheckCircle2 className="w-4 h-4" /></button>}
-                        {d.status !== 'OBSOLETE' && <button title="Marcar obsoleto" className="p-1.5 rounded hover:bg-red-50 text-red-500" onClick={() => actionMut.mutate({ id: d.id, action: 'obsolete' })}><Ban className="w-4 h-4" /></button>}
-                        {d.status !== 'DRAFT' && <button title="Voltar a rascunho" className="p-1.5 rounded hover:bg-gray-100" onClick={() => actionMut.mutate({ id: d.id, action: 'revert' })}><RotateCcw className="w-4 h-4" /></button>}
-                        <button title="Eliminar" className="p-1.5 rounded hover:bg-red-50 text-red-500"
-                          onClick={() => { if (confirm(`Eliminar "${d.title}" e todas as suas versões?`)) actionMut.mutate({ id: d.id, action: 'remove' }); }}><Trash2 className="w-4 h-4" /></button>
+                        {canWrite && <button title="Nova versão" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setVersionFor(d)}><Upload className="w-4 h-4" /></button>}
+                        {canWrite && d.status === 'DRAFT' && <button title="Submeter para revisão" className="p-1.5 rounded hover:bg-amber-50 text-amber-600" onClick={() => actionMut.mutate({ id: d.id, action: 'submit' })}><Send className="w-4 h-4" /></button>}
+                        {canWrite && d.status === 'IN_REVIEW' && <button title="Aprovar" className="p-1.5 rounded hover:bg-green-50 text-green-600" onClick={() => actionMut.mutate({ id: d.id, action: 'approve' })}><CheckCircle2 className="w-4 h-4" /></button>}
+                        {canWrite && d.status !== 'OBSOLETE' && <button title="Marcar obsoleto" className="p-1.5 rounded hover:bg-red-50 text-red-500" onClick={() => actionMut.mutate({ id: d.id, action: 'obsolete' })}><Ban className="w-4 h-4" /></button>}
+                        {canWrite && d.status !== 'DRAFT' && <button title="Voltar a rascunho" className="p-1.5 rounded hover:bg-gray-100" onClick={() => actionMut.mutate({ id: d.id, action: 'revert' })}><RotateCcw className="w-4 h-4" /></button>}
+                        {canWrite && <button title="Eliminar" className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                          onClick={() => { if (confirm(`Eliminar "${d.title}" e todas as suas versões?`)) actionMut.mutate({ id: d.id, action: 'remove' }); }}><Trash2 className="w-4 h-4" /></button>}
                       </div>
                     </div>
                     {showHist && <VersionHistory id={d.id} onDownload={download} />}
@@ -303,8 +337,16 @@ export default function QualityDocumentsPage() {
         })
       )}
 
-      {showNew && <NewDocumentModal busy={createMut.isPending} onClose={() => setShowNew(false)} onSave={f => createMut.mutate(f)} />}
+      {showNew && <NewDocumentModal busy={createMut.isPending} standards={standards.filter(x => x.canWrite)} initialStandard={standard} onClose={() => setShowNew(false)} onSave={f => createMut.mutate(f)} />}
       {versionFor && <NewVersionModal doc={versionFor} busy={versionMut.isPending} onClose={() => setVersionFor(null)} onSave={f => versionMut.mutate({ id: versionFor.id, f })} />}
     </div>
+  );
+}
+
+export default function QualityDocumentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DocumentsInner />
+    </Suspense>
   );
 }

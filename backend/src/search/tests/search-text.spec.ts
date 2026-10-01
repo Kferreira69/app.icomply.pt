@@ -51,6 +51,18 @@ describe('search-text', () => {
       expect(parseQuery('de para').tokens.length).toBe(2);
     });
 
+    it('expands the abbreviations people actually type', () => {
+      expect(parseQuery('docs').tokens).toEqual(['documentos']);
+      expect(parseQuery('SGA').tokens).toEqual(['ambiente']);
+      expect(parseQuery('sgq manual').tokens).toEqual(['qualidade', 'manual']);
+    });
+
+    it('relates "ambiente" to waste, energy, emissions…', () => {
+      expect(parseQuery('ambiente').related).toEqual(
+        expect.arrayContaining([stem('residuos'), stem('energia'), stem('emissoes'), stem('ambiental')]),
+      );
+    });
+
     it('relates a training query to academy / video / help concepts', () => {
       const q = parseQuery('formação');
       expect(q.related).toEqual(expect.arrayContaining([stem('video'), stem('academia'), stem('tutorial'), stem('ajuda')]));

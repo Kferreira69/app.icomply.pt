@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PermissionsService } from '../permissions/permissions.service';
+import { DOC_STANDARDS, standardLabel } from '../quality-documents/document-standards';
 import {
   ParsedQuery, SearchField, TIER_ORDER, Tier, makeSnippet, matchFields, parseQuery,
 } from './search-text';
@@ -29,7 +30,7 @@ const st = (s?: string | null) => (s ? STATUS_PT[s] ?? s : undefined);
 const dot = (...parts: Array<string | null | undefined>) => parts.filter(Boolean).join(' · ') || undefined;
 const words = (a?: string[] | null) => (a ?? []).join(' ');
 const hl = (title: string) => `hl=${encodeURIComponent(title.slice(0, 80))}`;
-const link = (path: string, title: string) => `${path}?${hl(title)}`;
+const link = (path: string, title: string, query = '') => `${path}?${query ? `${query}&` : ''}${hl(title)}`;
 
 export interface SearchHit {
   id: string;
@@ -55,8 +56,9 @@ export interface SearchResponse {
 interface EntityDef {
   type: string;
   label: string;
-  /** Permission module the user needs (read) to see these rows. */
+  /** Permission module the user needs (read) to see these rows; '*' = decided per row (rowAllowed). */
   module: string;
+  rowAllowed?(row: any, perms: Record<string, number>): boolean;
   find(orgId: string): Promise<any[]>;
   fields(r: any): SearchField[];
   title(r: any): string;
@@ -81,8 +83,8 @@ export class SearchService {
     if (!q.tokens.length) return empty;
 
     const perms = await this.permissions.getUserPermissions(userId);
-    const allowed = this.entities.filter(d => (perms[d.module] ?? 0) >= 1);
-    const lists = await Promise.all(allowed.map(d => this.searchEntity(d, orgId, q)));
+    const allowed = this.entities.filter(d => d.module === '*' || (perms[d.module] ?? 0) >= 1);
+    const lists = await Promise.all(allowed.map(d => this.searchEntity(d, orgId, q, perms)));
     const all = lists.flat();
     all.sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || b.score - a.score);
 
@@ -96,11 +98,14 @@ export class SearchService {
     return { query: q.raw, tokens: q.tokens, total: all.length, counts, hits };
   }
 
-  private async searchEntity(def: EntityDef, orgId: string, q: ParsedQuery): Promise<SearchHit[]> {
+  private async searchEntity(
+    def: EntityDef, orgId: string, q: ParsedQuery, perms: Record<string, number>,
+  ): Promise<SearchHit[]> {
     try {
       const rows = await def.find(orgId);
       const hits: SearchHit[] = [];
       for (const row of rows) {
+        if (def.rowAllowed && !def.rowAllowed(row, perms)) continue;
         const fields = def.fields(row);
         const m = matchFields(fields, q);
         if (!m) continue;
@@ -170,12 +175,18 @@ export class SearchService {
         href: r => link('/policies', r.policy?.title ?? r.title),
       },
       {
-        type: 'quality-document', label: 'Documento da Qualidade', module: 'quality',
+        // Access is per management-system standard (ISO 9001 → quality, ISO 14001 → environment…)
+        type: 'quality-document', label: 'Documento (ISO)', module: '*',
+        rowAllowed: (r, perms) => {
+          const mod = DOC_STANDARDS.find(s => s.key === r.standard)?.module;
+          return !!mod && (perms[mod] ?? 0) >= 1;
+        },
         find: org => p.qualityDocument.findMany({
           where: { organizationId: org }, orderBy, take: CAP,
           select: {
-            id: true, clause: true, code: true, title: true, docType: true, description: true, status: true,
-            currentVersion: true, tags: true, versions: { select: { fileName: true, changeNote: true } },
+            id: true, standard: true, clause: true, code: true, title: true, docType: true, description: true,
+            status: true, currentVersion: true, tags: true,
+            versions: { select: { fileName: true, changeNote: true } },
           },
         }),
         fields: r => [
@@ -183,13 +194,13 @@ export class SearchService {
           { key: 'code', text: r.code ?? '', weight: W.CODE, fuzzy: true },
           { key: 'tags', text: words(r.tags), weight: W.TAG },
           { key: 'file', text: r.versions.map((v: any) => v.fileName).join(' '), weight: W.FILE, fuzzy: true },
-          { key: 'sub', text: `cláusula ${r.clause} ${r.docType}`, weight: W.SUB },
+          { key: 'sub', text: `${standardLabel(r.standard)} cláusula ${r.clause} ${r.docType}`, weight: W.SUB },
           { key: 'description', text: r.description ?? '', weight: W.DESC },
           { key: 'note', text: r.versions.map((v: any) => v.changeNote ?? '').join(' '), weight: W.NOTE },
         ],
         title: r => (r.code ? `${r.code} — ${r.title}` : r.title),
-        subtitle: r => dot(`Cláusula ${r.clause}`, `v${r.currentVersion}`, st(r.status)),
-        href: r => link('/quality/documents', r.title),
+        subtitle: r => dot(standardLabel(r.standard).split(' · ')[0], `Cláusula ${r.clause}`, `v${r.currentVersion}`, st(r.status)),
+        href: r => link('/quality/documents', r.title, `standard=${r.standard}`),
       },
       {
         type: 'task', label: 'Tarefa', module: 'tasks',
@@ -518,6 +529,71 @@ export class SearchService {
         title: r => `${r.caseId} — ${r.subjectName}`,
         subtitle: r => st(r.status),
         href: r => link('/aml', r.subjectName),
+      },
+      {
+        type: 'environmental-requirement', label: 'Requisito ISO 14001', module: 'environment',
+        find: org => p.environmentalRequirement.findMany({
+          where: { organizationId: org }, orderBy, take: CAP,
+          select: { id: true, code: true, clauseNumber: true, title: true, description: true, evidence: true, notes: true, status: true },
+        }),
+        fields: r => [
+          { key: 'title', text: r.title, weight: W.TITLE, fuzzy: true },
+          { key: 'code', text: `${r.code} ${r.clauseNumber}`, weight: W.CODE },
+          { key: 'description', text: r.description ?? '', weight: W.DESC },
+          { key: 'note', text: `${r.evidence ?? ''} ${r.notes ?? ''}`, weight: W.NOTE },
+        ],
+        title: r => `${r.clauseNumber} — ${r.title}`,
+        subtitle: r => dot('ISO 14001', st(r.status) ?? undefined),
+        href: r => link('/environment', r.title, 'tab=requirements'),
+      },
+      {
+        type: 'environmental-aspect', label: 'Aspeto ambiental', module: 'environment',
+        find: org => p.environmentalAspect.findMany({
+          where: { organizationId: org }, orderBy, take: CAP,
+          select: { id: true, activity: true, aspect: true, impact: true, lifecycleStage: true, controls: true, isSignificant: true },
+        }),
+        fields: r => [
+          { key: 'title', text: r.aspect, weight: W.TITLE, fuzzy: true },
+          { key: 'sub', text: `${r.activity} ${r.lifecycleStage ?? ''}`, weight: W.SUB },
+          { key: 'description', text: r.impact ?? '', weight: W.DESC },
+          { key: 'note', text: r.controls ?? '', weight: W.NOTE },
+        ],
+        title: r => r.aspect,
+        subtitle: r => dot(r.activity, r.isSignificant ? 'Significativo' : undefined),
+        href: r => link('/environment', r.aspect, 'tab=aspects'),
+      },
+      {
+        type: 'environmental-objective', label: 'Objetivo ambiental', module: 'environment',
+        find: org => p.environmentalObjective.findMany({
+          where: { organizationId: org }, orderBy, take: CAP,
+          select: { id: true, title: true, description: true, indicator: true, actions: true, status: true },
+        }),
+        fields: r => [
+          { key: 'title', text: r.title, weight: W.TITLE, fuzzy: true },
+          { key: 'sub', text: r.indicator ?? '', weight: W.SUB },
+          { key: 'description', text: r.description ?? '', weight: W.DESC },
+          { key: 'note', text: r.actions ?? '', weight: W.NOTE },
+        ],
+        title: r => r.title,
+        subtitle: r => st(r.status),
+        href: r => link('/environment', r.title, 'tab=objectives'),
+      },
+      {
+        type: 'environmental-obligation', label: 'Requisito legal (ambiente)', module: 'environment',
+        find: org => p.environmentalObligation.findMany({
+          where: { organizationId: org }, orderBy, take: CAP,
+          select: { id: true, title: true, source: true, category: true, requirement: true, applicability: true, notes: true },
+        }),
+        fields: r => [
+          { key: 'title', text: r.title, weight: W.TITLE, fuzzy: true },
+          { key: 'code', text: r.source ?? '', weight: W.CODE },
+          { key: 'category', text: r.category ?? '', weight: W.SUB },
+          { key: 'description', text: `${r.requirement ?? ''} ${r.applicability ?? ''}`, weight: W.DESC },
+          { key: 'note', text: r.notes ?? '', weight: W.NOTE },
+        ],
+        title: r => r.title,
+        subtitle: r => r.source ?? undefined,
+        href: r => link('/environment', r.title, 'tab=obligations'),
       },
       {
         type: 'report', label: 'Relatório', module: 'reports',

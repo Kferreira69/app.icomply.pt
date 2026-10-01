@@ -15,7 +15,8 @@ import type { Tier } from '@/lib/search/text';
 const SHORTCUTS: Array<{ label: string; href: string; category: string }> = [
   { label: 'Dashboard',               href: '/dashboard',            category: 'Navegação' },
   { label: 'Políticas',               href: '/policies',             category: 'Documentos' },
-  { label: 'Documentos da Qualidade', href: '/quality/documents',    category: 'Documentos' },
+  { label: 'Gestão Documental',       href: '/quality/documents',    category: 'Documentos' },
+  { label: 'ISO 14001 · Ambiente',    href: '/environment',          category: 'Frameworks' },
   { label: 'Evidências',              href: '/evidence',             category: 'Documentos' },
   { label: 'Riscos',                  href: '/risks',                category: 'Gerir' },
   { label: 'Tarefas',                 href: '/tasks',                category: 'Gerir' },
