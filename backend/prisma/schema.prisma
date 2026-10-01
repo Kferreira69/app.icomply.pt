@@ -370,6 +370,7 @@ model Organization {
   amlRegulatoryUpdates   AmlRegulatoryUpdate[]
   amlAuditItems          AmlAuditItem[]
   qualityDocuments       QualityDocument[]
+  standardRequirements      StandardRequirement[]      @relation("StandardRequirements")
   environmentalRequirements EnvironmentalRequirement[] @relation("EnvironmentalRequirements")
   environmentalAspects      EnvironmentalAspect[]      @relation("EnvironmentalAspects")
   environmentalObjectives   EnvironmentalObjective[]   @relation("EnvironmentalObjectives")
@@ -469,6 +470,7 @@ model User {
   qualityDocumentsOwned      QualityDocument[]        @relation("QualityDocOwner")
   qualityDocumentsApproved   QualityDocument[]        @relation("QualityDocApprover")
   qualityDocumentVersions    QualityDocumentVersion[] @relation("QualityDocVersionUploader")
+  standardRequirementsOwned      StandardRequirement[]      @relation("StandardRequirementResponsible")
   environmentalRequirementsOwned EnvironmentalRequirement[] @relation("EnvironmentalRequirementResponsible")
   environmentalAspectsOwned      EnvironmentalAspect[]      @relation("EnvironmentalAspectResponsible")
   environmentalObjectivesOwned   EnvironmentalObjective[]   @relation("EnvironmentalObjectiveResponsible")
@@ -1271,6 +1273,37 @@ model QualityDocument {
   @@index([organizationId, status])
   @@index([organizationId, standard])
   @@map("quality_documents")
+}
+
+// ─── Generic standards checklists (ISO 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894…) ──
+// One table serves every checklist-style standard: the requirement lists live in code
+// (backend/src/standards/data) and are copied to the organisation on first use, so adding a
+// standard needs no migration.
+model StandardRequirement {
+  id             String    @id @default(uuid())
+  organizationId String
+  standardKey    String    // e.g. "ISO_22000"
+  code           String    // e.g. "ISO_22000-8.5.2"
+  chapter        String    // group shown in the UI, e.g. "Cláusula 8 — Operação"
+  clause         String    // e.g. "8.5.2" or "GOVERN 1"
+  title          String
+  description    String?
+  sortOrder      Int       @default(0)
+  status         String    @default("NOT_IMPLEMENTED") // NOT_IMPLEMENTED | PARTIAL | IMPLEMENTED | NOT_APPLICABLE
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation("StandardRequirements", fields: [organizationId], references: [id])
+  responsible  User?        @relation("StandardRequirementResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, standardKey, code])
+  @@index([organizationId, standardKey])
+  @@map("standard_requirements")
 }
 
 // ─── ISO 14001 — Environmental management system ──────────────

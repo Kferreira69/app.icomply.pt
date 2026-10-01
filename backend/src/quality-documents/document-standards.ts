@@ -22,6 +22,13 @@ export const DOC_STANDARDS: DocStandard[] = [
   { key: 'ISO_37001', label: 'ISO 37001 · Anti-Suborno',              module: 'antiBribery' },
   { key: 'ISO_27701', label: 'ISO 27701 · Privacidade',               module: 'iso27701' },
   { key: 'ISO_42001', label: 'ISO 42001 · Inteligência Artificial',   module: 'aiGovernance' },
+  { key: 'ISO_22000', label: 'ISO 22000 · Segurança Alimentar',       module: 'quality' },
+  { key: 'ISO_13485', label: 'ISO 13485 · Dispositivos Médicos',      module: 'quality' },
+  { key: 'ISO_20000', label: 'ISO 20000-1 · Serviços de TI',          module: 'itsm' },
+  { key: 'ISO_27018', label: 'ISO 27018 · Dados Pessoais em Nuvem',   module: 'iso27701' },
+  { key: 'ISO_27036', label: 'ISO 27036 · Relações com Fornecedores', module: 'vendors' },
+  { key: 'NIST_AI_RMF', label: 'NIST AI RMF · Risco de IA',           module: 'aiGovernance' },
+  { key: 'ISO_23894', label: 'ISO 23894 · Risco de IA',               module: 'aiGovernance' },
   { key: 'GENERAL',   label: 'Geral (outros sistemas)',               module: 'policies' },
 ];
 

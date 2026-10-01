@@ -618,6 +618,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
             { href: '/soc2',           label: 'SOC 2 — Trust Criteria',    icon: Award,        flagKey: 'soc2' },
             { href: '/cis',            label: 'CIS Controls v8',           icon: Shield,       flagKey: 'cis' },
             { href: '/tisax',          label: 'TISAX — VDA ISA',           icon: Car,          flagKey: 'tisax' },
+            { href: '/standards/ISO_20000', label: 'ISO 20000-1 — Serviços de TI', icon: FileCheck2 },
           ],
         },
         {
@@ -625,11 +626,16 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           items: [
             { href: '/gdpr',     label: 'GDPR · ROPA · DPIA', icon: ShieldCheck, flagKey: 'gdpr_basic' },
             { href: '/iso27701', label: 'ISO 27701 — PIMS',    icon: Eye,         flagKey: 'iso27701' },
+            { href: '/standards/ISO_27018', label: 'ISO 27018 — Dados em nuvem', icon: FileCheck2 },
           ],
         },
         {
           key: 'ai', label: t('aiGovernanceDomain'), icon: Brain, color: 'bg-violet-600 text-white',
-          items: [{ href: '/ai-governance', label: 'AI Act · ISO 42001', icon: Brain, flagKey: 'ai_governance' }],
+          items: [
+            { href: '/ai-governance', label: 'AI Act · ISO 42001', icon: Brain, flagKey: 'ai_governance' },
+            { href: '/standards/NIST_AI_RMF', label: 'NIST AI RMF', icon: FileCheck2 },
+            { href: '/standards/ISO_23894', label: 'ISO 23894 — Risco de IA', icon: FileCheck2 },
+          ],
         },
         {
           key: 'ethics', label: t('ethicsSpeak'), icon: Scale, color: 'bg-orange-600 text-white',
@@ -648,7 +654,10 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         },
         {
           key: 'thirdparty', label: t('thirdPartyGovernance'), icon: Building2, color: 'bg-teal-600 text-white',
-          items: [{ href: '/vendors', label: t('vendors'), icon: Building2, flagKey: 'vendors' }],
+          items: [
+            { href: '/vendors', label: t('vendors'), icon: Building2, flagKey: 'vendors' },
+            { href: '/standards/ISO_27036', label: 'ISO 27036 — Fornecedores', icon: FileCheck2 },
+          ],
         },
         {
           key: 'esg', label: t('esgSustainability'), icon: Leaf, color: 'bg-emerald-600 text-white',
@@ -667,6 +676,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           key: 'quality', label: t('qualityOps'), icon: ClipboardList, color: 'bg-cyan-600 text-white',
           items: [
             { href: '/quality', label: 'ISO 9001 · CAPA', icon: ClipboardList },
+            { href: '/standards/ISO_22000', label: 'ISO 22000 — Segurança Alimentar', icon: FileCheck2 },
+            { href: '/standards/ISO_13485', label: 'ISO 13485 — Dispositivos Médicos', icon: FileCheck2 },
             { href: '/quality/documents', label: 'Gestão Documental (ISO)', icon: FileText },
           ],
         },
