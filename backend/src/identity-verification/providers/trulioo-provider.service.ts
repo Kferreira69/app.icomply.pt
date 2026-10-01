@@ -1,8 +1,11 @@
+import type { ConfigService } from '@nestjs/config';
 import {
   BusinessVerificationInput,
   IndividualVerificationInput,
+  KycCapabilities,
   KycProvider,
   NormalizedWebhookResult,
+  ProviderDefinition,
   SanctionsScreeningInput,
   VerificationResult,
 } from './kyc-provider.interface';
@@ -11,10 +14,12 @@ import {
 // https://developer.trulioo.com/docs/globalgateway-overview
 // Unlike Sumsub, individual/business verification calls are synchronous — the
 // match/no-match result comes back in the same response, no webhook needed for
-// the basic flow (handleWebhook is kept for parity with the KycProvider
-// interface and any future async watchlist-monitoring subscription).
+// the basic flow. No webhook is consumed, so `capabilities.webhooks` is false and the
+// webhook route answers 404 for this provider.
 export class TruliooProviderService implements KycProvider {
-  readonly name = 'TRULIOO' as const;
+  readonly id = 'TRULIOO';
+  readonly displayName = 'Trulioo';
+  readonly capabilities: KycCapabilities = { individual: true, business: true, sanctions: true, webhooks: false };
   private readonly baseUrl = 'https://api.trulioo.com/v1';
 
   constructor(private readonly apiKey: string) {}
@@ -76,11 +81,16 @@ export class TruliooProviderService implements KycProvider {
     return { status: matches.length > 0 ? 'REVIEW' : 'APPROVED', rawResult: data as Record<string, unknown> };
   }
 
-  handleWebhook(payload: any): NormalizedWebhookResult {
-    return {
-      providerRefId: payload?.TransactionRecordID ?? '',
-      status: payload?.RecordStatus === 'match' ? 'APPROVED' : payload?.RecordStatus === 'nomatch' ? 'REJECTED' : 'REVIEW',
-      rawResult: payload,
-    };
+  handleWebhook(): NormalizedWebhookResult {
+    // Trulioo verification is synchronous: there is nothing to receive, and an unsigned call must never be trusted.
+    throw new Error('Trulioo does not use webhooks');
   }
 }
+
+export const TRULIOO_DEFINITION: ProviderDefinition = {
+  id: 'TRULIOO',
+  displayName: 'Trulioo',
+  capabilities: { individual: true, business: true, sanctions: true, webhooks: false },
+  isConfigured: (c: ConfigService) => !!c.get<string>('TRULIOO_API_KEY'),
+  create: (c: ConfigService) => new TruliooProviderService(c.get<string>('TRULIOO_API_KEY', '')),
+};
