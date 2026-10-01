@@ -22,10 +22,14 @@ const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.1.0',
     date: '2026-10-01',
-    name: 'ISO 14001 no domínio ESG, Gestão Documental e Pesquisa global',
+    name: 'Sete novas normas, ISO 14001 no domínio ESG, Gestão Documental e Pesquisa global',
     features: [
+      'Sete normas novas, cada uma com checklist completa, evidência por requisito, score e documentos próprios: ISO 22000 e ISO 13485 (Qualidade), ISO 20000-1 (Segurança), ISO 27018 (Privacidade), ISO 27036 (Terceiros), NIST AI RMF e ISO 23894 (IA)',
+      'Objetivos ambientais ISO 14001 ligados às métricas ESG (CSRD/GRI): o valor atual é o da métrica, medido uma vez e reportado duas',
+      'Site e aplicação ligados: catálogo público do que a aplicação oferece e receção de pedidos de demonstração e sugestões de funcionalidades (backoffice → Leads do site)',
+      'Correção: "Inicializar métricas CSRD/GRI" no módulo ESG falhava sempre',
       'ISO 14001 (Gestão Ambiental) no domínio ESG & Sustentabilidade: checklist das cláusulas 4 a 10, aspetos e impactos ambientais com significância, objetivos e metas, requisitos legais com avaliação do cumprimento',
-      'Gestão Documental por norma ISO (9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001): ficheiros reais com versões, aprovação e separação de funções',
+      'Gestão Documental por norma ISO (9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001 e as sete novas normas): ficheiros reais com versões, aprovação e separação de funções',
       'Anexos nas Políticas (Word, PDF…) com histórico de versões e aprovação',
       'Pesquisa global (Ctrl+K): encontra qualquer palavra do conteúdo, ignora acentos, tolera erros e sugere assuntos relacionados; nova página de resultados com filtros',
       'Ao abrir um resultado da pesquisa, a página destaca o item',

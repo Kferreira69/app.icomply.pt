@@ -546,6 +546,13 @@ export const translationsApi = {
     api.post('/translations/translate/batch', { texts, targetLang, sourceLang }),
 };
 
+// ── Website leads (backoffice) ────────────────────────────────
+
+export const leadsApi = {
+  list:   (params?: { status?: string; type?: string }) => api.get('/backoffice/leads', { params }),
+  update: (id: string, data: { status?: string; notes?: string }) => api.patch(`/backoffice/leads/${id}`, data),
+};
+
 // ── Licensing (backoffice + self-service) ─────────────────────
 
 export const licensingApi = {
