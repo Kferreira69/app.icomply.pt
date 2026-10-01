@@ -585,7 +585,8 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           key: 'governance', label: t('policiesReports'), icon: BookOpen, color: 'bg-gray-600 text-white',
           items: [
             { href: '/policies',            label: t('policies'),         icon: BookOpen,  flagKey: 'policies' },
-            { href: '/reports',             label: t('reports'),          icon: BarChart2, flagKey: 'reports' },
+            { href: '/quality/documents',   label: 'Documentos da Qualidade', icon: FileText },
+            { href: '/reports',            label: t('reports'),          icon: BarChart2, flagKey: 'reports' },
             { href: '/reports/time-report', label: 'Relatório de Tempo',  icon: BarChart2, flagKey: 'reports' },
           ],
         },

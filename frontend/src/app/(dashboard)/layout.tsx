@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { CommandPalette } from '@/components/ui/command-palette';
+import { SearchHighlight } from '@/components/layout/search-highlight';
 import { HelpProvider } from '@/components/help/HelpContext';
 import { HelpSidebar } from '@/components/help/HelpSidebar';
 
@@ -67,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <HelpProvider>
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <CommandPalette />
+        <Suspense fallback={null}><SearchHighlight /></Suspense>
 
         {/* Sidebar — ALWAYS visible, never hides */}
         <Sidebar collapsed={collapsed} pinned={pinned} onTogglePin={togglePin} />
