@@ -5,6 +5,8 @@ import { CATALOG_DOMAINS } from './catalog.data';
 import { PublicCatalogService } from './public-catalog.service';
 import { LeadsService, esc } from './leads.service';
 import { CreateLeadDto } from './leads.dto';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
+import { PublicCatalogController, LeadsAdminController } from './public-catalog.controller';
 
 describe('product catalog (what the website may promise)', () => {
   const standards = CATALOG_DOMAINS.flatMap(d => d.standards);
@@ -47,6 +49,18 @@ describe('product catalog (what the website may promise)', () => {
     expect(out.totals.domains).toBe(CATALOG_DOMAINS.length);
     expect(out.totals.standardsAvailable).toBeGreaterThan(20);
     expect(out.totals.standardsRoadmap).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('public/backoffice route protection', () => {
+  const isPublic = (target: object) => Reflect.getMetadata(IS_PUBLIC_KEY, target) === true;
+
+  it('the website endpoints bypass the global JWT guard (the site has no session)', () => {
+    expect(isPublic(PublicCatalogController)).toBe(true);
+  });
+
+  it('the backoffice leads endpoints stay behind login', () => {
+    expect(isPublic(LeadsAdminController)).toBe(false);
   });
 });
 
