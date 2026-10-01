@@ -4,7 +4,9 @@ Uma pasta com os textos prontos a publicar no website (PT-PT + EN), **um ficheir
 
 | Ficheiro | Conteúdo | Versão do produto |
 |---|---|---|
-| `dominio-ambiente-iso-14001.md` | Página do domínio Ambiente (ISO 14001), cartão do domínio, notícia/LinkedIn, FAQ + JSON-LD, checklist de onde atualizar | 1.1.0 |
+| `esg-iso-14001-gestao-ambiental.md` | ISO 14001 (Gestão Ambiental) **dentro do domínio ESG & Sustentabilidade**: o que alterar na página ESG existente, novos cartões e secção, FAQ + JSON-LD, notícia/LinkedIn, checklist (PT + EN) | 1.1.0 |
+
+> Antes de criar conteúdos para um novo domínio, confirmar na análise (`2_FUNCIONALIDADES iComply App.docx`) e no website se já existe um domínio que o deve acolher — evitar páginas ou domínios duplicados.
 
 ## Regra: sempre que sair uma novidade
 

@@ -489,12 +489,17 @@ function EnvironmentInner() {
           <div className="w-10 h-10 bg-lime-600 rounded-xl flex items-center justify-center"><Recycle className="w-5 h-5 text-white" /></div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">ISO 14001 — Gestão Ambiental</h1>
-            <p className="text-sm text-gray-500">Sistema de Gestão Ambiental (SGA): requisitos, aspetos e impactos, objetivos e requisitos legais</p>
+            <p className="text-sm text-gray-500">
+              Domínio ESG &amp; Sustentabilidade · Sistema de Gestão Ambiental (SGA): requisitos, aspetos e impactos, objetivos e requisitos legais
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
           <Link href="/quality/documents?standard=ISO_14001" className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
             <FileText className="w-4 h-4 text-lime-600" /> Documentos ISO 14001
+          </Link>
+          <Link href="/esg" className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+            <Leaf className="w-4 h-4 text-emerald-600" /> Métricas ESG (CSRD · GRI)
           </Link>
           <Link href="/policies" className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
             Política ambiental

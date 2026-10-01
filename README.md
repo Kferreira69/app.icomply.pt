@@ -43,10 +43,9 @@ iComply is a European SaaS Compliance Operating System that helps organizations 
 | Ethics & Speak-up | Whistleblowing channel, AML/KYC, ISO 37001 anti-bribery | `denuncias`, `aml`, `antiBribery` |
 | Workforce | HR compliance, ISO 45001 | `hrCompliance`, `workforce` |
 | Third parties | Vendor risk (TPRM) | `vendors` |
-| ESG | CSRD / GRI | `esg` |
+| ESG & Sustainability | CSRD / ESRS / GRI reporting metrics **+ ISO 14001 environmental management system** (requirements checklist, environmental aspects & impacts, objectives & targets, legal requirements) — ISO 14001 is part of this domain, not a domain of its own | `esg`, `environment` |
 | Resilience | ISO 22301 (BCP / DR) | `bcp` |
 | Quality | ISO 9001, CAPA, non-conformances | `quality` |
-| **Environment** | **ISO 14001 — requirements checklist, environmental aspects & impacts, objectives & targets, legal requirements** | `environment` |
 | Regulatory change | Regulatory horizon, calendar | `regulatoryChange` |
 
 Controlled documents (manuals, procedures, forms, records) of **any** ISO standard live in one module (*Gestão Documental*, `/quality/documents`): each document belongs to a standard, is filed under a clause (4–10), has real file versions and an approval workflow with segregation of duties, and is visible only to roles with access to that standard's module.
@@ -138,7 +137,7 @@ icomply-mvp/
 │   │   ├── capa/             # Corrective actions
 │   │   ├── policies/         # Policies + file attachments (versions, approval)
 │   │   ├── quality-documents/ # Document control per ISO standard
-│   │   ├── environment/      # ISO 14001 environmental management
+│   │   ├── environment/      # ISO 14001 environmental management (ESG domain)
 │   │   ├── search/           # Global search (ranked, accent/typo tolerant)
 │   │   ├── reports/          # Reporting & export
 │   │   ├── excel-import/     # Excel import engine

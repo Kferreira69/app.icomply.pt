@@ -39,7 +39,7 @@ export const FAQ = [
   },
   {
     q: 'O iComply cobre a ISO 14001 (gestão ambiental)?',
-    a: 'Sim. O módulo Ambiente (ISO 14001) inclui a checklist das cláusulas 4 a 10, o registo de aspetos e impactos ambientais com avaliação de significância, os objetivos e metas ambientais e o registo de requisitos legais com avaliação do cumprimento. Os documentos (manual, procedimentos, registos) guardam-se na Gestão Documental.',
+    a: 'Sim, dentro do domínio ESG & Sustentabilidade. O módulo ISO 14001 (Gestão Ambiental) inclui a checklist das cláusulas 4 a 10, o registo de aspetos e impactos ambientais com avaliação de significância, os objetivos e metas ambientais e o registo de requisitos legais com avaliação do cumprimento. Os documentos (manual, procedimentos, registos) guardam-se na Gestão Documental.',
   },
   {
     q: 'Onde guardo o Manual da Qualidade e os procedimentos?',
@@ -171,13 +171,13 @@ export const KB_CATEGORIES = [
   },
   {
     id: 'ambiente-iso14001',
-    label: 'Ambiente (ISO 14001)',
+    label: 'ESG · ISO 14001 (Gestão Ambiental)',
     icon: Recycle,
     color: 'bg-lime-100 text-lime-700',
     articles: [
       {
-        title: 'O que cobre o módulo Ambiente (ISO 14001)',
-        body: 'O módulo Ambiente apoia o Sistema de Gestão Ambiental (SGA) com quatro separadores:\n• Requisitos ISO 14001 — checklist das cláusulas 4 a 10 com estado, evidência e score\n• Aspetos e Impactos — registo dos aspetos ambientais e avaliação da significância (6.1.2)\n• Objetivos e Metas — objetivos mensuráveis com indicador, meta, prazo e progresso (6.2)\n• Requisitos Legais — leis, licenças e outros requisitos, com avaliação do cumprimento (6.1.3 e 9.1.2)\n\nA política ambiental escreve-se em Políticas e o manual, procedimentos e registos guardam-se na Gestão Documental (norma ISO 14001).',
+        title: 'O que cobre o módulo ISO 14001 (Gestão Ambiental)',
+        body: 'A ISO 14001 faz parte do domínio ESG & Sustentabilidade (menu Conformidade → ESG & Sustentabilidade). Enquanto o módulo ESG reporta métricas (CSRD, GRI), este módulo gere o Sistema de Gestão Ambiental (SGA) com quatro separadores:\n• Requisitos ISO 14001 — checklist das cláusulas 4 a 10 com estado, evidência e score\n• Aspetos e Impactos — registo dos aspetos ambientais e avaliação da significância (6.1.2)\n• Objetivos e Metas — objetivos mensuráveis com indicador, meta, prazo e progresso (6.2)\n• Requisitos Legais — leis, licenças e outros requisitos, com avaliação do cumprimento (6.1.3 e 9.1.2)\n\nA política ambiental escreve-se em Políticas e o manual, procedimentos e registos guardam-se na Gestão Documental (norma ISO 14001).',
       },
       {
         title: 'Como registar aspetos e impactos ambientais e saber quais são significativos',
