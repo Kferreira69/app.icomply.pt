@@ -1,0 +1,59 @@
+# KYC / KYB / AML — providers
+
+The module is **vendor-neutral**: the service, controller and database never mention a vendor by
+name. Everything vendor-specific lives in one file per provider in `providers/`, behind the
+`KycProvider` interface (`providers/kyc-provider.interface.ts`).
+
+## How a provider is chosen
+
+1. **Platform**: a provider is *available* when its credentials are in the environment. Several can
+   be available at once. `KYC_PROVIDER` (optional) names the platform default; otherwise the first
+   configured one in `PROVIDER_DEFINITIONS` wins.
+2. **Organisation**: an organisation with the `identity_verification` add-on may pick one of the
+   available providers (`PUT /identity-verification/provider`, stored in the add-on's `metadata.kycProvider`);
+   with no choice it uses the platform default. If a chosen provider later loses its credentials the
+   platform default is used.
+3. Every verification stores the provider that produced it (`IdentityVerification.provider`), so
+   results stay traceable after a switch.
+
+`GET /identity-verification/providers` lists the providers, their capabilities, whether each one is
+configured, the organisation's choice and the provider in effect.
+
+## Environment
+
+| Variable | Provider | Purpose |
+|---|---|---|
+| `KYC_PROVIDER` | — | Optional platform default (e.g. `SUMSUB`) |
+| `SUMSUB_APP_TOKEN`, `SUMSUB_SECRET_KEY` | Sumsub | API credentials (both required) |
+| `SUMSUB_WEBHOOK_SECRET` | Sumsub | Secret used to verify webhook signatures — **without it every Sumsub webhook is rejected** |
+| `SUMSUB_LEVEL_INDIVIDUAL`, `SUMSUB_LEVEL_BUSINESS` | Sumsub | Verification level names (defaults `basic-kyc-level`, `basic-kyb-level`) |
+| `TRULIOO_API_KEY` | Trulioo | API key |
+
+## Webhooks
+
+`POST /identity-verification/webhook/:provider` is unauthenticated by design; **the provider
+authenticates the call itself** inside `handleWebhook(payload, { rawBody, headers })` and must throw
+`ForbiddenException` when the signature is missing or wrong (fail closed). `rawBody` is the exact
+bytes received (`rawBody: true` in `main.ts`). Providers with `capabilities.webhooks = false` answer
+404. Unknown references are acknowledged and ignored; the response never contains stored data.
+
+## Adding a provider (4 steps)
+
+1. Create `providers/<vendor>-provider.service.ts` with a class implementing `KycProvider`
+   (`id` in capitals, `displayName`, `capabilities`, the three verification methods and
+   `handleWebhook`).
+2. In the same file export a `ProviderDefinition` (`id`, `displayName`, `capabilities`,
+   `isConfigured(config)`, `create(config)`).
+3. Add the definition to `PROVIDER_DEFINITIONS` in `providers/kyc-provider.registry.ts`.
+4. Add its variables to `.env.example` / the deployment secrets and a spec next to
+   `tests/sumsub-webhook.spec.ts` covering the signature scheme.
+
+No other file needs to change. Remember to add the new vendor to the website/help text only if it is
+offered to customers.
+
+## Status
+
+Written from the vendors' public documentation and **not yet exercised against a real (sandbox)
+account** — applicant creation, the Sumsub AML endpoint and the webhook digest must be verified
+before production use. The capture step (document / selfie upload via the vendor's web SDK) is not
+built yet.

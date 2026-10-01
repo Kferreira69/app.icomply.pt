@@ -31,6 +31,9 @@ if (process.env.SENTRY_DSN) {
 async function bootstrap() {
   const isProdBuild = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Keep the exact request bytes on `req.rawBody`: webhook signatures (Stripe, KYC providers) are
+    // computed over them. Without this flag `req.rawBody` is undefined and verification cannot work.
+    rawBody: true,
     // In production: only errors/warnings; in dev: full verbose
     logger: isProdBuild ? ['error', 'warn'] : ['error', 'warn', 'log', 'debug', 'verbose'],
     // Structured JSON logs in production via built-in logger
