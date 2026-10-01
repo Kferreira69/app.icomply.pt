@@ -296,9 +296,13 @@ function AspectsTab({ canWrite }: { canWrite: boolean }) {
 
 // ── tab: objectives & targets (6.2) ──────────────────────────────────────
 
+// When an objective follows an ESG metric, the server sends that metric's reported value as `effectiveCurrent`.
+const currentOf = (o: any) => o.effectiveCurrent ?? o.current;
+
 function progressOf(o: any): number | null {
-  if (o.baseline == null || o.target == null || o.current == null || o.target === o.baseline) return null;
-  return Math.max(0, Math.min(100, Math.round(((o.current - o.baseline) / (o.target - o.baseline)) * 100)));
+  const cur = currentOf(o);
+  if (o.baseline == null || o.target == null || cur == null || o.target === o.baseline) return null;
+  return Math.max(0, Math.min(100, Math.round(((cur - o.baseline) / (o.target - o.baseline)) * 100)));
 }
 
 function ObjectiveModal({ item, onClose, onSave, busy }: { item: any | null; onClose: () => void; onSave: (d: any) => void; busy: boolean }) {
@@ -306,13 +310,41 @@ function ObjectiveModal({ item, onClose, onSave, busy }: { item: any | null; onC
     title: item?.title ?? '', description: item?.description ?? '', indicator: item?.indicator ?? '', unit: item?.unit ?? '',
     baseline: item?.baseline ?? '', target: item?.target ?? '', current: item?.current ?? '',
     deadline: toDateInput(item?.deadline), status: item?.status ?? 'PLANNED', actions: item?.actions ?? '',
+    esgMetricId: item?.esgMetricId ?? '',
   });
   const s = (k: string, v: any) => setF(p => ({ ...p, [k]: v }));
+
+  // Environmental ESG metrics (CSRD / GRI) this objective can follow; empty without ESG access.
+  const { data: metrics = [] } = useQuery<any[]>({ queryKey: ['env-esg-metrics'], queryFn: () => environmentApi.esgMetrics().then(r => r.data) });
+  const linked = metrics.find(m => m.id === f.esgMetricId);
+  function pickMetric(id: string) {
+    const m = metrics.find(x => x.id === id);
+    setF(p => ({
+      ...p, esgMetricId: id,
+      // first time a metric is chosen, borrow its indicator / unit / target instead of retyping them
+      indicator: id && !p.indicator ? `${m?.standardCode} · ${m?.indicator}` : p.indicator,
+      unit: id && !p.unit ? m?.unit ?? '' : p.unit,
+      target: id && p.target === '' && m?.targetValue != null ? m.targetValue : p.target,
+    }));
+  }
+
   return (
     <Modal title={item ? 'Editar objetivo' : 'Novo objetivo ambiental'} onClose={onClose} busy={busy} valid={!!f.title.trim()}
-      onSave={() => onSave({ ...f, deadline: f.deadline || null })}>
+      onSave={() => onSave({ ...f, deadline: f.deadline || null, esgMetricId: f.esgMetricId || null })}>
       <Field label="Objetivo *"><input className={inp} placeholder="Ex.: Reduzir o consumo de eletricidade em 10%" value={f.title} onChange={e => s('title', e.target.value)} /></Field>
       <Field label="Descrição"><textarea className={cn(inp, 'resize-none')} rows={2} value={f.description} onChange={e => s('description', e.target.value)} /></Field>
+      {metrics.length > 0 && (
+        <Field label="Ligar a uma métrica ESG" hint="(opcional — o valor atual passa a ser o reportado em ESG)">
+          <select className={inp} value={f.esgMetricId} onChange={e => pickMetric(e.target.value)}>
+            <option value="">Sem ligação — introduzir o valor à mão</option>
+            {metrics.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.framework} {m.standardCode} · {m.indicator} ({m.year}){m.actualValue != null ? ` — ${m.actualValue}${m.unit ? ` ${m.unit}` : ''}` : ' — ainda sem valor'}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2"><Field label="Indicador"><input className={inp} placeholder="Consumo de eletricidade" value={f.indicator} onChange={e => s('indicator', e.target.value)} /></Field></div>
         <Field label="Unidade"><input className={inp} placeholder="kWh, t, %" value={f.unit} onChange={e => s('unit', e.target.value)} /></Field>
@@ -320,7 +352,13 @@ function ObjectiveModal({ item, onClose, onSave, busy }: { item: any | null; onC
       <div className="grid grid-cols-3 gap-3">
         <Field label="Valor de partida"><input type="number" className={inp} value={f.baseline} onChange={e => s('baseline', e.target.value)} /></Field>
         <Field label="Meta"><input type="number" className={inp} value={f.target} onChange={e => s('target', e.target.value)} /></Field>
-        <Field label="Valor atual"><input type="number" className={inp} value={f.current} onChange={e => s('current', e.target.value)} /></Field>
+        <Field label="Valor atual">
+          {linked?.actualValue != null ? (
+            <input type="number" className={cn(inp, 'bg-gray-50 text-gray-500')} value={linked.actualValue} disabled title="Vem da métrica ESG ligada" />
+          ) : (
+            <input type="number" className={inp} value={f.current} onChange={e => s('current', e.target.value)} />
+          )}
+        </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Prazo"><input type="date" className={inp} value={f.deadline} onChange={e => s('deadline', e.target.value)} /></Field>
@@ -361,10 +399,15 @@ function ObjectivesTab({ canWrite }: { canWrite: boolean }) {
                   <span className={cn('text-xs font-medium rounded-full px-2.5 py-0.5 whitespace-nowrap', st.cls)}>{st.label}</span>
                 </div>
                 {o.indicator && <p className="text-xs text-gray-500">{o.indicator}{o.unit ? ` (${o.unit})` : ''}</p>}
+                {o.esgLinked && (
+                  <Link href="/esg" className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5 hover:bg-emerald-100">
+                    <Leaf className="w-3 h-3" /> Ligado a ESG{o.esgMetric ? ` · ${o.esgMetric.standardCode} (${o.esgMetric.year})` : ''}
+                  </Link>
+                )}
                 {pct !== null && (
                   <div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-lime-500" style={{ width: `${pct}%` }} /></div>
-                    <p className="text-xs text-gray-500 mt-1">{o.baseline} → <strong>{o.current}</strong> → meta {o.target}{o.unit ? ` ${o.unit}` : ''} · {pct}%</p>
+                    <p className="text-xs text-gray-500 mt-1">{o.baseline} → <strong>{currentOf(o)}</strong> → meta {o.target}{o.unit ? ` ${o.unit}` : ''} · {pct}%</p>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs">
