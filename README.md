@@ -1,23 +1,23 @@
 # iComply MVP — Compliance Operating System
 
 > **Owner:** Contemporary Constellation  
-> **Version:** 1.0.0 — Phase 1 MVP  
-> **Stack:** Next.js 14 + NestJS + PostgreSQL + MinIO  
+> **Version:** 1.1.0  
+> **Stack:** Next.js 16 + NestJS 11 + Prisma 7 + PostgreSQL + MinIO  
 > **Architecture:** Modular Monolith · API-First · Multi-Tenant
 
 ---
 
 ## Overview
 
-iComply is a European SaaS Compliance Operating System that helps organizations manage ISO, GDPR, NIS2, RGPC and other compliance frameworks — replacing manual, Excel-based processes with an auditable, collaborative platform.
+iComply is a European SaaS Compliance Operating System that helps organizations manage ISO (9001, 14001, 27001, 27701, 45001, 22301, 37001, 42001), GDPR, NIS2, DORA, RGPC and other compliance frameworks — replacing manual, Excel-based processes with an auditable, collaborative platform.
 
 ---
 
-## Phase 1 Modules
+## Core Modules
 
 | Module | Status |
 |--------|--------|
-| Auth (JWT + RBAC) | ✅ |
+| Auth (JWT + RBAC, 2FA, SSO) | ✅ |
 | Multi-Tenant Organizations | ✅ |
 | Dashboard (KPIs + Compliance Score) | ✅ |
 | Diagnostic Engine | ✅ |
@@ -26,9 +26,32 @@ iComply is a European SaaS Compliance Operating System that helps organizations 
 | Evidence Management | ✅ |
 | Audits & Findings | ✅ |
 | CAPA | ✅ |
+| Policies (versions, approval, file attachments) | ✅ |
+| Document Control — controlled documents per ISO standard | ✅ |
+| Global Search (accent/typo tolerant, ranked: exact / partial / related) | ✅ |
 | Basic Reporting (PDF/Excel) | ✅ |
 | Excel Import | ✅ |
 | Audit Log | ✅ |
+
+## Governance Domains
+
+| Domain | Standard / scope | Module key |
+|--------|------------------|------------|
+| Security & Governance | ISO 27001 (SoA), NIS2, DORA, SOC 2, CIS v8, TISAX | `soa`, `nis2`, `dora`, `soc2`, `cis`, `tisax` |
+| Privacy | GDPR (ROPA, DPIA, DSAR), ISO 27701 | `gdpr`, `iso27701` |
+| AI Governance | EU AI Act, ISO 42001 | `aiGovernance` |
+| Ethics & Speak-up | Whistleblowing channel, AML/KYC, ISO 37001 anti-bribery | `denuncias`, `aml`, `antiBribery` |
+| Workforce | HR compliance, ISO 45001 | `hrCompliance`, `workforce` |
+| Third parties | Vendor risk (TPRM) | `vendors` |
+| ESG | CSRD / GRI | `esg` |
+| Resilience | ISO 22301 (BCP / DR) | `bcp` |
+| Quality | ISO 9001, CAPA, non-conformances | `quality` |
+| **Environment** | **ISO 14001 — requirements checklist, environmental aspects & impacts, objectives & targets, legal requirements** | `environment` |
+| Regulatory change | Regulatory horizon, calendar | `regulatoryChange` |
+
+Controlled documents (manuals, procedures, forms, records) of **any** ISO standard live in one module (*Gestão Documental*, `/quality/documents`): each document belongs to a standard, is filed under a clause (4–10), has real file versions and an approval workflow with segregation of duties, and is visible only to roles with access to that standard's module.
+
+> **Keeping this list current:** every new module or governance domain must be added here, to the in-app Help (`frontend/src/lib/content/help-kb.ts`, `frontend/src/components/help/helpContent.ts`), the Changelog page, the API docs page, the global-search page index (`frontend/src/lib/search/pages.ts`) and the website content (`docs/website/`).
 
 ---
 
@@ -36,8 +59,8 @@ iComply is a European SaaS Compliance Operating System that helps organizations 
 
 ### Backend
 - **Runtime:** Node.js 20 LTS
-- **Framework:** NestJS 10 (TypeScript)
-- **ORM:** Prisma 5
+- **Framework:** NestJS 11 (TypeScript)
+- **ORM:** Prisma 7
 - **Database:** PostgreSQL 16
 - **Auth:** JWT (Passport.js)
 - **Storage:** S3-compatible (MinIO locally, AWS S3 in production)
@@ -45,7 +68,7 @@ iComply is a European SaaS Compliance Operating System that helps organizations 
 - **API Docs:** Swagger (OpenAPI 3.0)
 
 ### Frontend
-- **Framework:** Next.js 14 (App Router)
+- **Framework:** Next.js 16 (App Router, React 19)
 - **UI:** shadcn/ui + Tailwind CSS
 - **State:** Zustand + React Query (TanStack Query)
 - **Forms:** React Hook Form + Zod
@@ -113,6 +136,10 @@ icomply-mvp/
 │   │   ├── controls/         # Controls library
 │   │   ├── audits/           # Audit management
 │   │   ├── capa/             # Corrective actions
+│   │   ├── policies/         # Policies + file attachments (versions, approval)
+│   │   ├── quality-documents/ # Document control per ISO standard
+│   │   ├── environment/      # ISO 14001 environmental management
+│   │   ├── search/           # Global search (ranked, accent/typo tolerant)
 │   │   ├── reports/          # Reporting & export
 │   │   ├── excel-import/     # Excel import engine
 │   │   └── common/           # Shared utilities
@@ -140,13 +167,15 @@ icomply-mvp/
 | `CONSULTANT` | Can manage assigned projects |
 | `VIEWER` | Read-only access |
 
+Access is per module (`MODULE_MATRIX` in `backend/src/permissions/permissions.service.ts`) and can be overridden per user or with custom organisation roles.
+
 ---
 
 ## Roadmap
 
 | Phase | Focus | Target |
 |-------|-------|--------|
-| **Phase 1 — MVP** | Core modules (current) | Q3 2026 |
+| **Phase 1 — MVP** | Core modules + governance domains (current, v1.1) | Q3 2026 |
 | **Phase 2 — Scale** | AI recommendations, integrations (M365, ERP) | Q1 2027 |
 | **Phase 3 — Enterprise** | SOC2, mobile, marketplace | Q3 2027 |
 
