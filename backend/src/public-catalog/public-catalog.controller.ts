@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Header, HttpCode, HttpStatus, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
 import { LicensingService } from '../licensing/licensing.service';
 import { PublicCatalogService } from './public-catalog.service';
 import { LeadsService } from './leads.service';
 import { CreateLeadDto, UpdateLeadDto } from './leads.dto';
 
 /** Public endpoints for the marketing site (no authentication). */
+@Public()
 @Controller('public')
 export class PublicCatalogController {
   constructor(private readonly catalog: PublicCatalogService, private readonly leads: LeadsService) {}
