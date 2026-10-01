@@ -27,6 +27,7 @@ const ALL_MODULES = [
   { key: 'antiBribery',       label: 'Anti-Bribery' },
   { key: 'workforce',         label: 'ISO 45001' },
   { key: 'quality',           label: 'ISO 9001' },
+  { key: 'environment',       label: 'ISO 14001 (Ambiente)' },
 ];
 
 const PERMISSION_LEVELS = [

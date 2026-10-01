@@ -82,6 +82,7 @@ import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { QualityDocumentsModule } from './quality-documents/quality-documents.module';
 import { SearchModule } from './search/search.module';
+import { EnvironmentModule } from './environment/environment.module';
 
 @Module({
   imports: [
@@ -192,6 +193,7 @@ import { SearchModule } from './search/search.module';
     FeatureFlagsModule,
     QualityDocumentsModule,
     SearchModule,
+    EnvironmentModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

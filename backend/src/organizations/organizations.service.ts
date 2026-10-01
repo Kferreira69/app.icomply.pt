@@ -93,7 +93,7 @@ export class OrganizationsService {
     // ── Compliance scores per domain (approximate from control implementation) ──
     const [
       soaScore, nis2Score, cisScore, soc2Score, iso27701Score,
-      antiBriberyScore, workforceScore, qualityScore,
+      antiBriberyScore, workforceScore, qualityScore, environmentScore,
     ] = await Promise.all([
       Promise.all([
         this.prisma.soaControl.count({ where: { organizationId } }),
@@ -109,6 +109,10 @@ export class OrganizationsService {
       (this.prisma as any).antiBriberyControl.aggregate({ where: { organizationId }, _count: { _all: true } }).then((r: any) => (this.prisma as any).antiBriberyControl.count({ where: { organizationId, status: 'IMPLEMENTED' } }).then((impl: number) => ({ total: r._count._all, implemented: impl }))).catch(() => ({ total: 0, implemented: 0 })),
       (this.prisma as any).workforceCompliance.aggregate({ where: { organizationId }, _count: { _all: true } }).then((r: any) => (this.prisma as any).workforceCompliance.count({ where: { organizationId, status: 'IMPLEMENTED' } }).then((impl: number) => ({ total: r._count._all, implemented: impl }))).catch(() => ({ total: 0, implemented: 0 })),
       (this.prisma as any).qualityControl.aggregate({ where: { organizationId }, _count: { _all: true } }).then((r: any) => (this.prisma as any).qualityControl.count({ where: { organizationId, status: 'IMPLEMENTED' } }).then((impl: number) => ({ total: r._count._all, implemented: impl }))).catch(() => ({ total: 0, implemented: 0 })),
+      Promise.all([
+        this.prisma.environmentalRequirement.count({ where: { organizationId } }),
+        this.prisma.environmentalRequirement.count({ where: { organizationId, status: 'IMPLEMENTED' } }),
+      ]).then(([total, implemented]) => ({ total, implemented })).catch(() => ({ total: 0, implemented: 0 })),
     ]);
 
     const pct = (v: { total: number; implemented: number }) =>
@@ -123,6 +127,7 @@ export class OrganizationsService {
       { domain: 'Anti-Bribery', score: pct(antiBriberyScore), color: '#EF4444' },
       { domain: 'ISO 45001', score: pct(workforceScore),   color: '#EC4899' },
       { domain: 'ISO 9001',  score: pct(qualityScore),     color: '#14B8A6' },
+      { domain: 'ISO 14001', score: pct(environmentScore), color: '#65A30D' },
     ].filter(d => d.score > 0 || d.domain === 'ISO 27001');
 
     // ── Smart alerts ─────────────────────────────────────────────

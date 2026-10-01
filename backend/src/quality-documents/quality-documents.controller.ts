@@ -7,8 +7,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PermissionsGuard } from '../permissions/permissions.guard';
-import { RequireModule } from '../permissions/require-module.decorator';
 import {
   QUALITY_DOC_MAX_BYTES,
   QualityDocumentsService,
@@ -24,40 +22,47 @@ const uploadInterceptor = FileInterceptor('file', {
   },
 });
 
+// Access is decided per management-system standard (ISO 9001 → "quality" module,
+// ISO 14001 → "environment", …), so it is checked inside the service rather than
+// with a single @RequireModule on the route.
 @ApiTags('Quality Documents')
 @ApiBearerAuth('JWT')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('quality-documents')
 export class QualityDocumentsController {
   constructor(private readonly service: QualityDocumentsService) {}
 
+  @Get('standards')
+  @ApiOperation({ summary: 'Management-system standards the caller can see (and whether they can change them)' })
+  standards(@CurrentUser('userId') userId: string) {
+    return this.service.standards(userId);
+  }
+
   @Get()
-  @RequireModule('quality', 1)
   list(
-    @CurrentUser('organizationId') orgId: string,
+    @CurrentUser() user: any,
+    @Query('standard') standard?: string,
     @Query('clause') clause?: string,
     @Query('status') status?: string,
     @Query('docType') docType?: string,
   ) {
-    return this.service.list(orgId, { clause, status, docType });
+    return this.service.list(user.organizationId, user.userId, { standard, clause, status, docType });
   }
 
   @Get(':id')
-  @RequireModule('quality', 1)
-  get(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.get(id, orgId);
+  get(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.get(id, user.organizationId, user.userId);
   }
 
   @Get(':id/file')
-  @RequireModule('quality', 1)
   @ApiOperation({ summary: 'Download the current (or a given) version of the file' })
   async file(
     @Param('id') id: string,
-    @CurrentUser('organizationId') orgId: string,
+    @CurrentUser() user: any,
     @Res({ passthrough: true }) res: Response,
     @Query('versionId') versionId?: string,
   ) {
-    const f = await this.service.getFile(id, versionId, orgId);
+    const f = await this.service.getFile(id, versionId, user.organizationId, user.userId);
     res.set({
       'Content-Type': 'application/octet-stream', // never let the browser render user-supplied files inline
       'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
@@ -67,7 +72,6 @@ export class QualityDocumentsController {
   }
 
   @Post()
-  @RequireModule('quality', 2)
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   create(
@@ -79,7 +83,6 @@ export class QualityDocumentsController {
   }
 
   @Post(':id/versions')
-  @RequireModule('quality', 2)
   @UseInterceptors(uploadInterceptor)
   @ApiConsumes('multipart/form-data')
   addVersion(
@@ -92,42 +95,36 @@ export class QualityDocumentsController {
   }
 
   @Patch(':id')
-  @RequireModule('quality', 2)
-  update(@Param('id') id: string, @Body() body: any, @CurrentUser('organizationId') orgId: string) {
-    return this.service.update(id, orgId, body);
+  update(@Param('id') id: string, @Body() body: any, @CurrentUser() user: any) {
+    return this.service.update(id, user.organizationId, user.userId, body);
   }
 
   @Post(':id/submit')
-  @RequireModule('quality', 2)
   @HttpCode(200)
-  submit(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.submit(id, orgId);
+  submit(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.submit(id, user.organizationId, user.userId);
   }
 
   @Post(':id/approve')
-  @RequireModule('quality', 2)
   @HttpCode(200)
   approve(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.approve(id, user.organizationId, user.userId);
   }
 
   @Post(':id/obsolete')
-  @RequireModule('quality', 2)
   @HttpCode(200)
-  obsolete(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.markObsolete(id, orgId);
+  obsolete(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.markObsolete(id, user.organizationId, user.userId);
   }
 
   @Post(':id/revert')
-  @RequireModule('quality', 2)
   @HttpCode(200)
-  revert(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.revertToDraft(id, orgId);
+  revert(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.revertToDraft(id, user.organizationId, user.userId);
   }
 
   @Delete(':id')
-  @RequireModule('quality', 2)
-  remove(@Param('id') id: string, @CurrentUser('organizationId') orgId: string) {
-    return this.service.remove(id, orgId);
+  remove(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.service.remove(id, user.organizationId, user.userId);
   }
 }
