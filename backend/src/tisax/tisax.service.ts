@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { date, intBetween, oneOf, required, text } from '../common/utils/input';
+
+const TISAX_LABELS = ['INFO', 'PROTO', 'DATA_PROVIDER'] as const;
+const TISAX_ASSESSMENT_STATUSES = ['PLANNED', 'IN_PROGRESS', 'SUBMITTED', 'APPROVED', 'EXPIRED'] as const;
 
 // VDA ISA 6.0 requirements (key requirements)
 const TISAX_REQUIREMENTS = [
@@ -60,43 +64,76 @@ export class TisaxService {
       avgMaturity,
       assessments,
       byChapter,
+      // The page reads these three (flat list, headline stats, averageMaturity); without them it rendered empty.
+      controls,
+      stats: { total, metTarget: implemented, inProgress: partial, notAssessed },
+      averageMaturity: avgMaturity,
     };
+  }
+
+  // Only the fields below can be set from a request; organizationId and the rest of the body are ignored.
+  private assessmentChanges(dto: any, creating: boolean) {
+    const data: any = {};
+    if (creating || dto?.assessmentScope !== undefined) data.assessmentScope = required(dto?.assessmentScope, 'Âmbito', 500);
+    if (dto?.label !== undefined) data.label = oneOf(dto.label, TISAX_LABELS, 'Label');
+    if (dto?.targetLevel !== undefined) data.targetLevel = intBetween(dto.targetLevel, 1, 3, 'Nível-alvo');
+    if (dto?.status !== undefined) data.status = oneOf(dto.status, TISAX_ASSESSMENT_STATUSES, 'Estado');
+    if (dto?.auditBody !== undefined) data.auditBody = text(dto.auditBody, 300);
+    if (dto?.assessmentDate !== undefined) data.assessmentDate = date(dto.assessmentDate, 'Data da avaliação');
+    if (dto?.validUntil !== undefined) data.validUntil = date(dto.validUntil, 'Validade');
+    if (dto?.score !== undefined) data.score = dto.score === null || dto.score === '' ? null : intBetween(dto.score, 0, 100, 'Pontuação');
+    if (dto?.notes !== undefined) data.notes = text(dto.notes);
+    return data;
   }
 
   async createAssessment(organizationId: string, dto: any) {
     return (this.prisma as any).tisaxAssessment.create({
-      data: { organizationId, ...dto },
+      data: { ...this.assessmentChanges(dto, true), organizationId },
     });
   }
 
   async updateAssessment(organizationId: string, id: string, dto: any) {
     const assessment = await (this.prisma as any).tisaxAssessment.findFirst({ where: { id, organizationId } });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    return (this.prisma as any).tisaxAssessment.update({ where: { id }, data: dto });
+    return (this.prisma as any).tisaxAssessment.update({ where: { id }, data: this.assessmentChanges(dto, false) });
+  }
+
+  private controlChanges(dto: any) {
+    const data: any = {};
+    if (dto?.maturityLevel !== undefined) data.maturityLevel = intBetween(dto.maturityLevel, 0, 3, 'Nível de maturidade');
+    if (dto?.targetLevel !== undefined) data.targetLevel = intBetween(dto.targetLevel, 1, 3, 'Nível-alvo');
+    if (dto?.evidence !== undefined) data.evidence = text(dto.evidence);
+    if (dto?.notes !== undefined) data.notes = text(dto.notes);
+    if (dto?.targetDate !== undefined) data.targetDate = date(dto.targetDate, 'Data-alvo');
+    return data;
   }
 
   async updateControl(organizationId: string, id: string, dto: any) {
     const control = await (this.prisma as any).tisaxControl.findFirst({ where: { id, organizationId } });
     if (!control) throw new NotFoundException('Control not found');
-    return (this.prisma as any).tisaxControl.update({ where: { id }, data: dto });
+    return (this.prisma as any).tisaxControl.update({ where: { id }, data: this.controlChanges(dto) });
   }
 
   async bulkUpdate(organizationId: string, updates: { id: string; maturityLevel: number; evidence?: string; notes?: string }[]) {
+    if (!Array.isArray(updates) || updates.length === 0) throw new BadRequestException('Sem alterações para aplicar');
+    if (updates.length > 200) throw new BadRequestException('No máximo 200 alterações por pedido');
+    const prepared = updates.map(u => {
+      const id = text(u?.id, 100);
+      if (!id) throw new BadRequestException('Cada alteração precisa de id');
+      return { id, data: this.controlChanges(u) };
+    });
     const results = await Promise.all(
-      updates.map(({ id, ...data }) =>
+      prepared.map(({ id, data }) =>
         (this.prisma as any).tisaxControl.updateMany({ where: { id, organizationId }, data }),
       ),
     );
-    return { updated: results.reduce((sum, r) => sum + r.count, 0) };
+    return { updated: results.reduce((sum: number, r: any) => sum + r.count, 0) };
   }
 
   private async seedControls(organizationId: string) {
-    for (const r of TISAX_REQUIREMENTS) {
-      await (this.prisma as any).tisaxControl.upsert({
-        where: { organizationId_requirementId: { organizationId, requirementId: r.requirementId } },
-        create: { organizationId, ...r, maturityLevel: 0 },
-        update: {},
-      });
-    }
+    await (this.prisma as any).tisaxControl.createMany({
+      data: TISAX_REQUIREMENTS.map(r => ({ organizationId, ...r, maturityLevel: 0 })),
+      skipDuplicates: true,
+    });
   }
 }
