@@ -346,7 +346,8 @@ export const policiesApi = {
 
 // ── Quality documents (controlled documents, ISO 9001 §7.5) ────
 export const qualityDocumentsApi = {
-  list: (params?: { clause?: string; status?: string; docType?: string }) =>
+  standards: () => api.get('/quality-documents/standards'),
+  list: (params?: { standard?: string; clause?: string; status?: string; docType?: string }) =>
     api.get('/quality-documents', { params }),
   get: (id: string) => api.get(`/quality-documents/${id}`),
   // `Content-Type: undefined` lets the browser set the multipart boundary.
@@ -1101,4 +1102,28 @@ export const featureFlagsApi = {
 export const searchApi = {
   search: (q: string, limit = 30, signal?: AbortSignal) =>
     api.get('/search', { params: { q, limit }, signal }),
+};
+
+// ── ISO 14001 — Environmental management ─────────────────────
+export const environmentApi = {
+  dashboard:        () => api.get('/environment/dashboard'),
+  updateRequirement: (id: string, data: any) => api.patch(`/environment/requirements/${id}`, data),
+  aspects: {
+    list:   () => api.get('/environment/aspects'),
+    create: (data: any) => api.post('/environment/aspects', data),
+    update: (id: string, data: any) => api.patch(`/environment/aspects/${id}`, data),
+    remove: (id: string) => api.delete(`/environment/aspects/${id}`),
+  },
+  objectives: {
+    list:   () => api.get('/environment/objectives'),
+    create: (data: any) => api.post('/environment/objectives', data),
+    update: (id: string, data: any) => api.patch(`/environment/objectives/${id}`, data),
+    remove: (id: string) => api.delete(`/environment/objectives/${id}`),
+  },
+  obligations: {
+    list:   () => api.get('/environment/obligations'),
+    create: (data: any) => api.post('/environment/obligations', data),
+    update: (id: string, data: any) => api.patch(`/environment/obligations/${id}`, data),
+    remove: (id: string) => api.delete(`/environment/obligations/${id}`),
+  },
 };

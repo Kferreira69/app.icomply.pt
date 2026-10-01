@@ -36,6 +36,7 @@ const DEFAULT_FLAGS = [
   { key: 'auditor_sessions',   label: 'Portal de Auditores',         category: 'GOVERNANCE',   requiredPlan: 'PROFESSIONAL', sortOrder: 32 },
   { key: 'regulatory_change',  label: 'Gestão de Mudança Regulatória',category: 'INTELLIGENCE',requiredPlan: 'PROFESSIONAL', sortOrder: 33 },
   { key: 'workforce',          label: 'Formação & Workforce',        category: 'OPERATIONS',   requiredPlan: 'PROFESSIONAL', sortOrder: 34 },
+  { key: 'environment',        label: 'Ambiente (ISO 14001)',        category: 'COMPLIANCE',   requiredPlan: 'PROFESSIONAL', sortOrder: 35 },
   // ENTERPRISE
   { key: 'ai_governance',      label: 'AI Governance',               category: 'ENTERPRISE',   requiredPlan: 'ENTERPRISE',   sortOrder: 40 },
   { key: 'client_hub',         label: 'Client Hub (multi-cliente)',  category: 'ENTERPRISE',   requiredPlan: 'ENTERPRISE',   sortOrder: 41 },

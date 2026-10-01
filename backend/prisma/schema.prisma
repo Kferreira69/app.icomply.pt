@@ -371,6 +371,10 @@ model Organization {
   amlAuditItems          AmlAuditItem[]
   identityVerifications  IdentityVerification[]
   qualityDocuments       QualityDocument[]
+  environmentalRequirements EnvironmentalRequirement[] @relation("EnvironmentalRequirements")
+  environmentalAspects      EnvironmentalAspect[]      @relation("EnvironmentalAspects")
+  environmentalObjectives   EnvironmentalObjective[]   @relation("EnvironmentalObjectives")
+  environmentalObligations  EnvironmentalObligation[]  @relation("EnvironmentalObligations")
   iso27701Controls       Iso27701Control[]
   soc2Criteria           Soc2Criterion[]
 
@@ -466,6 +470,10 @@ model User {
   qualityDocumentsOwned      QualityDocument[]        @relation("QualityDocOwner")
   qualityDocumentsApproved   QualityDocument[]        @relation("QualityDocApprover")
   qualityDocumentVersions    QualityDocumentVersion[] @relation("QualityDocVersionUploader")
+  environmentalRequirementsOwned EnvironmentalRequirement[] @relation("EnvironmentalRequirementResponsible")
+  environmentalAspectsOwned      EnvironmentalAspect[]      @relation("EnvironmentalAspectResponsible")
+  environmentalObjectivesOwned   EnvironmentalObjective[]   @relation("EnvironmentalObjectiveResponsible")
+  environmentalObligationsOwned  EnvironmentalObligation[]  @relation("EnvironmentalObligationResponsible")
   policyAttachmentVersions   PolicyAttachmentVersion[] @relation("PolicyAttachmentVersionUploader")
   policyAcknowledgments PolicyAcknowledgment[]
   controlledActivities DataProcessingActivity[] @relation("ProcessingActivityController")
@@ -1234,7 +1242,12 @@ model PolicyAttachmentVersion {
 model QualityDocument {
   id             String   @id @default(uuid())
   organizationId String
-  clause         String   // ISO 9001 clause, e.g. "4", "5.3", "7.5", "8.2"
+  // Management-system standard the document belongs to. All ISO management-system
+  // standards share the same clause 4-10 structure (and §7.5 documented information),
+  // so one document-control module serves every domain: ISO_9001 | ISO_14001 | ISO_45001 |
+  // ISO_27001 | ISO_22301 | ISO_37001 | ISO_27701 | ISO_42001 | GENERAL
+  standard       String   @default("ISO_9001")
+  clause         String   // clause of that standard, e.g. "4", "5.3", "7.5", "8.2"
   code           String?  // internal document code, e.g. "MQ-01"
   title          String
   docType        String   @default("OTHER") // MANUAL | PROCEDURE | INSTRUCTION | FORM | RECORD | OTHER
@@ -1257,7 +1270,110 @@ model QualityDocument {
 
   @@index([organizationId, clause])
   @@index([organizationId, status])
+  @@index([organizationId, standard])
   @@map("quality_documents")
+}
+
+// ─── ISO 14001 — Environmental management system ──────────────
+// Same pattern as the other ISO modules (seeded clause checklist per organisation) plus
+// the three registers that make up the core of an EMS: environmental aspects & impacts
+// (clause 6.1.2), objectives & targets (6.2) and legal / other requirements (6.1.3, 9.1.2).
+
+model EnvironmentalRequirement {
+  id             String    @id @default(uuid())
+  organizationId String
+  code           String    // e.g. "ISO14001-6.1.2"
+  clauseNumber   String
+  title          String
+  description    String?
+  status         String    @default("NOT_IMPLEMENTED") // NOT_IMPLEMENTED | PARTIAL | IMPLEMENTED | NOT_APPLICABLE
+  evidence       String?
+  notes          String?
+  responsibleId  String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation("EnvironmentalRequirements", fields: [organizationId], references: [id])
+  responsible  User?        @relation("EnvironmentalRequirementResponsible", fields: [responsibleId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId, clauseNumber])
+  @@map("environmental_requirements")
+}
+
+model EnvironmentalAspect {
+  id             String    @id @default(uuid())
+  organizationId String
+  activity       String    // activity, product or service
+  aspect         String    // element that interacts with the environment (e.g. "Consumo de energia")
+  impact         String    // resulting change to the environment (e.g. "Esgotamento de recursos")
+  condition      String    @default("NORMAL") // NORMAL | ABNORMAL | EMERGENCY
+  lifecycleStage String?   // e.g. "Aquisição", "Produção", "Transporte", "Fim de vida"
+  severity       Int       @default(1) // 1-5
+  probability    Int       @default(1) // 1-5
+  significance   Int       @default(1) // severity x probability (computed)
+  isSignificant  Boolean   @default(false) // computed: significance >= threshold
+  controls       String?   // operational controls / measures
+  status         String    @default("ACTIVE") // ACTIVE | CLOSED
+  responsibleId  String?
+  reviewDate     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation("EnvironmentalAspects", fields: [organizationId], references: [id])
+  responsible  User?        @relation("EnvironmentalAspectResponsible", fields: [responsibleId], references: [id])
+
+  @@index([organizationId, isSignificant])
+  @@map("environmental_aspects")
+}
+
+model EnvironmentalObjective {
+  id             String    @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  indicator      String?   // e.g. "Consumo de eletricidade"
+  unit           String?   // e.g. "kWh", "t", "%"
+  baseline       Float?
+  target         Float?
+  current        Float?
+  deadline       DateTime?
+  status         String    @default("PLANNED") // PLANNED | IN_PROGRESS | ACHIEVED | NOT_ACHIEVED | CANCELLED
+  actions        String?   // how it will be achieved (6.2.2)
+  responsibleId  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation("EnvironmentalObjectives", fields: [organizationId], references: [id])
+  responsible  User?        @relation("EnvironmentalObjectiveResponsible", fields: [responsibleId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("environmental_objectives")
+}
+
+model EnvironmentalObligation {
+  id               String    @id @default(uuid())
+  organizationId   String
+  title            String
+  source           String?   // law, licence, permit, contract (e.g. "DL 102-D/2020")
+  category         String    @default("OTHER") // WASTE | EMISSIONS | WATER | NOISE | ENERGY | CHEMICALS | LICENCE | OTHER
+  requirement      String?   // what must be done
+  applicability    String?   // to which activities / sites it applies
+  complianceStatus String    @default("NOT_ASSESSED") // NOT_ASSESSED | COMPLIANT | PARTIAL | NON_COMPLIANT
+  lastEvaluatedAt  DateTime?
+  nextEvaluationAt DateTime?
+  responsibleId    String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization @relation("EnvironmentalObligations", fields: [organizationId], references: [id])
+  responsible  User?        @relation("EnvironmentalObligationResponsible", fields: [responsibleId], references: [id])
+
+  @@index([organizationId, complianceStatus])
+  @@map("environmental_obligations")
 }
 
 model QualityDocumentVersion {

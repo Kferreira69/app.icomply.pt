@@ -15,7 +15,7 @@ import {
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
   GanttChart, BookTemplate, Plug2, GraduationCap,
-  Star, Clock, ChevronRight, SlidersHorizontal, GripVertical, Flag,
+  Star, Clock, ChevronRight, SlidersHorizontal, GripVertical, Flag, Recycle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { useState, useEffect, useCallback } from 'react';
@@ -585,7 +585,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           key: 'governance', label: t('policiesReports'), icon: BookOpen, color: 'bg-gray-600 text-white',
           items: [
             { href: '/policies',            label: t('policies'),         icon: BookOpen,  flagKey: 'policies' },
-            { href: '/quality/documents',   label: 'Documentos da Qualidade', icon: FileText },
+            { href: '/quality/documents',   label: 'Gestão Documental (ISO)', icon: FileText },
             { href: '/reports',            label: t('reports'),          icon: BarChart2, flagKey: 'reports' },
             { href: '/reports/time-report', label: 'Relatório de Tempo',  icon: BarChart2, flagKey: 'reports' },
           ],
@@ -662,7 +662,14 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           key: 'quality', label: t('qualityOps'), icon: ClipboardList, color: 'bg-cyan-600 text-white',
           items: [
             { href: '/quality', label: 'ISO 9001 · CAPA', icon: ClipboardList },
-            { href: '/quality/documents', label: 'Documentos da Qualidade', icon: FileText },
+            { href: '/quality/documents', label: 'Gestão Documental (ISO)', icon: FileText },
+          ],
+        },
+        {
+          key: 'environment', label: 'Ambiente (ISO 14001)', icon: Recycle, color: 'bg-lime-600 text-white',
+          items: [
+            { href: '/environment', label: 'ISO 14001 · Ambiente', icon: Recycle, flagKey: 'environment' },
+            { href: '/quality/documents?standard=ISO_14001', label: 'Documentos ISO 14001', icon: FileText },
           ],
         },
         {

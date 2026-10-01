@@ -179,6 +179,9 @@ const CONCEPTS: string[][] = [
   ['ia', 'ai', 'inteligencia', 'artificial', '42001'],
   ['continuidade', 'bcp', 'bcm', 'recuperacao', 'disaster', 'resiliencia', 'resilience'],
   ['sustentabilidade', 'esg', 'csrd', 'gri'],
+  ['ambiente', 'ambiental', 'ambientais', 'environment', 'environmental', 'iso14001', '14001', 'sga', 'residuos', 'residuo',
+    'waste', 'emissoes', 'emissions', 'efluentes', 'energia', 'energy', 'agua', 'water', 'poluicao', 'pollution',
+    'carbono', 'carbon', 'reciclagem', 'recycling', 'aspeto', 'aspetos'],
   ['lavagem', 'aml', 'kyc', 'sancoes', 'sanctions', 'pep'],
 ];
 
@@ -204,12 +207,21 @@ function expandRelated(tokens: string[], queryStems: string[]): string[] {
 
 // ── query parsing ────────────────────────────────────────────────────────────
 
+// Abbreviations people type that never appear spelt like that in the content.
+const ALIASES: Record<string, string> = {
+  docs: 'documentos',
+  sgq: 'qualidade',  // Sistema de Gestão da Qualidade
+  sga: 'ambiente',   // Sistema de Gestão Ambiental
+  ems: 'ambiente',   // Environmental Management System
+  qms: 'qualidade',  // Quality Management System
+};
+
 export function parseQuery(raw: string): ParsedQuery {
   const clipped = (raw ?? '').slice(0, 120);
   const all = tokenize(clipped);
   let tokens = all.filter(t => !STOPWORDS.has(t));
   if (!tokens.length) tokens = all;
-  tokens = Array.from(new Set(tokens)).slice(0, 8);
+  tokens = Array.from(new Set(tokens.map(t => ALIASES[t] ?? t))).slice(0, 8);
   const stems = tokens.map(stem);
   return {
     raw: clipped,

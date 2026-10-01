@@ -83,6 +83,7 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { IdentityVerificationModule } from './identity-verification/identity-verification.module';
 import { QualityDocumentsModule } from './quality-documents/quality-documents.module';
 import { SearchModule } from './search/search.module';
+import { EnvironmentModule } from './environment/environment.module';
 
 @Module({
   imports: [
@@ -194,6 +195,7 @@ import { SearchModule } from './search/search.module';
     IdentityVerificationModule,
     QualityDocumentsModule,
     SearchModule,
+    EnvironmentModule,
   ],
   providers: [
     // ── ThrottlerGuard global — enforces @Throttle() on all routes ──

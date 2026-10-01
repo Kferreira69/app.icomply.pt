@@ -37,7 +37,7 @@ export default function ComplianceMonitorPage() {
   const domains: DomainScore[] = [
     ...(dashData?.domainScores || []).map((d: any) => ({
       domain: d.domain, score: d.score, maturity: d.maturity,
-      href: d.domain.includes('27001') ? '/soa' : d.domain === 'NIS2' ? '/nis2' : d.domain.includes('CIS') ? '/cis' : d.domain.includes('SOC') ? '/soc2' : d.domain.includes('27701') ? '/iso27701' : d.domain.includes('45001') ? '/workforce' : d.domain.includes('Anti') ? '/anti-bribery' : d.domain.includes('9001') ? '/quality' : '/governance/controls',
+      href: d.domain.includes('27001') ? '/soa' : d.domain === 'NIS2' ? '/nis2' : d.domain.includes('CIS') ? '/cis' : d.domain.includes('SOC') ? '/soc2' : d.domain.includes('27701') ? '/iso27701' : d.domain.includes('45001') ? '/workforce' : d.domain.includes('Anti') ? '/anti-bribery' : d.domain.includes('9001') ? '/quality' : d.domain.includes('14001') ? '/environment' : '/governance/controls',
       color: d.color || '#3B82F6',
       trend: 'stable' as const,
     })),
