@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { date, intBetween, num, oneOf, required, text } from '../common/utils/input';
 import { ISO14001_REQUIREMENTS } from './environment.requirements';
 
 export const REQUIREMENT_STATUSES = ['NOT_IMPLEMENTED', 'PARTIAL', 'IMPLEMENTED', 'NOT_APPLICABLE'] as const;
@@ -14,44 +15,7 @@ export const SIGNIFICANCE_THRESHOLD = 12;
 
 const RESPONSIBLE = { select: { id: true, firstName: true, lastName: true } };
 
-// ── tiny input parsers (everything coming from the client is whitelisted + coerced) ──
-
-const text = (v: unknown, max = 4000): string | null => {
-  if (v === undefined || v === null) return null;
-  const s = String(v).trim();
-  return s ? s.slice(0, max) : null;
-};
-
-const required = (v: unknown, label: string, max = 500): string => {
-  const s = text(v, max);
-  if (!s) throw new BadRequestException(`${label} é obrigatório`);
-  return s;
-};
-
-const oneOf = <T extends string>(v: unknown, allowed: readonly T[], label: string): T => {
-  if (!allowed.includes(v as T)) throw new BadRequestException(`${label} inválido. Permitidos: ${allowed.join(', ')}`);
-  return v as T;
-};
-
-const scale15 = (v: unknown, label: string): number => {
-  const n = Number(v);
-  if (!Number.isInteger(n) || n < 1 || n > 5) throw new BadRequestException(`${label} deve ser um inteiro entre 1 e 5`);
-  return n;
-};
-
-const num = (v: unknown, label: string): number | null => {
-  if (v === undefined || v === null || v === '') return null;
-  const n = Number(v);
-  if (!Number.isFinite(n)) throw new BadRequestException(`${label} deve ser numérico`);
-  return n;
-};
-
-const date = (v: unknown, label: string): Date | null => {
-  if (v === undefined || v === null || v === '') return null;
-  const d = new Date(String(v));
-  if (isNaN(d.getTime())) throw new BadRequestException(`${label} inválida`);
-  return d;
-};
+const scale15 = (v: unknown, label: string): number => intBetween(v, 1, 5, label);
 
 /** Significance rules of ISO 14001 §6.1.2 as implemented here (documented in the UI). */
 export function computeSignificance(severity: number, probability: number, condition: string) {

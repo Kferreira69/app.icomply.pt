@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { date, oneOf, text } from '../common/utils/input';
+
+export const ANTI_BRIBERY_STATUSES = ['NOT_IMPLEMENTED', 'PARTIAL', 'IMPLEMENTED', 'NOT_APPLICABLE'] as const;
+const MAX_BULK = 200;
 
 // ISO 37001:2016 + ISO 37301:2021 key controls
 const ANTI_BRIBERY_CONTROLS = [
@@ -35,7 +39,7 @@ const ANTI_BRIBERY_CONTROLS = [
 export class AntiBriberyService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDashboard(organizationId: string) {
+  async getDashboard(organizationId: string): Promise<any> {
     const controls = await (this.prisma as any).antiBriberyControl.findMany({
       where: { organizationId },
       orderBy: [{ standard: 'asc' }, { clauseNumber: 'asc' }],
@@ -66,32 +70,62 @@ export class AntiBriberyService {
     return {
       summary: { total, implemented, partial, notImplemented, notApplicable },
       overallScore,
+      // The page lists `controls` and shows `score`; both were missing, so it rendered empty.
+      score: overallScore,
+      controls,
       byStandard,
     };
+  }
+
+  private async assertResponsible(organizationId: string, userId: unknown): Promise<string | null> {
+    const id = text(userId, 100);
+    if (!id) return null;
+    const user = await this.prisma.user.findFirst({ where: { id, organizationId }, select: { id: true } });
+    if (!user) throw new BadRequestException('Responsável inválido (não pertence à organização)');
+    return user.id;
+  }
+
+  /** Only these fields can be changed; everything else in the body is ignored. */
+  private async controlChanges(organizationId: string, dto: any, current?: { completedAt: Date | null }) {
+    const data: any = {};
+    if (dto?.status !== undefined) {
+      data.status = oneOf(dto.status, ANTI_BRIBERY_STATUSES, 'Estado');
+      data.completedAt = data.status === 'IMPLEMENTED' ? current?.completedAt ?? new Date() : null;
+    }
+    if (dto?.evidence !== undefined) data.evidence = text(dto.evidence);
+    if (dto?.notes !== undefined) data.notes = text(dto.notes);
+    if (dto?.targetDate !== undefined) data.targetDate = date(dto.targetDate, 'Data-alvo');
+    if (dto?.responsibleId !== undefined) data.responsibleId = await this.assertResponsible(organizationId, dto.responsibleId);
+    return data;
   }
 
   async updateControl(organizationId: string, id: string, dto: any) {
     const control = await (this.prisma as any).antiBriberyControl.findFirst({ where: { id, organizationId } });
     if (!control) throw new NotFoundException('Control not found');
-    return (this.prisma as any).antiBriberyControl.update({ where: { id }, data: dto });
+    const data = await this.controlChanges(organizationId, dto, control);
+    return (this.prisma as any).antiBriberyControl.update({ where: { id }, data });
   }
 
   async bulkUpdate(organizationId: string, updates: { id: string; status: string; evidence?: string; notes?: string }[]) {
+    if (!Array.isArray(updates) || updates.length === 0) throw new BadRequestException('Sem alterações para aplicar');
+    if (updates.length > MAX_BULK) throw new BadRequestException(`No máximo ${MAX_BULK} alterações por pedido`);
+    const prepared = await Promise.all(updates.map(async u => {
+      const id = text(u?.id, 100);
+      if (!id) throw new BadRequestException('Cada alteração precisa de id');
+      return { id, data: await this.controlChanges(organizationId, u) };
+    }));
     const results = await Promise.all(
-      updates.map(({ id, ...data }) =>
+      prepared.map(({ id, data }) =>
         (this.prisma as any).antiBriberyControl.updateMany({ where: { id, organizationId }, data }),
       ),
     );
-    return { updated: results.reduce((sum, r) => sum + r.count, 0) };
+    return { updated: results.reduce((sum: number, r: any) => sum + r.count, 0) };
   }
 
   private async seedControls(organizationId: string) {
-    for (const c of ANTI_BRIBERY_CONTROLS) {
-      await (this.prisma as any).antiBriberyControl.upsert({
-        where: { organizationId_controlCode: { organizationId, controlCode: c.controlCode } },
-        create: { organizationId, ...c, status: 'NOT_IMPLEMENTED' },
-        update: {},
-      });
-    }
+    await (this.prisma as any).antiBriberyControl.createMany({
+      data: ANTI_BRIBERY_CONTROLS.map(c => ({ organizationId, ...c, status: 'NOT_IMPLEMENTED' })),
+      skipDuplicates: true,
+    });
   }
 }
