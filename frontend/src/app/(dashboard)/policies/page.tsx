@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { policiesApi } from '@/lib/api';
@@ -501,9 +502,17 @@ export default function PoliciesPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">{t('descriptionSubtitle')}</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> {t('newPolicy')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/quality/documents"
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <FileText className="w-4 h-4 text-cyan-600" /> Documentos da Qualidade
+          </Link>
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> {t('newPolicy')}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

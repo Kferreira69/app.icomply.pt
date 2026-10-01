@@ -1,0 +1,100 @@
+// Every screen of the app, with the words people use to look for it.
+// `keywords` are matched like the title (accent/case-insensitive, plurals, typos) —
+// add the everyday words a user would type, in Portuguese and English.
+
+export interface PageEntry {
+  href: string;
+  title: string;
+  /** Where it lives in the menu — also searchable. */
+  group: string;
+  keywords: string;
+}
+
+export const PAGES: PageEntry[] = [
+  // ── Principal ──────────────────────────────────────────────
+  { href: '/dashboard', title: 'Dashboard', group: 'Principal', keywords: 'painel principal visão geral kpi score conformidade overview indicadores home início' },
+  { href: '/diagnostic', title: 'Diagnóstico', group: 'Principal', keywords: 'questionário maturidade diagnóstico rápido lacunas gap assessment avaliação inicial' },
+  { href: '/diagnostics', title: 'Histórico de Diagnósticos', group: 'Principal', keywords: 'diagnósticos anteriores resultados runs avaliações' },
+  { href: '/tasks', title: 'Tarefas', group: 'Principal', keywords: 'tasks kanban atividades pendentes ações por fazer prazos atribuídas' },
+  { href: '/risks', title: 'Riscos', group: 'Principal', keywords: 'risk registo de riscos matriz 5x5 mapa de calor heatmap tratamento mitigação ameaças vulnerabilidades' },
+  // ── Gerir ──────────────────────────────────────────────────
+  { href: '/projects', title: 'Projetos', group: 'Projetos & Tarefas', keywords: 'projects programas de conformidade frameworks implementação' },
+  { href: '/itsm', title: 'IT Service Management', group: 'Projetos & Tarefas', keywords: 'itsm incidentes pedidos de mudança change problemas service desk tecnologia' },
+  { href: '/evidence', title: 'Evidências', group: 'Risco & Evidências', keywords: 'evidence ficheiros upload comprovativos provas anexos documentos de suporte' },
+  { href: '/audits', title: 'Auditorias', group: 'Auditoria & Garantia', keywords: 'audit auditoria interna externa constatações findings planeamento auditor' },
+  { href: '/capa', title: 'CAPA — Ações corretivas e preventivas', group: 'Auditoria & Garantia', keywords: 'corretiva preventiva não conformidades causa raiz ações de melhoria corrective preventive' },
+  { href: '/policies', title: 'Políticas', group: 'Políticas & Relatórios', keywords: 'policy procedimentos normas regulamentos documentos versões aprovação revisão anexos word manual' },
+  { href: '/reports', title: 'Relatórios', group: 'Políticas & Relatórios', keywords: 'reports exportar pdf excel board reports relatório de conformidade agendar' },
+  { href: '/reports/time-report', title: 'Relatório de Tempo', group: 'Políticas & Relatórios', keywords: 'horas registo de tempo time tracking consultores faturação' },
+  { href: '/unified-controls', title: 'Biblioteca Unificada de Controlos', group: 'Controlos Unificados', keywords: 'controlos unified controls mapeamento frameworks iso 27001 nis2 dora reutilização' },
+  { href: '/governance/controls', title: 'Control Library', group: 'Controlos Unificados', keywords: 'biblioteca de controlos catálogo requisitos' },
+  { href: '/governance/framework-map', title: 'Framework Map', group: 'Controlos Unificados', keywords: 'mapa de frameworks correspondência cruzada crosswalk' },
+  { href: '/governance/gaps', title: 'Gap & Impact', group: 'Controlos Unificados', keywords: 'lacunas análise de impacto gap analysis' },
+  { href: '/governance/obligations', title: 'Regulatory Horizon', group: 'Controlos Unificados', keywords: 'obrigações regulatórias legislação horizonte regulamentar' },
+  { href: '/governance/coverage', title: 'Cobertura de Controlos', group: 'Controlos Unificados', keywords: 'coverage cobertura frameworks percentagem' },
+  // ── Conformidade ───────────────────────────────────────────
+  { href: '/soa', title: 'ISO 27001 — Declaração de Aplicabilidade (SoA)', group: 'Segurança & Governação', keywords: 'iso27001 soa statement of applicability anexo a controlos segurança da informação isms' },
+  { href: '/nis2', title: 'NIS2 Compliance', group: 'Segurança & Governação', keywords: 'diretiva nis2 cibersegurança entidades essenciais importantes medidas' },
+  { href: '/nis2/incidents', title: 'NIS2 — Notificação de Incidentes', group: 'Segurança & Governação', keywords: 'incidentes notificação 24 horas 72 horas ccn cncs violação' },
+  { href: '/dora', title: 'DORA — Resiliência Operacional Digital', group: 'Segurança & Governação', keywords: 'dora resiliência tic testes setor financeiro' },
+  { href: '/dora/register', title: 'DORA — Register of Information', group: 'Segurança & Governação', keywords: 'registo de informação prestadores tic terceiros contratos' },
+  { href: '/soc2', title: 'SOC 2 — Trust Criteria', group: 'Segurança & Governação', keywords: 'soc2 critérios de confiança disponibilidade confidencialidade' },
+  { href: '/cis', title: 'CIS Controls v8', group: 'Segurança & Governação', keywords: 'cis controls benchmark segurança técnica' },
+  { href: '/tisax', title: 'TISAX — VDA ISA', group: 'Segurança & Governação', keywords: 'tisax automóvel vda isa avaliação' },
+  { href: '/gdpr', title: 'RGPD · ROPA · DPIA', group: 'Privacidade', keywords: 'gdpr privacidade proteção de dados ropa atividades de tratamento aipd dpia avaliação de impacto violação de dados pedidos dos titulares dsar consentimento' },
+  { href: '/iso27701', title: 'ISO 27701 — PIMS', group: 'Privacidade', keywords: 'gestão de privacidade pims extensão iso 27001' },
+  { href: '/ai-governance', title: 'AI Act · ISO 42001', group: 'Governação de IA', keywords: 'inteligência artificial ai act sistemas de ia risco algoritmos' },
+  { href: '/denuncias', title: 'Canal de Denúncias', group: 'Ética & Denúncias', keywords: 'whistleblowing denúncia irregularidades ética código de conduta formação anónimo' },
+  { href: '/aml', title: 'AML · KYC · Sanções', group: 'Ética & Denúncias', keywords: 'branqueamento de capitais lavagem aml kyc sanções pep diligência cliente' },
+  { href: '/anti-bribery', title: 'ISO 37001 · Anti-Bribery', group: 'Ética & Denúncias', keywords: 'anticorrupção suborno corrupção integridade presentes' },
+  { href: '/hr-compliance', title: 'RH & Conformidade', group: 'Pessoas & Trabalho', keywords: 'recursos humanos hr formação colaboradores contratos igualdade salarial segurança no trabalho' },
+  { href: '/workforce', title: 'ISO 45001 · Saúde e Segurança no Trabalho', group: 'Pessoas & Trabalho', keywords: 'ohs sst segurança e saúde acidentes trabalhadores' },
+  { href: '/vendors', title: 'Fornecedores (TPRM)', group: 'Terceiros', keywords: 'vendors supplier terceiros avaliação de fornecedores questionários subcontratantes risco' },
+  { href: '/esg', title: 'ESG · CSRD · GRI', group: 'Sustentabilidade', keywords: 'sustentabilidade ambiente social governança métricas relatório csrd' },
+  { href: '/business-continuity', title: 'Continuidade de Negócio (ISO 22301)', group: 'Resiliência', keywords: 'bcp plano de continuidade disaster recovery dr rto rpo testes' },
+  { href: '/quality', title: 'ISO 9001 · Qualidade · CAPA', group: 'Qualidade & Operações', keywords: 'qualidade sgq não conformidades nc capa melhoria contínua objetivos de qualidade' },
+  { href: '/quality/documents', title: 'Documentos da Qualidade', group: 'Qualidade & Operações', keywords: 'manual da qualidade procedimentos instruções formulários registos informação documentada cláusula 7.5 controlo documental versões aprovação word pdf ficheiros sgq' },
+  { href: '/regulatory-change', title: 'Alterações Regulatórias · Calendário', group: 'Alterações Regulatórias', keywords: 'regulatory change calendário prazos legislação novas leis impacto' },
+  // ── Intelligence ───────────────────────────────────────────
+  { href: '/regulatory-feed', title: 'Regulatory Feed', group: 'Intelligence & Insights', keywords: 'notícias regulatórias novidades atualizações legislação feed' },
+  { href: '/compliance-monitor', title: 'Compliance Monitor', group: 'Intelligence & Insights', keywords: 'monitorização contínua alertas score tendência' },
+  { href: '/board-reports', title: 'Board Reports', group: 'Intelligence & Insights', keywords: 'relatórios para administração conselho órgão de gestão executivo' },
+  { href: '/management-body', title: 'Órgão de Gestão', group: 'Intelligence & Insights', keywords: 'administração direção reuniões atas decisões membros' },
+  { href: '/client-hub', title: 'Client Hub', group: 'Intelligence & Insights', keywords: 'clientes carteira consultor multi organização' },
+  { href: '/auditor-sessions', title: 'Portal de Auditores Externos', group: 'Intelligence & Insights', keywords: 'auditor externo sessão acesso partilha convidado' },
+  { href: '/ai-tools', title: 'AI Compliance Tools', group: 'Intelligence & Insights', keywords: 'inteligência artificial ferramentas geração automática ia' },
+  { href: '/audit-templates', title: 'Audit Templates', group: 'Intelligence & Insights', keywords: 'modelos de auditoria checklists templates' },
+  { href: '/integrations', title: 'Integration Hub', group: 'Intelligence & Insights', keywords: 'integrações ligar ferramentas externas conectores api' },
+  { href: '/iguard', title: 'iGuard — Dispositivos', group: 'Intelligence & Insights', keywords: 'dispositivos endpoints agente monitorização encriptação antivírus firewall computadores' },
+  { href: '/iguard/install', title: 'Instalar o iGuard', group: 'Intelligence & Insights', keywords: 'instalação agente macos windows download' },
+  { href: '/portfolio', title: 'Portfolio', group: 'Intelligence & Insights', keywords: 'carteira visão geral organizações' },
+  { href: '/raci', title: 'Matriz RACI', group: 'Gerir', keywords: 'responsabilidades responsável aprovador consultado informado papéis' },
+  { href: '/approvals', title: 'Aprovações', group: 'Gerir', keywords: 'pedidos de aprovação workflow votos pendentes' },
+  { href: '/intake', title: 'Intake — Formulários', group: 'Gerir', keywords: 'pedidos entrada formulários submissões' },
+  { href: '/action-plans', title: 'Planos de Ação', group: 'Gerir', keywords: 'ação plano tarefas objetivos' },
+  { href: '/program-templates', title: 'Modelos de Programa', group: 'Gerir', keywords: 'templates programa de conformidade ativar' },
+  { href: '/automation', title: 'Automações', group: 'Ferramentas', keywords: 'regras fluxos de trabalho workflows automático gatilhos' },
+  // ── Ferramentas, ajuda e definições ────────────────────────
+  { href: '/ai-assistant', title: 'Assistente de IA', group: 'Ferramentas', keywords: 'chat assistente perguntar copilot ia' },
+  { href: '/excel-import', title: 'Importar dados (Excel)', group: 'Ferramentas', keywords: 'importação xlsx folha de cálculo carregar dados em massa' },
+  { href: '/academy', title: 'Centro de Formação', group: 'Ajuda & Formação', keywords: 'academia academy cursos tutoriais aprender' },
+  { href: '/help', title: 'Centro de Ajuda', group: 'Ajuda & Formação', keywords: 'ajuda suporte faq base de conhecimento perguntas frequentes tickets contactar' },
+  { href: '/changelog', title: 'Novidades (Changelog)', group: 'Ajuda & Formação', keywords: 'novidades versões alterações lançamentos release notes' },
+  { href: '/docs/api', title: 'Documentação da API', group: 'Ajuda & Formação', keywords: 'api rest swagger programadores integração' },
+  { href: '/docs/iguard', title: 'Documentação do iGuard', group: 'Ajuda & Formação', keywords: 'manual técnico agente instalação' },
+  { href: '/notifications', title: 'Notificações', group: 'Definições', keywords: 'alertas avisos mensagens' },
+  { href: '/settings/profile', title: 'O meu perfil', group: 'Definições', keywords: 'conta palavra-passe password idioma dados pessoais avatar' },
+  { href: '/settings/organization', title: 'Organização', group: 'Definições', keywords: 'empresa dados da organização nif setor país logótipo' },
+  { href: '/settings/users', title: 'Utilizadores', group: 'Definições', keywords: 'convidar utilizador equipa membros acessos convites' },
+  { href: '/settings/roles', title: 'Roles & Permissões', group: 'Definições', keywords: 'papéis permissões acessos perfis' },
+  { href: '/settings/security', title: 'Segurança da conta', group: 'Definições', keywords: 'autenticação dois fatores 2fa mfa sessões palavra-passe' },
+  { href: '/settings/sso', title: 'Configuração SSO', group: 'Definições', keywords: 'single sign-on saml oidc azure ad google login' },
+  { href: '/settings/notifications', title: 'Preferências de notificações', group: 'Definições', keywords: 'emails alertas avisos preferências' },
+  { href: '/settings/integrations', title: 'Integrações (definições)', group: 'Definições', keywords: 'ligações conectores terceiros' },
+  { href: '/settings/webhooks', title: 'Webhooks', group: 'Definições', keywords: 'eventos notificações http endpoints' },
+  { href: '/settings/trust-center', title: 'Trust Center', group: 'Definições', keywords: 'página pública certificações confiança clientes' },
+  { href: '/settings/billing', title: 'Faturação e plano', group: 'Definições', keywords: 'subscrição plano pagamento faturas licença' },
+  { href: '/settings/audit-log', title: 'Registo de auditoria', group: 'Definições', keywords: 'audit log atividade histórico de ações quem fez' },
+  { href: '/settings/translations', title: 'Traduções', group: 'Definições', keywords: 'idiomas textos personalizar' },
+  { href: '/settings/ai-usage', title: 'Utilização de IA', group: 'Definições', keywords: 'créditos consumo ia tokens' },
+];

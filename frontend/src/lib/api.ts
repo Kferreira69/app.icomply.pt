@@ -1097,3 +1097,8 @@ export const featureFlagsApi = {
   bulkUpdate:  (updates: { key: string; requiredPlan: string }[])   => api.patch('/feature-flags', { updates }),
 };
 
+// Global search across every module the caller can read (accent/typo tolerant, tiered).
+export const searchApi = {
+  search: (q: string, limit = 30, signal?: AbortSignal) =>
+    api.get('/search', { params: { q, limit }, signal }),
+};
