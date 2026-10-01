@@ -22,9 +22,9 @@ const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.1.0',
     date: '2026-10-01',
-    name: 'Ambiente (ISO 14001), Gestão Documental e Pesquisa global',
+    name: 'ISO 14001 no domínio ESG, Gestão Documental e Pesquisa global',
     features: [
-      'Novo domínio de governação Ambiente (ISO 14001): checklist das cláusulas 4 a 10, aspetos e impactos ambientais com significância, objetivos e metas, requisitos legais com avaliação do cumprimento',
+      'ISO 14001 (Gestão Ambiental) no domínio ESG & Sustentabilidade: checklist das cláusulas 4 a 10, aspetos e impactos ambientais com significância, objetivos e metas, requisitos legais com avaliação do cumprimento',
       'Gestão Documental por norma ISO (9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001): ficheiros reais com versões, aprovação e separação de funções',
       'Anexos nas Políticas (Word, PDF…) com histórico de versões e aprovação',
       'Pesquisa global (Ctrl+K): encontra qualquer palavra do conteúdo, ignora acentos, tolera erros e sugere assuntos relacionados; nova página de resultados com filtros',

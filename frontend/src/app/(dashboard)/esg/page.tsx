@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { esgApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -339,6 +340,12 @@ export default function EsgPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/environment"
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <ShieldCheck className="w-4 h-4 text-lime-600" /> ISO 14001 · Gestão Ambiental
+          </Link>
           <select
             className="border rounded-lg px-3 py-2 text-sm text-gray-700"
             value={selectedYear}

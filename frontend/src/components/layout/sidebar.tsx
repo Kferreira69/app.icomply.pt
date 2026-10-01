@@ -652,7 +652,12 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
         },
         {
           key: 'esg', label: t('esgSustainability'), icon: Leaf, color: 'bg-emerald-600 text-white',
-          items: [{ href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf, flagKey: 'esg' }],
+          items: [
+            { href: '/esg', label: 'CSRD · GRI · ESG Metrics', icon: Leaf, flagKey: 'esg' },
+            // ISO 14001 is part of the ESG & Sustainability domain (not a domain of its own)
+            { href: '/environment', label: 'ISO 14001 · Gestão Ambiental', icon: Recycle, flagKey: 'environment' },
+            { href: '/quality/documents?standard=ISO_14001', label: 'Documentos ISO 14001', icon: FileText },
+          ],
         },
         {
           key: 'resilience', label: t('resilienceContinuity'), icon: ShieldAlert, color: 'bg-amber-600 text-white',
@@ -663,13 +668,6 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           items: [
             { href: '/quality', label: 'ISO 9001 · CAPA', icon: ClipboardList },
             { href: '/quality/documents', label: 'Gestão Documental (ISO)', icon: FileText },
-          ],
-        },
-        {
-          key: 'environment', label: 'Ambiente (ISO 14001)', icon: Recycle, color: 'bg-lime-600 text-white',
-          items: [
-            { href: '/environment', label: 'ISO 14001 · Ambiente', icon: Recycle, flagKey: 'environment' },
-            { href: '/quality/documents?standard=ISO_14001', label: 'Documentos ISO 14001', icon: FileText },
           ],
         },
         {
