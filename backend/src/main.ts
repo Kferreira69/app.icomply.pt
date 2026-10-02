@@ -14,7 +14,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
 // ── Sentry (initialise before anything else if DSN is set) ────
 if (process.env.SENTRY_DSN) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const Sentry = require('@sentry/node');
     Sentry.init({
       dsn: process.env.SENTRY_DSN,
@@ -169,7 +169,7 @@ async function bootstrap() {
     path.join(process.cwd(), 'uploads'),
   );
   fs.mkdirSync(uploadDir, { recursive: true });
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   app.use('/api/v1/uploads', require('express').static(uploadDir));
 
   await app.listen(port);
