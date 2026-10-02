@@ -4,6 +4,7 @@ import {
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { UserRole } from '../generated/prisma/client';
 import { LicensingService } from './licensing.service';
 
@@ -157,8 +158,10 @@ export class LicensingController {
   // ── Stripe webhook (no auth guard needed) ─────────────────────
   // Note: webhook endpoint bypasses JwtAuthGuard — handled in main.ts raw body
 
+  // @Public() is what actually bypasses the global login guard (an empty @UseGuards() does not);
+  // the request is authenticated by Stripe's signature, verified over the raw body.
+  @Public()
   @Post('stripe/webhook')
-  @UseGuards() // override global guard for this route
   async stripeWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,

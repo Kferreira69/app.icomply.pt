@@ -91,7 +91,7 @@ export const CATALOG_DOMAINS: CatalogDomain[] = [
       { name: 'ISO 37001', status: 'available', appPath: '/anti-bribery' },
       { name: 'ISO 37301', status: 'available', appPath: '/anti-bribery' },
       { name: 'RGPC', status: 'partial', note: 'Diagnóstico e plano de ação' },
-      { name: 'AML / KYC', status: 'available', note: 'Casos e rastreios; verificação automática de identidade em preparação', appPath: '/aml' },
+      { name: 'AML / KYC', status: 'available', note: 'Casos e rastreios; verificação de identidade (KYC/KYB/sanções) em modo manual desde já e automática quando houver fornecedor ligado e condições aceites', appPath: '/aml' },
     ],
     capabilities: ['Canal de denúncias com acompanhamento', 'Código de conduta e formação', 'Casos e rastreios AML'],
     modules: ['denuncias', 'antiBribery', 'aml'],

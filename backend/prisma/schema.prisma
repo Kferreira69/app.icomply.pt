@@ -3425,6 +3425,15 @@ model IdentityVerification {
   rawResult      Json?
   requestedById  String
   amlScreeningId String?
+  // Provider-independent operation: MANUAL verifications are decided by a person; AUTOMATED ones
+  // go through an external provider and are billable under the terms the customer accepted.
+  automated      Boolean   @default(true)
+  unitPrice      Decimal?  @db.Decimal(10, 2)  // PAYG price charged for this check (from the accepted terms)
+  currency       String?
+  termsVersion   Int?
+  decisionNote   String?
+  decidedById    String?
+  decidedAt      DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
