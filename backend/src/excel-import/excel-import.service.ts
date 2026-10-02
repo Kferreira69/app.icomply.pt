@@ -456,7 +456,7 @@ export class ExcelImportService {
   ) {
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.default.Workbook();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     await wb.xlsx.load(buffer as any);
 
     let rowsTotal = 0;
@@ -583,17 +583,17 @@ export class ExcelImportService {
 
       const ExcelJS = await import('exceljs');
       const wb = new ExcelJS.default.Workbook();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       await wb.xlsx.load(buffer as any);
       const ws = wb.worksheets[0];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const rows: any[] = [];
       let headers: string[] = [];
       let rowsTotal = 0;
       let rowsProcessed = 0;
       let rowsError = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const errors: any[] = [];
 
       ws.eachRow((row, idx) => {
@@ -602,7 +602,7 @@ export class ExcelImportService {
           headers = headers.filter(Boolean);
         } else {
           rowsTotal++;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const obj: Record<string, any> = {};
           headers.forEach((h, i) => { obj[h] = row.getCell(i + 1).value; });
           rows.push(obj);
@@ -642,9 +642,9 @@ export class ExcelImportService {
                 title: String(row[headers[0]] || '').trim(),
                 description: String(row[headers[1]] || '').trim() || null,
                 category: String(row[headers[2]] || '').trim() || null,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 
                 likelihood: l as any,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 
                 impact: i as any,
                 inherentScore: (likelihoodMap[l] || 3) * (impactMap[i] || 3),
               },
@@ -654,7 +654,7 @@ export class ExcelImportService {
             // Map to DataProcessingActivity
             const rawLegal = String(row[headers[3]] || 'LEGITIMATE_INTERESTS').trim().toUpperCase().replace(/[^A-Z_]/g, '_');
             const validLegal = ['CONSENT','CONTRACT','LEGAL_OBLIGATION','VITAL_INTERESTS','PUBLIC_TASK','LEGITIMATE_INTERESTS'];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const legalBasis: any = validLegal.includes(rawLegal) ? rawLegal : 'LEGITIMATE_INTERESTS';
             const dataCategories = String(row[headers[4]] || '').split(';').map((s: string) => s.trim()).filter(Boolean);
             const dataSubjects = String(row[headers[5]] || '').split(';').map((s: string) => s.trim()).filter(Boolean);
@@ -685,7 +685,7 @@ export class ExcelImportService {
             const classification = String(row[headers[2]] || '').trim();
             const businessValue = String(row[headers[5]] || 'Médio').trim();
             const impactMap: Record<string, string> = { 'Crítico': 'CATASTROPHIC', 'Alto': 'MAJOR', 'Médio': 'MODERATE', 'Baixo': 'MINOR' };
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const impact: any = impactMap[businessValue] || 'MODERATE';
             await this.prisma.risk.create({
               data: {
@@ -717,7 +717,7 @@ export class ExcelImportService {
             const statusMap: Record<string, string> = { 'OPEN': 'PLANNED', 'IN_PROGRESS': 'IN_PROGRESS', 'CLOSED': 'COMPLETED' };
             const treatmentStatus = statusMap[statusRaw] || 'PLANNED';
             const priorityRaw = String(row[headers[4]] || 'MEDIUM').toUpperCase();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const priorityImpact: any = priorityRaw === 'HIGH' ? 'MAJOR' : priorityRaw === 'LOW' ? 'MINOR' : 'MODERATE';
             const dueDateRaw = row[headers[6]] ? String(row[headers[6]]).trim() : null;
             const dueDate = dueDateRaw ? new Date(dueDateRaw) : null;
@@ -765,7 +765,7 @@ export class ExcelImportService {
           } else if (type === 'ACTION_PLAN' && creator) {
             // Create CAPA record
             const priorityRaw = String(row[headers[5]] || 'MEDIUM').toUpperCase();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const statusRaw = String(row[headers[7]] || 'OPEN').toUpperCase();
             const capaStatusMap: Record<string, string> = { 'OPEN': 'OPEN', 'IN_PROGRESS': 'IN_PROGRESS', 'CLOSED': 'CLOSED' };
             const capaStatus = capaStatusMap[statusRaw] || 'OPEN';
@@ -778,7 +778,7 @@ export class ExcelImportService {
                 description: String(row[headers[1]] || '').trim() || String(row[headers[0]] || '').trim(),
                 rootCause: String(row[headers[2]] || '').trim() || null, // Origem
                 correctiveAction: String(row[headers[8]] || '').trim() || null, // Notas
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 
                 status: capaStatus as any,
                 dueDate,
                 evidence: [
@@ -792,7 +792,7 @@ export class ExcelImportService {
             // Map status from spreadsheet to Prisma PolicyStatus enum
             const rawStatus = String(row[headers[7]] || 'DRAFT').trim().toUpperCase();
             const statusMap: Record<string, string> = { 'DRAFT': 'DRAFT', 'APPROVED': 'APPROVED', 'OBSOLETE': 'ARCHIVED' };
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const policyStatus: any = statusMap[rawStatus] || 'DRAFT';
             const approvedAtRaw = row[headers[5]] ? String(row[headers[5]]).trim() : null;
             const reviewDateRaw = row[headers[6]] ? String(row[headers[6]]).trim() : null;
@@ -822,7 +822,7 @@ export class ExcelImportService {
           }
         } catch (err) {
           rowsError++;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           errors.push({ row: rowsProcessed + rowsError, error: (err as any).message });
         }
       }
@@ -842,7 +842,7 @@ export class ExcelImportService {
     } catch (err) {
       await this.prisma.excelImport.update({
         where: { id: importId },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         data: { status: 'FAILED', errors: [{ message: (err as any).message }] },
       });
     }

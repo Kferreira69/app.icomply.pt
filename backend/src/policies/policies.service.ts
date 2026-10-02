@@ -104,7 +104,7 @@ export class PoliciesService {
       });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { changeNote: _cn, ...policyData } = data;
     return this.prisma.policy.update({
       where: { id },

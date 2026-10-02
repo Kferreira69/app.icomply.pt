@@ -60,6 +60,10 @@ Controlled documents (manuals, procedures, forms, records) of **any** ISO standa
 
 ---
 
+## Quality checks
+
+Every push runs `.github/workflows/ci.yml`: backend `prisma validate`, `tsc --noEmit`, ESLint 9 (flat config, errors fail) and the unit tests; frontend `tsc --noEmit` and ESLint 9. Locally: `npm run lint` and `npx jest` in `backend/`, `npm run lint` in `frontend/` (on a Windows/OneDrive folder the frontend ESLint can fail to load `minimatch`; run it from a copy outside OneDrive or rely on CI).
+
 ## Tech Stack
 
 ### Backend

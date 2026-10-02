@@ -24,6 +24,7 @@ const CHANGELOG: ChangelogEntry[] = [
     date: '2026-10-01',
     name: 'Sete novas normas, ISO 14001 no domínio ESG, Gestão Documental e Pesquisa global',
     features: [
+      'Manutenção: ESLint 9 nos dois projetos (o `next lint` deixou de existir no Next 16) e verificação automática (tipos, lint e testes) em cada alteração; testes do backend 10x mais rápidos e estáveis; 0 vulnerabilidades conhecidas nas dependências do backend e do frontend',
       'Suporte: aviso por email à equipa quando entra um ticket novo ou o cliente responde (resumo + ligação direta), e ao autor quando o suporte responde ou resolve; novo perfil Agente de Suporte, sem acesso aos módulos, só para atender tickets; o menu mostra os tickets por responder',
       'Segurança: os tickets de suporte só são visíveis a quem os abriu e à equipa de suporte da plataforma (um super-administrador criado numa organização de cliente deixou de ver os tickets de todos); os anexos seguem a mesma regra e as notas internas ficam só para a equipa',
       'Verificação de Identidade (KYC/KYB/sanções) independente de qualquer fornecedor: modo manual desde o primeiro dia (pedido registado e decidido por uma pessoa) e modo automático quando houver fornecedor ligado e o cliente aceitar as condições (taxa de arranque + preço por verificação)',
