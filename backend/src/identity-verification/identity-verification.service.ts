@@ -7,6 +7,7 @@ import { KycProviderRegistry } from './providers/kyc-provider.registry';
 import {
   BusinessVerificationInput,
   IndividualVerificationInput,
+  KycFeature,
   KycProvider,
   SanctionsScreeningInput,
   VerificationResult,
@@ -14,11 +15,22 @@ import {
 } from './providers/kyc-provider.interface';
 import { DecisionDto } from './dto/decision.dto';
 import { ProposeTermsDto } from './dto/terms.dto';
+import { RoutingDto } from './dto/routing.dto';
 
 export const IDENTITY_VERIFICATION_ADDON_KEY = 'identity_verification';
 export const MANUAL_PROVIDER_ID = 'MANUAL';
 
-type Feature = 'individual' | 'business' | 'sanctions';
+/** Accent/case-insensitive comparison of person names: every word of the shorter name must be in the longer one. */
+export function namesMatch(requested: string, verified: string): boolean {
+  const words = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1);
+  const a = words(requested), b = words(verified);
+  if (!a.length || !b.length) return false;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.every(w => long.includes(w));
+}
+
+type Feature = KycFeature;
+const FEATURES: Feature[] = ['individual', 'business', 'sanctions'];
 
 /** Commercial terms for automated checks, stored on the organisation's add-on record. */
 export interface KycTerms {
@@ -83,8 +95,9 @@ export class IdentityVerificationService {
     });
   }
 
-  private preferredFrom(addon: any): string | null {
-    const id = addon?.metadata?.kycProvider;
+  private preferredFrom(addon: any, feature?: Feature): string | null {
+    const own = feature ? addon?.metadata?.kycRouting?.[feature] : undefined;
+    const id = typeof own === 'string' && own ? own : addon?.metadata?.kycProvider;
     return typeof id === 'string' && id ? id : null;
   }
 
@@ -106,14 +119,10 @@ export class IdentityVerificationService {
     const commercial = this.commercialFrom(addon);
     if (!this.isAccepted(commercial)) return { mode: 'MANUAL' };
     const terms = commercial.terms as KycTerms;
-    if (terms.prices[feature] === undefined) return { mode: 'MANUAL' }; // feature not part of the accepted terms
-    let provider: KycProvider;
-    try {
-      provider = this.registry.resolve(this.preferredFrom(addon));
-    } catch {
-      return { mode: 'MANUAL' }; // no provider configured on the platform (yet)
-    }
-    if (!provider.capabilities[feature]) return { mode: 'MANUAL' };
+    if (terms.prices[feature] == null) return { mode: 'MANUAL' }; // feature not part of the accepted terms
+    // the provider routed to this feature, else the default, else any configured one that can do it
+    const provider = this.registry.resolveFor(feature, this.preferredFrom(addon, feature));
+    if (!provider) return { mode: 'MANUAL' }; // nothing configured can serve it (yet)
     return { mode: 'AUTOMATED', provider, terms };
   }
 
@@ -126,34 +135,69 @@ export class IdentityVerificationService {
     let effective: string | null = null;
     try { effective = this.registry.resolve(selected).id; } catch { /* nothing configured */ }
     const providers = this.registry.list();
+    // who serves each feature today (null = manual), and what was explicitly routed
+    const routing = Object.fromEntries(FEATURES.map(f => [f, {
+      chosen: (addon?.metadata?.kycRouting?.[f] as string | undefined) ?? null,
+      effective: this.registry.resolveFor(f, this.preferredFrom(addon, f))?.id ?? null,
+    }]));
+    const anyAutomated = FEATURES.some(f => (routing as any)[f].effective);
     return {
-      providers, selected, effective, platformDefault: this.registry.defaultId(),
+      providers, selected, effective, platformDefault: this.registry.defaultId(), routing,
       // MANUAL until a provider is configured AND the customer accepted the terms
-      mode: accepted && effective ? 'AUTOMATED' : 'MANUAL',
+      mode: accepted && anyAutomated ? 'AUTOMATED' : 'MANUAL',
       commercial: {
         terms: commercial.terms ?? null,
         acceptance: commercial.acceptance ?? null,
         accepted,
         awaitingAcceptance: !!commercial.terms && !accepted,
-        providerReady: !!effective,
+        providerReady: anyAutomated,
       },
       usage: await this.usage(organizationId),
     };
   }
 
-  /** `null` clears the choice (the platform default is used). */
-  async setProvider(organizationId: string, providerId: string | null) {
-    await this.assertAddonActive(organizationId);
-    if (providerId) {
-      const info = this.registry.list().find(p => p.id === providerId.toUpperCase());
-      if (!info) throw new BadRequestException('Fornecedor desconhecido.');
-      if (!info.configured) throw new BadRequestException(`O fornecedor ${info.displayName} não está configurado nesta plataforma.`);
-      providerId = info.id;
+  private validateProvider(id: string): string {
+    const info = this.registry.list().find(p => p.id === id.toUpperCase());
+    if (!info) throw new BadRequestException(`Fornecedor desconhecido: ${id}`);
+    if (!info.configured) throw new BadRequestException(`O fornecedor ${info.displayName} não está configurado nesta plataforma.`);
+    return info.id;
+  }
+
+  /** The metadata patch for a routing change: `null` clears a choice, absent leaves it as it is. */
+  private routingPatch(addon: any, input: RoutingDto): Record<string, unknown> {
+    const routing: Record<string, string> = { ...((addon.metadata?.kycRouting as Record<string, string>) ?? {}) };
+    const patch: Record<string, unknown> = {};
+    for (const f of FEATURES) {
+      const v = (input as any)[f];
+      if (v === null) delete routing[f];
+      else if (typeof v === 'string') routing[f] = this.validateProvider(v);
     }
+    if (input.default === null) patch.kycProvider = null;
+    else if (typeof input.default === 'string') patch.kycProvider = this.validateProvider(input.default);
+    patch.kycRouting = routing;
+    return patch;
+  }
+
+  /**
+   * Platform operator: choose which provider serves each feature for ONE organisation
+   * (e.g. documents → Didit, sanctions → OpenSanctions). Takes effect on the next request; switching
+   * provider never changes what the customer pays (their terms are per feature, not per vendor).
+   */
+  async setRouting(organizationId: string, input: RoutingDto) {
+    await this.assertAddonActive(organizationId);
     const addon = await this.findAddon(organizationId);
     if (!addon) throw new NotFoundException('Add-on não encontrado.');
-    await this.saveMetadata(addon, { kycProvider: providerId });
+    await this.saveMetadata(addon, this.routingPatch(addon, input));
     return this.getProviderSettings(organizationId);
+  }
+
+  /** Same, for EVERY organisation that has the add-on: switch the whole platform from one vendor to another in one step. */
+  async setRoutingForAll(input: RoutingDto) {
+    const addons: any[] = await (this.prisma as any).licenseAddon.findMany({
+      where: { addonKey: IDENTITY_VERIFICATION_ADDON_KEY },
+    });
+    for (const addon of addons) await this.saveMetadata(addon, this.routingPatch(addon, input));
+    return { updated: addons.length };
   }
 
   // ── commercial terms: proposed by the operator, accepted by the customer ─────
@@ -164,9 +208,9 @@ export class IdentityVerificationService {
     const addon = await this.findAddon(organizationId);
     if (!addon) throw new NotFoundException('Add-on não encontrado.');
     const prices: KycTerms['prices'] = {};
-    if (dto.priceIndividual !== undefined) prices.individual = dto.priceIndividual;
-    if (dto.priceBusiness !== undefined) prices.business = dto.priceBusiness;
-    if (dto.priceSanctions !== undefined) prices.sanctions = dto.priceSanctions;
+    if (dto.priceIndividual != null) prices.individual = dto.priceIndividual;
+    if (dto.priceBusiness != null) prices.business = dto.priceBusiness;
+    if (dto.priceSanctions != null) prices.sanctions = dto.priceSanctions;
     if (!Object.keys(prices).length) {
       throw new BadRequestException('Indique o preço de pelo menos uma funcionalidade.');
     }
@@ -225,7 +269,8 @@ export class IdentityVerificationService {
     try {
       return await run();
     } catch (err) {
-      this.logger.error(`${provider.id} ${what} failed: ${(err as Error).message}`);
+      // provider error bodies can echo names/emails: log only the part before the first colon (e.g. "Didit API error 401")
+      this.logger.error(`${provider.id} ${what} failed: ${String((err as Error).message).split(':')[0]}`);
       throw new BadGatewayException(`O fornecedor ${provider.displayName} não conseguiu concluir o pedido.`);
     }
   }
@@ -246,6 +291,7 @@ export class IdentityVerificationService {
         country: subject.country,
         provider: automated ? engine.provider.id : MANUAL_PROVIDER_ID,
         providerRefId: result.providerRefId,
+        actionUrl: result.actionUrl ?? null,
         status: result.status,
         riskScore: result.riskScore,
         rawResult: result.rawResult,
@@ -304,7 +350,10 @@ export class IdentityVerificationService {
     await this.assertAddonActive(organizationId);
     const v = await (this.prisma as any).identityVerification.findFirst({ where: { id, organizationId } });
     if (!v) throw new NotFoundException('Verificação não encontrada.');
-    if (!['REVIEW', 'PENDING', 'ERROR'].includes(v.status)) {
+    // Open states can be decided; an automatic REJECTED (e.g. a false sanctions match) can be overturned once by a person.
+    // A decision taken by a person is final.
+    const open = ['REVIEW', 'PENDING', 'ERROR'].includes(v.status) || (v.status === 'REJECTED' && !v.decidedAt);
+    if (!open || v.decidedAt) {
       throw new BadRequestException('Esta verificação já tem uma decisão.');
     }
     if (v.automated && v.status === 'PENDING') {
@@ -333,7 +382,7 @@ export class IdentityVerificationService {
     const provider = this.registry.get(providerId);
     if (!provider || !provider.capabilities.webhooks) throw new NotFoundException();
 
-    const normalized = provider.handleWebhook(payload, ctx);
+    const normalized = await provider.handleWebhook(payload, ctx);
     if (!normalized.providerRefId) return { ignored: true };
 
     const existing = await (this.prisma as any).identityVerification.findFirst({
@@ -341,13 +390,22 @@ export class IdentityVerificationService {
     });
     if (!existing) return { ignored: true }; // unknown reference: acknowledge so the provider stops retrying
 
-    await (this.prisma as any).identityVerification.update({
-      where: { id: existing.id },
-      data: {
-        status: normalized.status,
-        riskScore: normalized.riskScore ?? existing.riskScore,
-        rawResult: normalized.rawResult,
-      },
+    // A person's decision and any final outcome are never overwritten by a late, repeated or
+    // out-of-order notification (the provider may retry, replay or send events out of order).
+    if (existing.decidedAt || ['APPROVED', 'REJECTED'].includes(existing.status)) return { received: true };
+
+    let status = normalized.status;
+    let rawResult: Record<string, unknown> = normalized.rawResult;
+    // An approval must be for the person we asked about: if the provider reports a different name, a person decides.
+    if (status === 'APPROVED' && normalized.verifiedName && !namesMatch(existing.subjectName, normalized.verifiedName)) {
+      status = 'REVIEW';
+      rawResult = { ...rawResult, nameMismatch: true };
+    }
+
+    // guarded write: only while still open, so two concurrent notifications cannot both win
+    await (this.prisma as any).identityVerification.updateMany({
+      where: { id: existing.id, decidedAt: null, status: { in: ['PENDING', 'REVIEW', 'ERROR'] } },
+      data: { status, riskScore: normalized.riskScore ?? existing.riskScore, rawResult },
     });
     return { received: true };
   }

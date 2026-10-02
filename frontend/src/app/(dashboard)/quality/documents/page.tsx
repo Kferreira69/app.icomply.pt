@@ -256,6 +256,9 @@ function DocumentsInner() {
   const qc = useQueryClient();
   const params = useSearchParams();
   const [standard, setStandard] = useState(params.get('standard') ?? '');
+  // a link to another standard while this page is already open only changes the query string
+  const wantedStandard = params.get('standard');
+  useEffect(() => { if (wantedStandard) setStandard(wantedStandard); }, [wantedStandard]);
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showNew, setShowNew] = useState(false);

@@ -284,7 +284,15 @@ export class EnvironmentService {
     const current = await this.prisma.environmentalObjective.findFirst({ where: { id, organizationId: orgId } });
     if (!current) throw new NotFoundException('Objetivo não encontrado');
     const data: any = {};
-    if (dto.esgMetricId !== undefined) data.esgMetricId = await this.resolveMetric(orgId, userId, dto.esgMetricId);
+    if (dto.esgMetricId !== undefined) {
+      // only a CHANGE of the link needs ESG access (saving other fields of a linked objective must not);
+      // unlinking is a change too, so it cannot be used to bypass the ESG permission
+      const wanted = text(dto.esgMetricId, 100) || null;
+      if (wanted !== (current.esgMetricId ?? null)) {
+        if (!(await this.canSeeEsg(userId))) throw new ForbiddenException('Sem acesso às métricas ESG');
+        data.esgMetricId = await this.resolveMetric(orgId, userId, wanted);
+      }
+    }
     if (dto.title !== undefined) data.title = required(dto.title, 'Título');
     if (dto.description !== undefined) data.description = text(dto.description);
     if (dto.indicator !== undefined) data.indicator = text(dto.indicator, 300);

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Inbox, Mail, Building2, Phone, ExternalLink, AlertCircle } from 'lucide-react';
+import { Inbox, Mail, Building2, Phone, ExternalLink, AlertCircle, Trash2 } from 'lucide-react';
 import { leadsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,11 @@ export default function LeadsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['backoffice-leads'] }),
   });
 
+  const erase = useMutation({
+    mutationFn: ({ id, email, all }: { id: string; email: string; all: boolean }) => (all ? leadsApi.removeByEmail(email) : leadsApi.remove(id)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['backoffice-leads'] }),
+  });
+
   if (error) {
     return (
       <div className="p-8 max-w-xl mx-auto text-center text-gray-600">
@@ -53,7 +58,7 @@ export default function LeadsPage() {
         <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><Inbox className="w-5 h-5" /></div>
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Leads do site</h1>
-          <p className="text-sm text-gray-500">Pedidos de demonstração, contactos e sugestões de funcionalidades vindos de icomply.pt.</p>
+          <p className="text-sm text-gray-500">Pedidos de demonstração, contactos e sugestões de funcionalidades vindos de icomply.pt. Os leads são apagados automaticamente 24 meses após a última atividade, salvo se a pessoa for utilizadora ou contacto de um cliente.</p>
         </div>
       </div>
 
@@ -89,6 +94,14 @@ export default function LeadsPage() {
               >
                 {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
               </select>
+              <button title="Apagar este lead (RGPD)" className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                onClick={() => { if (confirm(`Apagar o lead de ${l.name}? Esta ação não pode ser desfeita.`)) erase.mutate({ id: l.id, email: l.email, all: false }); }}>
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button title="Apagar todos os leads deste email (pedido de apagamento RGPD)" className="text-[11px] text-red-500 hover:underline"
+                onClick={() => { if (confirm(`Apagar TODOS os leads de ${l.email}?`)) erase.mutate({ id: l.id, email: l.email, all: true }); }}>
+                apagar tudo deste email
+              </button>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
               <a href={`mailto:${l.email}`} className="inline-flex items-center gap-1 hover:text-blue-600"><Mail className="w-3.5 h-3.5" />{l.email}</a>

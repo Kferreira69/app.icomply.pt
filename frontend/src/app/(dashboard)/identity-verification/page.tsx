@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, Building2, ShieldAlert, CheckCircle2, XCircle, Clock, Cpu, Hand, Euro, Info } from 'lucide-react';
+import { UserCheck, Building2, ShieldAlert, CheckCircle2, XCircle, Clock, Cpu, Hand, Euro, Info, Link2, Copy } from 'lucide-react';
 import { identityVerificationApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
+import { usePermissions } from '@/hooks/use-permissions';
 import { ModuleGuard } from '@/components/module-guard';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -87,6 +88,15 @@ function ModeCard({ settings, canAccept, onAccept, busy }: { settings: any; canA
             <p className="text-xs text-amber-700">Aguarda aceitação por um administrador da organização.</p>
           )}
         </div>
+      )}
+
+      {auto && settings.routing && (
+        <p className="text-xs text-gray-500">
+          Quem faz o quê hoje:{' '}
+          {(['individual', 'business', 'sanctions'] as const).map(k => (
+            <span key={k} className="mr-3">{FEATURE_LABEL[k]}: <b>{settings.routing[k]?.effective ?? 'manual'}</b></span>
+          ))}
+        </p>
       )}
 
       {settings.usage?.automatedChecks > 0 && (
@@ -193,6 +203,8 @@ function IdentityInner() {
   const [status, setStatus] = useState('');
   const [deciding, setDeciding] = useState<any>(null);
   const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user?.role ?? '');
+  const { can } = usePermissions();
+  const canWrite = can('aml', 2); // the server enforces it too: read-only roles must not be offered the buttons
 
   const { data: settings, error: settingsError } = useQuery({
     queryKey: ['identity-settings'], queryFn: () => identityVerificationApi.settings().then(r => r.data),
@@ -219,7 +231,7 @@ function IdentityInner() {
       </div>
 
       {settings && <ModeCard settings={settings} canAccept={isAdmin} busy={acceptMut.isPending} onAccept={v => acceptMut.mutate(v)} />}
-      <NewVerification canWrite mode={settings?.mode ?? 'MANUAL'} onDone={refresh} />
+      <NewVerification canWrite={canWrite} mode={settings?.mode ?? 'MANUAL'} onDone={refresh} />
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-2">
@@ -243,11 +255,22 @@ function IdentityInner() {
                   {v.riskScore != null ? ` · risco ${v.riskScore}` : ''}
                 </p>
                 {v.decisionNote && <p className="text-xs text-gray-600 mt-0.5">“{v.decisionNote}”</p>}
+                {v.actionUrl && v.status === 'PENDING' && (
+                  <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap">
+                    <Link2 className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="text-gray-600">Envie este link à pessoa para concluir a verificação:</span>
+                    <button className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                      onClick={() => { navigator.clipboard?.writeText(v.actionUrl); }}>
+                      <Copy className="w-3 h-3" /> copiar link
+                    </button>
+                    <a className="text-blue-700 hover:underline" href={v.actionUrl} target="_blank" rel="noopener noreferrer">abrir</a>
+                  </p>
+                )}
               </div>
               <span className={cn('text-xs font-medium rounded-full px-2.5 py-0.5 flex items-center gap-1', st.cls)}>
                 {v.status === 'APPROVED' ? <CheckCircle2 className="w-3 h-3" /> : v.status === 'REJECTED' ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}{st.label}
               </span>
-              {['REVIEW', 'ERROR'].includes(v.status) && <Button size="sm" variant="outline" onClick={() => setDeciding(v)}>Decidir</Button>}
+              {canWrite && ['REVIEW', 'ERROR'].includes(v.status) && <Button size="sm" variant="outline" onClick={() => setDeciding(v)}>Decidir</Button>}
             </div>
           );
         })}

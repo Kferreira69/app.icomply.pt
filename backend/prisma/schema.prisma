@@ -3429,6 +3429,7 @@ model IdentityVerification {
   // Provider-independent operation: MANUAL verifications are decided by a person; AUTOMATED ones
   // go through an external provider and are billable under the terms the customer accepted.
   automated      Boolean   @default(true)
+  actionUrl      String?   // hosted link the person opens to complete the check (Didit, Stripe Identity…)
   unitPrice      Decimal?  @db.Decimal(10, 2)  // PAYG price charged for this check (from the accepted terms)
   currency       String?
   termsVersion   Int?

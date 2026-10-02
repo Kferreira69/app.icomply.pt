@@ -9,6 +9,7 @@ const users: Record<string, any> = {
   agent:    { id: 'agent', role: 'SUPPORT', status: 'ACTIVE', email: 'agent@cc.pt', organization: CC },
   boss:     { id: 'boss', role: 'SUPER_ADMIN', status: 'ACTIVE', email: 'boss@cc.pt', organization: CC },
   rogue:    { id: 'rogue', role: 'SUPER_ADMIN', status: 'ACTIVE', email: 'rogue@x.pt', organization: CUSTOMER }, // SUPER_ADMIN inside a customer org
+  suspendedAgent: { id: 'suspendedAgent', role: 'SUPPORT', status: 'SUSPENDED', email: 'sa@cc.pt', organization: CC },
   rogueAgent: { id: 'rogueAgent', role: 'SUPPORT', status: 'ACTIVE', email: 'ra@x.pt', organization: CUSTOMER },
   author:   { id: 'author', role: 'ADMIN', status: 'ACTIVE', email: 'ana@cliente.pt', organization: CUSTOMER },
   other:    { id: 'other', role: 'ADMIN', status: 'ACTIVE', email: 'rui@cliente.pt', organization: CUSTOMER },
@@ -30,12 +31,14 @@ function make(opts: { env?: string; staffUsers?: any[] } = {}) {
     },
     supportTicket: {
       count: jest.fn().mockResolvedValue(6),
+      findFirst: jest.fn().mockResolvedValue({ ticketNumber: '#0006' }),
+      findUniqueOrThrow: jest.fn(async () => ticket()),
       create: jest.fn(async ({ data }: any) => ticket({ ...data, id: 't1' })),
       findUnique: jest.fn(async () => ticket()),
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(async ({ data }: any) => ticket({ ...data })),
     },
-    ticketReply: { create: jest.fn(async ({ data }: any) => ({ id: 'r1', ...data, author: { id: data.authorId, firstName: 'X', lastName: 'Y', role: 'ADMIN' }, attachments: [] })) },
+    ticketReply: { findUnique: jest.fn().mockResolvedValue({ ticketId: 't1' }), create: jest.fn(async ({ data }: any) => ({ id: 'r1', ...data, author: { id: data.authorId, firstName: 'X', lastName: 'Y', role: 'ADMIN' }, attachments: [] })) },
     ticketAttachment: { findUnique: jest.fn() },
     $transaction: jest.fn(async (ops: any[]) => Promise.all(ops)),
   };
@@ -134,6 +137,51 @@ describe('SupportTicketsService — notifications', () => {
     await service.update('t1', 'agent', 'SUPPORT' as any, { status: 'RESOLVED' } as any);
     await flush();
     expect(mail.sendTicketEmail.mock.calls.map((c: any) => c[0])).toEqual(['ana@cliente.pt']);
+  });
+});
+
+describe('SupportTicketsService — numbering, internal notes, staff status', () => {
+  it('numbers from the highest existing ticket, so deleting old tickets cannot cause collisions', async () => {
+    const { service, prisma } = make();
+    prisma.supportTicket.findFirst.mockResolvedValue({ ticketNumber: '#0042' }); // #0001.. were deleted, count() would say 3
+    await service.create('author', 'org1', { subject: 's', description: 'd' } as any);
+    expect(prisma.supportTicket.create.mock.calls[0][0].data.ticketNumber).toBe('#0043');
+  });
+
+  it('retries with the next number when a concurrent create took it (P2002)', async () => {
+    const { service, prisma } = make();
+    const taken: any = Object.assign(new Error('unique'), { code: 'P2002' });
+    prisma.supportTicket.create.mockRejectedValueOnce(taken).mockImplementation(async ({ data }: any) => ticket({ ...data }));
+    await service.create('author', 'org1', { subject: 's', description: 'd' } as any);
+    const numbers = prisma.supportTicket.create.mock.calls.map((c: any) => c[0].data.ticketNumber);
+    expect(numbers).toEqual(['#0007', '#0008']);
+  });
+
+  it('gives up on errors that are not a number collision', async () => {
+    const { service, prisma } = make();
+    prisma.supportTicket.create.mockRejectedValue(Object.assign(new Error('db down'), { code: 'P1001' }));
+    await expect(service.create('author', 'org1', { subject: 's', description: 'd' } as any)).rejects.toThrow('db down');
+  });
+
+  it('an internal note does not change the status the customer sees; a visible reply does', async () => {
+    const { service, prisma } = make({ env: 'suporte@icomply.pt' });
+    await service.addReply('t1', 'agent', 'SUPPORT' as any, { body: 'nota', isInternal: true } as any);
+    expect(prisma.supportTicket.update).not.toHaveBeenCalled();
+    await service.addReply('t1', 'agent', 'SUPPORT' as any, { body: 'resposta' } as any);
+    expect(prisma.supportTicket.update.mock.calls[0][0].data.status).toBe('WAITING_USER');
+  });
+
+  it('a suspended support agent is not staff and cannot be assigned tickets', async () => {
+    const { service } = make();
+    expect(await service.isStaff('suspendedAgent')).toBe(false);
+    await expect(service.update('t1', 'agent', 'SUPPORT' as any, { assignedToId: 'suspendedAgent' } as any)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('an attachment cannot be hooked to a reply of another ticket', async () => {
+    const { service, prisma } = make();
+    prisma.ticketReply.findUnique.mockResolvedValue({ ticketId: 'other-ticket' });
+    await expect(service.uploadAttachment('t1', 'org', { buffer: Buffer.from('x'), originalname: 'a.txt', mimetype: 'text/plain', size: 1 } as any, 'r-foreign', 'author'))
+      .rejects.toBeInstanceOf(BadRequestException);
   });
 });
 

@@ -145,6 +145,60 @@ describe('LeadsService', () => {
     await expect(svc.update('x', { status: 'CLOSED' })).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  describe('erasure and retention (GDPR)', () => {
+    const old = (id: string, email: string) => ({ id, email });
+
+    beforeEach(() => {
+      prisma.productLead.delete = jest.fn().mockResolvedValue({});
+      prisma.productLead.deleteMany = jest.fn(async ({ where }: any) => ({ count: where.id ? where.id.in.length : 2 }));
+      prisma.user = { findMany: jest.fn().mockResolvedValue([]) };
+      prisma.orgContact = { findMany: jest.fn().mockResolvedValue([]) };
+    });
+
+    it('erases one lead, or every lead of an email, on request', async () => {
+      expect(await svc.remove('l1')).toEqual({ deleted: 1 });
+      prisma.productLead.findUnique.mockResolvedValue(null);
+      await expect(svc.remove('x')).rejects.toBeInstanceOf(NotFoundException);
+      expect(await svc.removeByEmail('  Ana@Empresa.PT ')).toEqual({ deleted: 2 });
+      expect(prisma.productLead.deleteMany.mock.calls[0][0].where).toEqual({ email: 'ana@empresa.pt' });
+      await expect(svc.removeByEmail('not-an-email')).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('purges leads whose last activity is older than 24 months', async () => {
+      prisma.productLead.findMany = jest.fn().mockResolvedValue([old('a', 'a@x.pt'), old('b', 'b@x.pt')]);
+      const now = new Date('2026-10-02T03:15:00Z');
+      expect(await svc.purgeExpired(now)).toBe(2);
+      const cutoff = prisma.productLead.findMany.mock.calls[0][0].where.updatedAt.lt as Date;
+      expect(cutoff.toISOString().slice(0, 10)).toBe('2024-10-02');
+      expect(prisma.productLead.deleteMany.mock.calls[0][0].where).toEqual({ id: { in: ['a', 'b'] } });
+    });
+
+    it('keeps leads whose email is a registered user or an organisation contact (customer / free user)', async () => {
+      prisma.productLead.findMany = jest.fn().mockResolvedValue([old('a', 'a@x.pt'), old('b', 'B@x.pt'), old('c', 'c@x.pt')]);
+      prisma.user.findMany.mockResolvedValue([{ email: 'a@x.pt' }]);
+      prisma.orgContact.findMany.mockResolvedValue([{ email: 'b@X.pt' }]);
+      expect(await svc.purgeExpired()).toBe(1);
+      expect(prisma.productLead.deleteMany.mock.calls[0][0].where).toEqual({ id: { in: ['c'] } });
+      expect(prisma.user.findMany.mock.calls[0][0].where.status).toEqual({ not: 'DELETED' });
+    });
+
+    it('does nothing (and never loops forever) when everything old is still related', async () => {
+      prisma.productLead.findMany = jest.fn().mockResolvedValue([old('a', 'a@x.pt')]);
+      prisma.user.findMany.mockResolvedValue([{ email: 'a@x.pt' }]);
+      expect(await svc.purgeExpired()).toBe(0);
+      expect(prisma.productLead.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.productLead.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('pages past retained rows so later expired leads are still found', async () => {
+      const page1 = Array.from({ length: 500 }, (_, i) => old('k' + i, 'rel' + i + '@x.pt'));
+      prisma.user.findMany.mockImplementation(async ({ where }: any) => where.email.in.filter((e: string) => e.startsWith('rel')).map((email: string) => ({ email })));
+      prisma.productLead.findMany = jest.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce([old('z', 'gone@x.pt')]);
+      expect(await svc.purgeExpired()).toBe(1);
+      expect(prisma.productLead.findMany.mock.calls[1][0].skip).toBe(500);
+    });
+  });
+
   it('escapes html', () => {
     expect(esc(`<a href="x">&'`)).toBe('&lt;a href=&quot;x&quot;&gt;&amp;&#39;');
   });

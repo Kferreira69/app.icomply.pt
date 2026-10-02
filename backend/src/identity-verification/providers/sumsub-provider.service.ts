@@ -50,7 +50,9 @@ const header = (h: WebhookContext['headers'], name: string): string | undefined 
 export class SumsubProviderService implements KycProvider {
   readonly id = 'SUMSUB';
   readonly displayName = 'Sumsub';
-  readonly capabilities: KycCapabilities = { individual: true, business: true, sanctions: true, webhooks: true };
+  // sanctions: off until `/resources/checks/latest` is exercised against a Sumsub sandbox — it used to return a PENDING
+  // check that no webhook could ever resolve, yet the customer was billed. Sanctions go to another provider or to manual.
+  readonly capabilities: KycCapabilities = { individual: true, business: true, sanctions: false, webhooks: true };
   private readonly baseUrl = 'https://api.sumsub.com';
   private readonly levelIndividual: string;
   private readonly levelBusiness: string;
@@ -81,6 +83,7 @@ export class SumsubProviderService implements KycProvider {
         'Content-Type': 'application/json',
       },
       body: bodyStr || undefined,
+      signal: AbortSignal.timeout(30000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -97,7 +100,17 @@ export class SumsubProviderService implements KycProvider {
       fixedInfo: { firstName: input.fullName.split(' ')[0], lastName: input.fullName.split(' ').slice(1).join(' ') },
       email: input.email,
     });
-    return { status: 'PENDING', providerRefId: (data as any).id, rawResult: data as Record<string, unknown> };
+    return { status: 'PENDING', providerRefId: (data as any).id, actionUrl: await this.hostedLink(this.levelIndividual, externalUserId), rawResult: data as Record<string, unknown> };
+  }
+
+  /**
+   * External Web SDK link the person opens to scan the document / take the selfie. If it cannot be created the
+   * whole request fails (nothing is recorded or billed): a check nobody can complete is worse than no check.
+   */
+  private async hostedLink(levelName: string, externalUserId: string): Promise<string> {
+    const d: any = await this.request('POST', `/resources/sdkIntegrations/levels/${encodeURIComponent(levelName)}/websdkLink?ttlInSecs=604800&externalUserId=${encodeURIComponent(externalUserId)}`, {});
+    if (!d?.url) throw new Error('Sumsub did not return a verification link');
+    return d.url as string;
   }
 
   async verifyBusiness(input: BusinessVerificationInput): Promise<VerificationResult> {
@@ -107,7 +120,7 @@ export class SumsubProviderService implements KycProvider {
       type: 'company',
       info: { country: input.country, companyInfo: { companyName: input.legalName, registrationNumber: input.registrationNumber, taxId: input.vatNumber } },
     });
-    return { status: 'PENDING', providerRefId: (data as any).id, rawResult: data as Record<string, unknown> };
+    return { status: 'PENDING', providerRefId: (data as any).id, actionUrl: await this.hostedLink(this.levelBusiness, externalUserId), rawResult: data as Record<string, unknown> };
   }
 
   async screenSanctions(input: SanctionsScreeningInput): Promise<VerificationResult> {
@@ -150,7 +163,7 @@ export class SumsubProviderService implements KycProvider {
 export const SUMSUB_DEFINITION: ProviderDefinition = {
   id: 'SUMSUB',
   displayName: 'Sumsub',
-  capabilities: { individual: true, business: true, sanctions: true, webhooks: true },
+  capabilities: { individual: true, business: true, sanctions: false, webhooks: true },
   isConfigured: (c: ConfigService) => !!(c.get<string>('SUMSUB_APP_TOKEN') && c.get<string>('SUMSUB_SECRET_KEY')),
   create: (c: ConfigService) =>
     new SumsubProviderService({
