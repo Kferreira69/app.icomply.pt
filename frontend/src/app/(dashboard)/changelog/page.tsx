@@ -24,6 +24,8 @@ const CHANGELOG: ChangelogEntry[] = [
     date: '2026-10-01',
     name: 'Sete novas normas, ISO 14001 no domínio ESG, Gestão Documental e Pesquisa global',
     features: [
+      'Suporte: aviso por email à equipa quando entra um ticket novo ou o cliente responde (resumo + ligação direta), e ao autor quando o suporte responde ou resolve; novo perfil Agente de Suporte, sem acesso aos módulos, só para atender tickets; o menu mostra os tickets por responder',
+      'Segurança: os tickets de suporte só são visíveis a quem os abriu e à equipa de suporte da plataforma (um super-administrador criado numa organização de cliente deixou de ver os tickets de todos); os anexos seguem a mesma regra e as notas internas ficam só para a equipa',
       'Verificação de Identidade (KYC/KYB/sanções) independente de qualquer fornecedor: modo manual desde o primeiro dia (pedido registado e decidido por uma pessoa) e modo automático quando houver fornecedor ligado e o cliente aceitar as condições (taxa de arranque + preço por verificação)',
       'Correção: os webhooks do Stripe e dos fornecedores de KYC eram bloqueados pelo login global (401); agora são aceites e autenticados pela assinatura do emissor',
       'Segurança: dependências atualizadas (Next.js, axios, multer, nodemailer, entre outras); 0 vulnerabilidades no frontend',

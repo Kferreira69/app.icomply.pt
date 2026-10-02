@@ -13,7 +13,7 @@ import { HelpSidebar } from '@/components/help/HelpSidebar';
 const PIN_KEY = 'icomply-nav-pinned';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -42,6 +42,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
     }
   }, [isAuthenticated, router, pathname]);
+
+  // Support agents work only in the support desk: anything else goes back there.
+  useEffect(() => {
+    if (user?.role === 'SUPPORT' && !pathname.startsWith('/admin/support') && !pathname.startsWith('/settings/profile')) {
+      router.replace('/admin/support');
+    }
+  }, [user?.role, pathname, router]);
 
   // On mobile (<768px) collapse after navigation
   useEffect(() => {

@@ -51,8 +51,9 @@ export type AppModule = (typeof ALL_MODULES)[number];
 
 // 0 = No access | 1 = Read only | 2 = Full access
 // Rows = modules, Cols = roles (in order: ADMIN, CM, CONSULTANT, INT_AUD, EXT_AUD, VIEWER)
-type RoleKey = 'SUPER_ADMIN' | 'ADMIN' | 'CISO' | 'COMPLIANCE_MANAGER' | 'CONSULTANT' | 'INTERNAL_AUDITOR' | 'EXTERNAL_AUDITOR' | 'LEGAL' | 'HEAD_RH' | 'TECNICO_IT' | 'VIEWER';
-type ModuleMatrix = Record<string, Record<RoleKey, number>>;
+type RoleKey = 'SUPER_ADMIN' | 'SUPPORT' | 'ADMIN' | 'CISO' | 'COMPLIANCE_MANAGER' | 'CONSULTANT' | 'INTERNAL_AUDITOR' | 'EXTERNAL_AUDITOR' | 'LEGAL' | 'HEAD_RH' | 'TECNICO_IT' | 'VIEWER';
+// SUPPORT is deliberately absent from every row: it is handled before the matrix is consulted (no module access).
+type ModuleMatrix = Record<string, Partial<Record<RoleKey, number>>>;
 
 const MODULE_MATRIX: ModuleMatrix = {
   //                              SA   ADM  CISO  CM   CON  IAUD EAUD LEGAL HRH  TIT  VIEW
@@ -112,6 +113,12 @@ export class PermissionsService {
     if (!user) return {};
 
     const role = user.role as RoleKey;
+
+    // A support agent works only in the support desk: no module access at all, whatever the matrix
+    // default or any per-user override / custom role says.
+    if (role === 'SUPPORT') {
+      return Object.fromEntries(ALL_MODULES.map(m => [m, 0]));
+    }
 
     // If the user has an active custom org role assigned, its permissions
     // JSON ({ module: 'none'|'read'|'write' }) fully replaces the base

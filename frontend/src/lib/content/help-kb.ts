@@ -316,6 +316,14 @@ export const KB_CATEGORIES = [
     color: 'bg-gray-100 text-gray-700',
     articles: [
       {
+        title: 'Como saber que há um novo pedido de suporte e quem lhe responde',
+        body: 'Quando um utilizador abre um pedido em Ajuda → Suporte, a equipa de suporte recebe de imediato um email com o resumo (assunto, organização, autor, categoria, prioridade e o início do texto) e um botão que abre o pedido já pronto a responder. O mesmo acontece quando o cliente responde. Quem abriu o pedido recebe um email quando o suporte responde (as notas internas nunca são enviadas) e quando o pedido é resolvido, com ligação direta ao pedido.\n\nOs avisos vão para o endereço configurado em SUPPORT_NOTIFY_EMAIL (por exemplo, a caixa de suporte partilhada); se não houver, para os utilizadores com o perfil Agente de Suporte e, na falta destes, para os super-administradores da plataforma. Em Suporte · Tickets, o menu mostra quantos pedidos aguardam resposta.',
+      },
+      {
+        title: 'O que é o perfil Agente de Suporte',
+        body: 'É um perfil só para atender pedidos de suporte: vê todos os pedidos, responde, escreve notas internas e atribui/fecha pedidos, mas não tem acesso a nenhum módulo da plataforma nem aos dados dos clientes fora dos pedidos. Só um super-administrador da plataforma o pode criar (Definições → Utilizadores → Convidar → Agente de Suporte), e só funciona na organização da plataforma — um utilizador criado noutra organização com este perfil não vê pedidos de ninguém.',
+      },
+      {
         title: 'Como configurar o SSO (Single Sign-On)',
         body: 'Em Definições → Segurança → SSO, configura a integração com o teu Identity Provider (Azure AD, Google Workspace, Okta). Precisas de: Client ID, Client Secret e URL de discovery do IdP. Após guardar, os utilizadores da organização podem autenticar com as credenciais corporativas. O SSO está disponível nos planos Professional e Enterprise.',
       },

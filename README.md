@@ -173,6 +173,9 @@ icomply-mvp/
 | `COMPLIANCE_MANAGER` | Full access within organization |
 | `CONSULTANT` | Can manage assigned projects |
 | `VIEWER` | Read-only access |
+| `SUPPORT` | Support-desk agent (platform operator only): sees and answers support tickets, **no access to any platform module** |
+
+**Support desk:** a new ticket and every customer reply send an email (summary + deep link `/admin/support?ticket=<id>`) to `SUPPORT_NOTIFY_EMAIL` (comma separated; e.g. the shared mailbox), otherwise to the active `SUPPORT` users, otherwise to the platform's super-admins. The author is emailed when support replies (internal notes never) and when the ticket is resolved. Staff = `SUPPORT` or `SUPER_ADMIN` **of the platform organisation only**; only a super-admin can create `SUPPORT` users.
 
 Access is per module (`MODULE_MATRIX` in `backend/src/permissions/permissions.service.ts`) and can be overridden per user or with custom organisation roles.
 
