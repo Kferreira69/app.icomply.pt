@@ -38,6 +38,8 @@ Cada norma chega com a checklist de requisitos completa, criada automaticamente 
 **Título:** Os documentos do seu sistema de gestão, sempre sob controlo.
 **Texto:** Manual, procedimentos, instruções, formulários e registos organizados por norma e cláusula, com o ficheiro real (Word, PDF, Excel…), histórico de versões e fluxo de aprovação — rascunho, em revisão, aprovado, obsoleto. **Quem carrega a versão não a pode aprovar**: separação de funções que o auditor espera ver.
 **Benefícios:**
+- **Um documento, várias normas.** O procedimento de controlo de documentos serve a ISO 9001, a ISO 14001 e a ISO 45001? Arquive-o uma só vez e partilhe-o: um só ficheiro, uma só versão, uma só aprovação — e aparece na lista de cada norma. Alterar um sítio atualiza todos; nunca mais cópias desencontradas por sistema de gestão.
+- **Do módulo de cada norma, um clique.** As páginas de ISO 27001, 45001, 22301, 37001, 27701, 42001 e 14001 (e as checklists das normas novas) abrem diretamente os documentos dessa norma.
 - Chega de "qual é a versão em vigor?": a versão aprovada é a única que aparece como vigente.
 - Um auditor pede o procedimento da cláusula 7.5 e encontra-o em dois cliques.
 - Cada pessoa vê apenas os documentos das normas a que o seu perfil dá acesso.
@@ -114,7 +116,7 @@ Each comes with its full requirement checklist created automatically for your or
 - **ISO/IEC 23894** (AI risk management) — AI Governance: an AI risk process aligned with ISO 31000, linked to the AI inventory and impact assessments.
 
 ## 2. Document Control for every ISO standard
-Manual, procedures, instructions, forms and records organised by standard and clause, with the real file (Word, PDF, Excel…), version history and an approval workflow — draft, in review, approved, obsolete. **Whoever uploads a version cannot approve it.** Everyone sees only the documents of the standards their role allows.
+Manual, procedures, instructions, forms and records organised by standard and clause, with the real file (Word, PDF, Excel…), version history and an approval workflow — draft, in review, approved, obsolete. **Whoever uploads a version cannot approve it.** Everyone sees only the documents of the standards their role allows. **One document, several standards:** a procedure shared by ISO 9001, ISO 14001 and ISO 45001 (document control, for instance) is filed once and shared — one file, one version history, one approval, listed under every standard it serves. Each standard's page links straight to its documents.
 
 ## 3. Global search
 One search across the platform — pages, policies, documents, risks, tasks, evidence, each standard's requirements, help and videos. Forgives typos and accents, understands synonyms, and shows exact matches first, then partial ones, then related topics. It only shows what your role is allowed to see.

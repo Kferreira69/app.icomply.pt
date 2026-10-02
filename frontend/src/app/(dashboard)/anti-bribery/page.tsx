@@ -1,4 +1,5 @@
 'use client';
+import { DocumentsShortcut } from '@/components/documents/documents-shortcut';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -172,6 +173,8 @@ export default function AntiBriberyPage() {
           </p>
         </div>
       </div>
+
+      <DocumentsShortcut standard="ISO_37001" label="ISO 37001" />
 
       {isLoading ? (
         <div className="text-center py-16 text-gray-400">Loading...</div>

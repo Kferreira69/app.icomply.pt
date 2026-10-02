@@ -1248,6 +1248,10 @@ model QualityDocument {
   // so one document-control module serves every domain: ISO_9001 | ISO_14001 | ISO_45001 |
   // ISO_27001 | ISO_22301 | ISO_37001 | ISO_27701 | ISO_42001 | GENERAL
   standard       String   @default("ISO_9001")
+  // Other standards the same document also serves (e.g. a document-control procedure used by ISO 9001
+  // AND ISO 14001). One file, one version history, one approval; the primary standard above decides
+  // who may change it, any of these decides who may read it.
+  alsoStandards  String[] @default([])
   clause         String   // clause of that standard, e.g. "4", "5.3", "7.5", "8.2"
   code           String?  // internal document code, e.g. "MQ-01"
   title          String

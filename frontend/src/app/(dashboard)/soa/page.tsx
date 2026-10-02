@@ -1,4 +1,5 @@
 'use client';
+import { DocumentsShortcut } from '@/components/documents/documents-shortcut';
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -341,6 +342,8 @@ export default function SoaPage() {
           {exporting ? '...' : t('exportCsv')}
         </button>
       </div>
+
+      <DocumentsShortcut standard="ISO_27001" label="ISO 27001" />
 
       {/* Dashboard row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

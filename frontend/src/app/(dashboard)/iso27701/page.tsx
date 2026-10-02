@@ -1,4 +1,5 @@
 'use client';
+import { DocumentsShortcut } from '@/components/documents/documents-shortcut';
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -416,6 +417,8 @@ export default function Iso27701Page() {
           <Button size="sm" onClick={() => setAddSub(true)}><Plus className="w-4 h-4 mr-1" />Novo Sub-processador</Button>
         )}
       </div>
+
+      <DocumentsShortcut standard="ISO_27701" label="ISO 27701" />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
