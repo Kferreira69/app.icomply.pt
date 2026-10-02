@@ -16,7 +16,10 @@ function fakeProvider(id: string, over: any = {}) {
   };
 }
 
-function make(opts: { addonActive?: boolean; metadata?: any; providers?: any[]; configured?: string[] } = {}) {
+const TERMS = { version: 1, currency: 'EUR', setupFee: 500, prices: { individual: 2, business: 5, sanctions: 1 }, proposedAt: '2026-10-02T00:00:00.000Z', proposedById: 'op' };
+const ACCEPTED = { terms: TERMS, acceptance: { version: 1, acceptedAt: '2026-10-02T00:00:00.000Z', acceptedById: 'admin' } };
+
+function make(opts: { addonActive?: boolean; metadata?: any; providers?: any[]; configured?: string[]; commercial?: any } = {}) {
   const sumsub = fakeProvider('SUMSUB');
   const trulioo = fakeProvider('TRULIOO', { capabilities: { individual: true, business: true, sanctions: true, webhooks: false } });
   const byId: Record<string, any> = { SUMSUB: sumsub, TRULIOO: trulioo };
@@ -30,7 +33,7 @@ function make(opts: { addonActive?: boolean; metadata?: any; providers?: any[]; 
   const prisma: any = {
     license: { findUnique: jest.fn().mockResolvedValue({ id: 'lic-1' }) },
     licenseAddon: {
-      findUnique: jest.fn().mockResolvedValue({ id: 'addon-1', enabled: true, metadata: opts.metadata ?? null }),
+      findUnique: jest.fn().mockResolvedValue({ id: 'addon-1', enabled: true, metadata: { ...(opts.metadata ?? {}), ...(opts.commercial === null ? {} : { kycCommercial: opts.commercial ?? ACCEPTED }) } }),
       update: jest.fn().mockResolvedValue({}),
     },
     identityVerification: {
@@ -71,11 +74,13 @@ describe('IdentityVerificationService — several providers', () => {
       expect(prisma.identityVerification.create).not.toHaveBeenCalled();
     });
 
-    it('refuses what the chosen provider cannot do', async () => {
-      const { service, sumsub } = make();
+    it('falls back to a manual check for what the chosen provider cannot do', async () => {
+      const { service, sumsub, prisma } = make();
       sumsub.capabilities.sanctions = false;
-      await expect(service.screenSanctions(ORG, 'u1', { name: 'X' })).rejects.toBeInstanceOf(BadRequestException);
+      const res = await service.screenSanctions(ORG, 'u1', { name: 'X' });
       expect(sumsub.screenSanctions).not.toHaveBeenCalled();
+      expect(res).toMatchObject({ provider: 'MANUAL', status: 'REVIEW', automated: false });
+      expect(prisma.identityVerification.create.mock.calls[0][0].data.unitPrice).toBeNull();
     });
 
     it('hides the provider\'s raw error from the caller and does not store a record', async () => {
@@ -109,14 +114,14 @@ describe('IdentityVerificationService — several providers', () => {
       await service.setProvider(ORG, 'trulioo');
       expect(prisma.licenseAddon.update.mock.calls[0][0]).toEqual({
         where: { id: 'addon-1' },
-        data: { metadata: { note: 'x', kycProvider: 'TRULIOO' } },
+        data: { metadata: { note: 'x', kycCommercial: ACCEPTED, kycProvider: 'TRULIOO' } },
       });
     });
 
     it('clears the choice with null', async () => {
       const { service, prisma } = make({ metadata: { kycProvider: 'TRULIOO' } });
       await service.setProvider(ORG, null);
-      expect(prisma.licenseAddon.update.mock.calls[0][0].data.metadata).toEqual({ kycProvider: null });
+      expect(prisma.licenseAddon.update.mock.calls[0][0].data.metadata).toEqual({ kycCommercial: ACCEPTED, kycProvider: null });
     });
 
     it('rejects unknown and unconfigured providers, and organisations without the add-on', async () => {
@@ -125,6 +130,95 @@ describe('IdentityVerificationService — several providers', () => {
       await expect(service.setProvider(ORG, 'TRULIOO')).rejects.toBeInstanceOf(BadRequestException);
       const { service: inactive } = make({ addonActive: false });
       await expect(inactive.setProvider(ORG, 'SUMSUB')).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('independent of any provider: manual mode and commercial terms', () => {
+    it('works with no provider configured at all: the check is recorded for a person to decide', async () => {
+      const { service, registry, prisma } = make({ configured: [], commercial: null });
+      registry.resolve.mockImplementation(() => { throw new Error('none'); });
+      const res = await service.verifyIndividual(ORG, 'u1', { ...person, documentNumber: '12345678' });
+      expect(res).toMatchObject({ provider: 'MANUAL', status: 'REVIEW', automated: false, subjectName: 'Ana Silva' });
+      const data = prisma.identityVerification.create.mock.calls[0][0].data;
+      expect(data.rawResult.input.documentNumber).toBe('••••5678'); // never stores the full document number
+      expect(data.unitPrice).toBeNull();
+    });
+
+    it('stays manual until the customer accepts the terms, even if a provider is configured (no surprise costs)', async () => {
+      const { service, sumsub } = make({ commercial: { terms: TERMS } }); // proposed, not accepted
+      const res = await service.verifyBusiness(ORG, 'u1', { legalName: 'ACME', country: 'PT' });
+      expect(sumsub.verifyBusiness).not.toHaveBeenCalled();
+      expect(res.provider).toBe('MANUAL');
+      const { service: none, sumsub: s2 } = make({ commercial: null }); // no terms at all
+      await none.verifyIndividual(ORG, 'u1', person);
+      expect(s2.verifyIndividual).not.toHaveBeenCalled();
+    });
+
+    it('terms changed after the acceptance → manual again until the new version is accepted', async () => {
+      const { service, sumsub } = make({ commercial: { terms: { ...TERMS, version: 2 }, acceptance: ACCEPTED.acceptance } });
+      const res = await service.verifyIndividual(ORG, 'u1', person);
+      expect(sumsub.verifyIndividual).not.toHaveBeenCalled();
+      expect(res.provider).toBe('MANUAL');
+    });
+
+    it('a feature that is not in the accepted terms is served manually', async () => {
+      const { service, sumsub } = make({ commercial: { ...ACCEPTED, terms: { ...TERMS, prices: { individual: 2 } } } });
+      expect((await service.screenSanctions(ORG, 'u1', { name: 'X' })).provider).toBe('MANUAL');
+      expect(sumsub.screenSanctions).not.toHaveBeenCalled();
+      await service.verifyIndividual(ORG, 'u1', person);
+      expect(sumsub.verifyIndividual).toHaveBeenCalled();
+    });
+
+    it('records the PAYG price in force on every automated check', async () => {
+      const { service, prisma } = make();
+      await service.verifyBusiness(ORG, 'u1', { legalName: 'ACME', country: 'PT' });
+      expect(prisma.identityVerification.create.mock.calls[0][0].data).toMatchObject({
+        automated: true, provider: 'SUMSUB', unitPrice: 5, currency: 'EUR', termsVersion: 1,
+      });
+    });
+
+    it('reports manual mode, awaiting acceptance, and the month\'s usage', async () => {
+      const { service, prisma } = make({ commercial: { terms: TERMS } });
+      prisma.identityVerification.findMany.mockResolvedValue([{ unitPrice: 2, currency: 'EUR' }, { unitPrice: 5, currency: 'EUR' }]);
+      const s = await service.getProviderSettings(ORG);
+      expect(s.mode).toBe('MANUAL');
+      expect(s.commercial).toMatchObject({ accepted: false, awaitingAcceptance: true, providerReady: true });
+      expect(s.usage).toMatchObject({ automatedChecks: 2, amount: 7, currency: 'EUR' });
+      const { service: ok } = make();
+      expect((await ok.getProviderSettings(ORG)).mode).toBe('AUTOMATED');
+    });
+
+    it('operator proposes terms: versions increase, at least one price is required, an old acceptance no longer counts', async () => {
+      const { service, prisma } = make();
+      await service.proposeTerms(ORG, 'op', { currency: 'EUR', setupFee: 300, priceIndividual: 3 });
+      const saved = prisma.licenseAddon.update.mock.calls[0][0].data.metadata.kycCommercial;
+      expect(saved.terms).toMatchObject({ version: 2, setupFee: 300, prices: { individual: 3 } });
+      expect(saved.acceptance.version).toBe(1); // stale → not accepted
+      await expect(service.proposeTerms(ORG, 'op', { currency: 'EUR', setupFee: 0 })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('customer accepts exactly the version they saw, and only if there are terms', async () => {
+      const { service, prisma } = make({ commercial: { terms: TERMS } });
+      await expect(service.acceptTerms(ORG, 'admin', 7)).rejects.toBeInstanceOf(BadRequestException);
+      await service.acceptTerms(ORG, 'admin', 1);
+      expect(prisma.licenseAddon.update.mock.calls[0][0].data.metadata.kycCommercial.acceptance)
+        .toMatchObject({ version: 1, acceptedById: 'admin' });
+      const { service: none } = make({ commercial: null });
+      await expect(none.acceptTerms(ORG, 'admin', 1)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('a person decides a manual verification once; decided or foreign ones are refused', async () => {
+      const { service, prisma } = make();
+      prisma.identityVerification.findFirst.mockResolvedValue({ id: 'v1', status: 'REVIEW', automated: false });
+      await service.decide(ORG, 'v1', 'u2', { decision: 'APPROVED', note: 'Documentos conferidos' });
+      expect(prisma.identityVerification.findFirst.mock.calls[0][0].where).toEqual({ id: 'v1', organizationId: ORG });
+      expect(prisma.identityVerification.update.mock.calls[0][0].data).toMatchObject({ status: 'APPROVED', decidedById: 'u2', decisionNote: 'Documentos conferidos' });
+      prisma.identityVerification.findFirst.mockResolvedValue({ id: 'v1', status: 'APPROVED', automated: false });
+      await expect(service.decide(ORG, 'v1', 'u2', { decision: 'REJECTED' })).rejects.toBeInstanceOf(BadRequestException);
+      prisma.identityVerification.findFirst.mockResolvedValue(null);
+      await expect(service.decide(ORG, 'v1', 'u2', { decision: 'REJECTED' })).rejects.toBeInstanceOf(NotFoundException);
+      prisma.identityVerification.findFirst.mockResolvedValue({ id: 'v2', status: 'PENDING', automated: true });
+      await expect(service.decide(ORG, 'v2', 'u2', { decision: 'APPROVED' })).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 

@@ -45,6 +45,7 @@ export const PAGES: PageEntry[] = [
   { href: '/iso27701', title: 'ISO 27701 — PIMS', group: 'Privacidade', keywords: 'gestão de privacidade pims extensão iso 27001' },
   { href: '/ai-governance', title: 'AI Act · ISO 42001', group: 'Governação de IA', keywords: 'inteligência artificial ai act sistemas de ia risco algoritmos' },
   { href: '/denuncias', title: 'Canal de Denúncias', group: 'Ética & Denúncias', keywords: 'whistleblowing denúncia irregularidades ética código de conduta formação anónimo' },
+  { href: '/identity-verification', title: 'Verificação de Identidade (KYC · KYB · Sanções)', group: 'Ética & Denúncias', keywords: 'kyc kyb verificação de identidade due diligence cliente sanções rastreio pessoas empresas manual automática fornecedor sumsub trulioo custos pay as you go setup condições comerciais decisão aprovar rejeitar' },
   { href: '/aml', title: 'AML · KYC · Sanções', group: 'Ética & Denúncias', keywords: 'branqueamento de capitais lavagem aml kyc sanções pep diligência cliente' },
   { href: '/anti-bribery', title: 'ISO 37001 · Anti-Bribery', group: 'Ética & Denúncias', keywords: 'anticorrupção suborno corrupção integridade presentes' },
   { href: '/hr-compliance', title: 'RH & Conformidade', group: 'Pessoas & Trabalho', keywords: 'recursos humanos hr formação colaboradores contratos igualdade salarial segurança no trabalho' },

@@ -24,6 +24,9 @@ const CHANGELOG: ChangelogEntry[] = [
     date: '2026-10-01',
     name: 'Sete novas normas, ISO 14001 no domínio ESG, Gestão Documental e Pesquisa global',
     features: [
+      'Verificação de Identidade (KYC/KYB/sanções) independente de qualquer fornecedor: modo manual desde o primeiro dia (pedido registado e decidido por uma pessoa) e modo automático quando houver fornecedor ligado e o cliente aceitar as condições (taxa de arranque + preço por verificação)',
+      'Correção: os webhooks do Stripe e dos fornecedores de KYC eram bloqueados pelo login global (401); agora são aceites e autenticados pela assinatura do emissor',
+      'Segurança: dependências atualizadas (Next.js, axios, multer, nodemailer, entre outras); 0 vulnerabilidades no frontend',
       'Gestão Documental: o mesmo documento pode servir várias normas (ex.: controlo de documentos na ISO 9001 e na ISO 14001) com um só ficheiro, versões e aprovação; as páginas de cada norma passam a ter atalho para os seus documentos',
       'Sete normas novas, cada uma com checklist completa, evidência por requisito, score e documentos próprios: ISO 22000 e ISO 13485 (Qualidade), ISO 20000-1 (Segurança), ISO 27018 (Privacidade), ISO 27036 (Terceiros), NIST AI RMF e ISO 23894 (IA)',
       'Objetivos ambientais ISO 14001 ligados às métricas ESG (CSRD/GRI): o valor atual é o da métrica, medido uma vez e reportado duas',

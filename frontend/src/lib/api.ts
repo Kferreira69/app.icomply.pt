@@ -884,6 +884,21 @@ export const itsmApi = {
 
 // ── AML / KYC / Financial Compliance ─────────────────────────
 
+export const identityVerificationApi = {
+  list:        (status?: string) => api.get('/identity-verification', { params: { status } }),
+  settings:    () => api.get('/identity-verification/providers'),
+  setProvider: (provider: string | null) => api.put('/identity-verification/provider', { provider }),
+  acceptTerms: (version: number) => api.post('/identity-verification/terms/accept', { version }),
+  individual:  (data: any) => api.post('/identity-verification/individual', data),
+  business:    (data: any) => api.post('/identity-verification/business', data),
+  sanctions:   (data: any) => api.post('/identity-verification/sanctions-screening', data),
+  decide:      (id: string, data: { decision: 'APPROVED' | 'REJECTED'; note?: string; riskScore?: number }) =>
+    api.patch(`/identity-verification/${id}/decision`, data),
+  // platform operator (backoffice)
+  adminSettings: (orgId: string) => api.get(`/identity-verification/admin/${orgId}`),
+  proposeTerms:  (orgId: string, data: any) => api.put(`/identity-verification/admin/${orgId}/terms`, data),
+};
+
 export const amlApi = {
   dashboard:       ()                              => api.get('/aml/dashboard'),
   listCases:       (params?: { status?: string; caseType?: string; riskLevel?: string }) =>
