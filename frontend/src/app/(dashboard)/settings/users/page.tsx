@@ -1,4 +1,5 @@
 'use client';
+import { useAuthStore } from '@/store/auth-store';
 
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +15,7 @@ import { UserPermissionsPanel } from '@/components/permissions/user-permissions-
 
 /* ── Invite Modal ─────────────────────────────────────────────── */
 function InviteModal({ onClose, duplicateFrom }: { onClose: () => void; duplicateFrom?: any }) {
+  const me = useAuthStore(st => st.user);
   const t = useTranslations('usersPage');
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<{
@@ -59,6 +61,8 @@ function InviteModal({ onClose, duplicateFrom }: { onClose: () => void; duplicat
     HEAD_RH: t('roleHeadRh'),
     TECNICO_IT: t('roleTecnicoIt'),
     VIEWER: t('roleViewer'),
+    // support agents can only be created by a platform super-admin (the server enforces it too)
+    ...(me?.role === 'SUPER_ADMIN' ? { SUPPORT: t('roleSupport') } : {}),
   };
 
   return (
@@ -481,6 +485,7 @@ export default function UsersSettingsPage() {
     HEAD_RH: t('roleHeadRh'),
     TECNICO_IT: t('roleTecnicoIt'),
     VIEWER: t('roleViewer'),
+    SUPPORT: t('roleSupport'),
   };
 
   const { data, isLoading } = useQuery({

@@ -210,6 +210,22 @@ const ENDPOINT_GROUPS = [
     ],
   },
   {
+    tag: 'Support Tickets',
+    icon: Search,
+    color: 'text-rose-700 bg-rose-50 border-rose-100',
+    desc: 'Pedidos de suporte: o autor vê os seus; a equipa de suporte (SUPPORT / SUPER_ADMIN da plataforma) vê todos. Cada novo ticket e resposta notifica por email.',
+    endpoints: [
+      { method: 'POST',  path: '/support-tickets',                          desc: 'Abrir pedido (notifica a equipa de suporte por email)' },
+      { method: 'GET',   path: '/support-tickets',                          desc: 'Listar (autor: os seus; suporte: todos; filtro status)' },
+      { method: 'GET',   path: '/support-tickets/stats',                    desc: 'Contagens por estado (só suporte)' },
+      { method: 'GET',   path: '/support-tickets/:id',                      desc: 'Detalhe; as notas internas só aparecem ao suporte' },
+      { method: 'POST',  path: '/support-tickets/:id/replies',              desc: 'Responder (suporte pode marcar nota interna); notifica a outra parte' },
+      { method: 'PATCH', path: '/support-tickets/:id',                      desc: 'Suporte: estado, prioridade, atribuição (só a membros da equipa)' },
+      { method: 'POST',  path: '/support-tickets/:id/attachments',          desc: 'Anexar ficheiro (autor ou suporte)' },
+      { method: 'GET',   path: '/support-tickets/attachments/:id/download', desc: 'Descarregar anexo (mesma visibilidade do ticket)' },
+    ],
+  },
+  {
     tag: 'Identity Verification (KYC)',
     icon: Search,
     color: 'text-violet-700 bg-violet-50 border-violet-100',

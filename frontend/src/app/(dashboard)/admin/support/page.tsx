@@ -242,9 +242,16 @@ export default function AdminSupportPage() {
   }, [statusFilter, page, router]);
 
   useEffect(() => {
-    if (user && user.role !== 'SUPER_ADMIN') router.push('/dashboard');
+    if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'SUPPORT') router.push('/dashboard');
     else load();
   }, [user, load, router]);
+
+  // Link in the new-ticket email: /admin/support?ticket=<id> opens that ticket straight away.
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return;
+    const id = new URLSearchParams(window.location.search).get('ticket');
+    if (id) api.get(`/support-tickets/${id}`).then(r => setSelectedTicket(r.data)).catch(() => undefined);
+  }, [user]);
 
   const openTicket = async (ticket: Ticket) => {
     const { data } = await api.get(`/support-tickets/${ticket.id}`);
@@ -476,7 +483,7 @@ export default function AdminSupportPage() {
                   className={`rounded-xl p-3 text-sm ${
                     r.isInternal
                       ? 'bg-yellow-50 border border-yellow-200'
-                      : r.author.role === 'SUPER_ADMIN'
+                      : ['SUPER_ADMIN', 'SUPPORT'].includes(r.author.role)
                       ? 'bg-indigo-50 border border-indigo-100'
                       : 'bg-white border border-gray-100'
                   }`}
@@ -485,7 +492,7 @@ export default function AdminSupportPage() {
                     <span className="font-semibold text-xs text-gray-700">
                       {r.author.firstName} {r.author.lastName}
                     </span>
-                    {r.author.role === 'SUPER_ADMIN' && (
+                    {['SUPER_ADMIN', 'SUPPORT'].includes(r.author.role) && (
                       <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">
                         Suporte iComply
                       </span>
