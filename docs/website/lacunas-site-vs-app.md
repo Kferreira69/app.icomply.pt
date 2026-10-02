@@ -20,7 +20,7 @@ Atualizado em 2026-10-01 (versão 1.1.0). Princípio do utilizador: **a aplicaç
 | EU Taxonomy (domínio ESG) | **Roadmap** — não existe módulo | Marcar "em breve" no site, ou construir (próxima prioridade ESG) |
 | ePrivacy (domínio Privacidade) | **Parcial** — diagnóstico e mapeamento de controlos, sem módulo dedicado | Descrever como "diagnóstico", ou construir checklist no motor genérico (baixo esforço) |
 | RGPC (domínio Ética) | **Parcial** — diagnóstico e plano de ação | Idem |
-| Verificação de identidade (KYC) | Em preparação; aguarda a resposta da Sumsub | Não prometer; "em breve" |
+| Verificação de identidade (KYC/KYB/sanções) | **Disponível em modo manual** (pedido registado e decidido por uma pessoa). Automática: depende de ligar um fornecedor (a escolher) e de o cliente aceitar as condições (taxa de arranque + preço por verificação) | Prometer o modo manual; a automática como "disponível mediante condições" |
 
 ## O que a aplicação faz e o site ainda **não** mostra
 | Funcionalidade | Ação |

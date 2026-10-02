@@ -309,9 +309,11 @@ function VendorAssessmentModal({
   const displayRisk = form.riskLevel || derivedRisk;
 
   const mutation = useMutation({
-    mutationFn: (data: any) => isEdit
-      ? vendorsApi.updateAssessment(assessment.id, data)
-      : vendorsApi.createAssessment(data),
+    mutationFn: async (data: any) => {
+      // create and update return differently typed responses under the stricter axios typings
+      if (isEdit) await vendorsApi.updateAssessment(assessment.id, data);
+      else await vendorsApi.createAssessment(data);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendor-assessments'] });
       qc.invalidateQueries({ queryKey: ['vendors'] });

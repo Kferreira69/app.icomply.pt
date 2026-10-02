@@ -138,3 +138,16 @@ One search across the platform — pages, policies, documents, risks, tasks, evi
 - [ ] Notícia / LinkedIn (secção 7), FAQ + JSON-LD (secção 8)
 - [ ] Versão EN equivalente
 - [ ] Rever lacunas em `lacunas-site-vs-app.md`
+
+---
+
+# Verificação de identidade (KYC · KYB · Sanções) — conteúdo comercial
+
+**Título:** Conheça os seus clientes e parceiros sem depender de ninguém.
+**Texto (PT):** Verifique pessoas e empresas e rastreie sanções e PEP a partir do iComply. **Comece já em modo manual** — o pedido fica registado, a sua equipa decide com fundamentação e tudo fica auditável, sem custos adicionais. Quando precisar de escala, **ative a verificação automática** por um fornecedor especializado: paga uma taxa de arranque única e depois apenas por verificação (pay-as-you-go), com preços claros e aceites por si antes de qualquer custo.
+**Benefícios:**
+- Sem fornecedor obrigatório: o módulo funciona desde o primeiro dia; a automatização é um passo opcional.
+- Sem surpresas: as verificações automáticas só começam depois de um administrador aceitar as condições; as manuais nunca têm custo.
+- Auditável: quem pediu, quem decidiu, quando e porquê; documento guardado mascarado.
+**Rigor:** a verificação automática depende de ligar um fornecedor (em escolha) — apresentar como "disponível mediante condições", não como incluída.
+**EN:** Know your customers and partners without depending on anyone. Start in manual mode today — requests are logged and your team decides with a documented rationale, at no extra cost. When you need scale, switch on automated verification: a one-off set-up fee, then pay-as-you-go per check, with clear prices you accept before any cost applies.

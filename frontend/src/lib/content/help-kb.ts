@@ -218,6 +218,22 @@ export const KB_CATEGORIES = [
     ],
   },
   {
+    id: 'verificacao-identidade',
+    label: 'Verificação de Identidade (KYC · KYB · Sanções)',
+    icon: Recycle,
+    color: 'bg-violet-100 text-violet-700',
+    articles: [
+      {
+        title: 'Como funciona a Verificação de Identidade (manual e automática)',
+        body: 'Em Ética → Verificação de Identidade registas pedidos para pessoas, empresas e rastreio de sanções/PEP. O módulo funciona sempre, sem depender de nenhum fornecedor:\n• Modo manual (sem custos adicionais): o pedido fica registado e uma pessoa decide — Aprovar ou Rejeitar — indicando a fundamentação (diligências feitas, listas consultadas). O nº do documento é guardado mascarado.\n• Modo automático: um fornecedor especializado faz a verificação. Só é usado quando o fornecedor está ligado à plataforma E um administrador da tua organização aceitou as condições comerciais (taxa de arranque única + preço por verificação). Até lá os pedidos seguem em modo manual, sem custos surpresa.\n\nO add-on de Verificação de Identidade tem de estar ativo na tua licença.',
+      },
+      {
+        title: 'Como aceitar as condições comerciais da verificação automática',
+        body: 'Quando a Contemporary Constellation propõe condições para a tua organização, aparecem no cartão do modo em Verificação de Identidade: taxa de arranque (única) e preço pay-as-you-go por funcionalidade (pessoas, empresas, sanções). Um administrador revê e clica em "Aceitar condições". Se as condições forem revistas, é preciso aceitar a nova versão. Cada verificação automática guarda o preço em vigor e o consumo do mês é mostrado no mesmo cartão. As verificações manuais nunca têm custo.',
+      },
+    ],
+  },
+  {
     id: 'relatorios',
     label: 'Relatórios & Board',
     icon: BarChart3,

@@ -57,3 +57,26 @@ Written from the vendors' public documentation and **not yet exercised against a
 account** — applicant creation, the Sumsub AML endpoint and the webhook digest must be verified
 before production use. The capture step (document / selfie upload via the vendor's web SDK) is not
 built yet.
+
+## Provider-independent operation: manual mode and commercial terms
+
+The module does not wait for any vendor. Once the `identity_verification` add-on is active an
+organisation can use it **manually**: a request is recorded (`provider = MANUAL`, status `REVIEW`) and
+a person decides it (`PATCH /identity-verification/:id/decision`, `aml` write access). A document
+number is stored masked (last 4 digits). No external cost.
+
+**Automated** checks (an external provider) are used only when ALL of these hold:
+
+1. a provider is configured on the platform (credentials in the environment — see below);
+2. the platform operator proposed **commercial terms** for the organisation
+   (`PUT /identity-verification/admin/:orgId/terms`, super-admin; backoffice page *KYC · Condições*):
+   one-off set-up fee + pay-as-you-go price per feature (`individual`, `business`, `sanctions`);
+3. an **ADMIN of the customer accepted exactly that version** (`POST /identity-verification/terms/accept`).
+
+Otherwise — or for a feature not priced in the accepted terms, or one the provider cannot do — the
+request silently falls back to manual. A new version of the terms invalidates the previous acceptance.
+Each automated check stores the price in force (`unitPrice`, `currency`, `termsVersion`) so history is
+never rewritten; `GET /identity-verification/providers` shows the month's usage. Invoicing (set-up fee and
+PAYG total) is done by the operator in Backoffice → Licenciamento.
+
+So going live with a vendor is: set its credentials → propose terms → customer accepts. No code change.
