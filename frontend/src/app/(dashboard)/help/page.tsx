@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Mail, BookOpen, MessageCircle, FileText,
   ChevronRight, ExternalLink, Phone, Clock,
@@ -324,7 +324,7 @@ function TicketDetailView({
           </div>
 
           {visibleReplies.map(r => {
-            const isSupport = r.author.role === 'SUPER_ADMIN';
+            const isSupport = ['SUPER_ADMIN', 'SUPPORT'].includes(r.author.role);
             return (
               <div
                 key={r.id}
@@ -441,6 +441,16 @@ function SupportSection() {
       setLoadingDetail(false);
     }
   };
+
+  // Link in the notification emails: /help?ticket=<id> opens the ticket.
+  useEffect(() => {
+    const id = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ticket') : null;
+    if (!id) return;
+    setTab('tickets');
+    loadTickets();
+    openTicketDetail({ id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">

@@ -24,7 +24,9 @@ export class UsersService {
 
   private roleOrder: UserRole[] = [
     'VIEWER', 'EXTERNAL_AUDITOR', 'INTERNAL_AUDITOR', 'CONSULTANT', 'TECNICO_IT', 'HEAD_RH',
-    'LEGAL', 'COMPLIANCE_MANAGER', 'CISO', 'ADMIN', 'SUPER_ADMIN',
+    'LEGAL', 'COMPLIANCE_MANAGER', 'CISO', 'ADMIN',
+    'SUPPORT', // above ADMIN: only a platform super-admin can create or assign support agents
+    'SUPER_ADMIN',
   ];
 
   async create(dto: CreateUserDto, organizationId: string, creatorRole: UserRole) {

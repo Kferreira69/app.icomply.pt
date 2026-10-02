@@ -6,6 +6,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 // Role hierarchy: higher index = more permissions
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   VIEWER: 0,
+  SUPPORT: 0, // no hierarchy privileges: support agents are limited to the support desk
   EXTERNAL_AUDITOR: 1,
   INTERNAL_AUDITOR: 2,
   CONSULTANT: 3,

@@ -1058,6 +1058,7 @@
     "roleLegal": "Juridique",
     "roleHeadRh": "Responsable RH",
     "roleTecnicoIt": "Technicien IT",
+    "roleSupport": "Agent de support",
     "roleInternalAuditor": "Auditeur interne",
     "roleExternalAuditor": "Auditeur externe"
   },

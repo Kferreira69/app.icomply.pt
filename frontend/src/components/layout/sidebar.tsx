@@ -10,7 +10,7 @@ import {
   Settings, Upload, ChevronDown, Pin, PinOff,
   BookOpen, ShieldCheck, Network, Building2, FileCheck2,
   Activity, MessageSquareWarning, Bot, Brain,
-  Briefcase, Scale, Users, Layers, Zap, ScrollText, Inbox, UserCheck,
+  Briefcase, Scale, Users, Layers, Zap, ScrollText, Inbox, UserCheck, LifeBuoy,
   GitMerge, Eye, Leaf, ShieldAlert, Award, Car,
   HardHat, ClipboardList, CalendarDays, Handshake, Rss,
   Plus, X, AlertOctagon, Grid3X3,
@@ -20,7 +20,7 @@ import {
 import { useAuthStore } from '@/store/auth-store';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { featureFlagsApi } from '@/lib/api';
+import { featureFlagsApi, api } from '@/lib/api';
 import { LocaleSwitcher } from '@/i18n/locale-switcher';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -511,6 +511,21 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
   const isCCAdmin = user?.role === 'SUPER_ADMIN' &&
     user?.organization?.name?.toLowerCase().includes('contemporary constellation');
 
+  // Support desk: the platform's SUPPORT agents and super-admins answer tickets. An agent sees nothing else.
+  const isSupportAgent = user?.role === 'SUPPORT';
+  const isSupportStaff = isSupportAgent || !!isCCAdmin;
+  const { data: supportStats } = useQuery<{ open: number; inProgress: number; waitingUser: number }>({
+    queryKey: ['support-stats'],
+    enabled: isSupportStaff,
+    refetchInterval: 60_000,
+    queryFn: () => api.get('/support-tickets/stats').then(r => r.data),
+  });
+  const supportWaiting = (supportStats?.open ?? 0) + (supportStats?.inProgress ?? 0);
+  const supportItem: NavLeaf = {
+    href: '/admin/support', label: 'Suporte · Tickets', icon: LifeBuoy,
+    badge: supportWaiting > 0 ? String(supportWaiting) : undefined,
+  };
+
   const isDemoMode: boolean = (user?.organization as any)?.isDemoMode ?? false;
   const userPlan: string = isDemoMode ? 'ENTERPRISE' : ((user?.organization as any)?.plan ?? 'FREE');
 
@@ -544,7 +559,7 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
     { href: '/academy',            label: 'Centro de Formação',      icon: GraduationCap },
   ];
 
-  const sections: NavSection[] = [
+  const allSections: NavSection[] = [
     {
       key: 'top',
       fixed: true,
@@ -708,9 +723,14 @@ export function Sidebar({ collapsed = false, pinned = false, onTogglePin }: {
           { href: '/backoffice/leads',          label: 'Leads do site', icon: Inbox  },
           { href: '/backoffice/kyc-terms',      label: 'KYC · Condições', icon: UserCheck },
         ] : []),
+        ...(isSupportStaff ? [supportItem] : []),
       ],
     },
   ];
+
+  const sections: NavSection[] = isSupportAgent
+    ? [{ key: 'support', type: 'flat', label: 'Suporte', fixed: true, items: [supportItem] }]
+    : allSections;
 
   const getDefaultOpen = (domain: NavDomain) =>
     domain.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'));

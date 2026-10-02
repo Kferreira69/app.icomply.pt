@@ -152,6 +152,42 @@ export class MailService {
     `);
   }
 
+  /**
+   * Support-desk email: a heading, a few labelled facts, an optional excerpt and a button.
+   * Every value is HTML-escaped here — callers pass plain text (ticket text is user input).
+   */
+  async sendTicketEmail(to: string, subject: string, mail: {
+    heading: string;
+    facts: Array<[string, string]>;
+    excerpt?: string;
+    url: string;
+    cta: string;
+  }): Promise<void> {
+    const esc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+    const rows = mail.facts.map(([k, v]) =>
+      `<tr><td style="padding:4px 12px 4px 0;color:#666;white-space:nowrap">${esc(k)}</td><td style="padding:4px 0"><b>${esc(v)}</b></td></tr>`).join('');
+    const excerpt = mail.excerpt
+      ? `<blockquote style="margin:16px 0;padding:8px 16px;border-left:3px solid #1a56db;color:#333;background:#f6f8fc">${esc(mail.excerpt).replace(/\n/g, '<br>')}</blockquote>`
+      : '';
+    await this.send(to, subject, `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a56db;">${esc(mail.heading)}</h2>
+        <table style="font-size:14px;border-collapse:collapse">${rows}</table>
+        ${excerpt}
+        <p style="margin: 24px 0;">
+          <a href="${esc(mail.url)}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">${esc(mail.cta)}</a>
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">iComply Support</p>
+      </div>
+    `);
+  }
+
+  /** Absolute link into the app, for emails sent from other services. */
+  appLink(path: string): string {
+    return `${this.frontendUrl}${path}`;
+  }
+
   async sendNotification(email: string, title: string, message: string): Promise<void> {
     await this.send(email, `${title} — iComply`, `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

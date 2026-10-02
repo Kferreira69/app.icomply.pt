@@ -22,6 +22,7 @@ enum RagStatus {
 
 enum UserRole {
   SUPER_ADMIN
+  SUPPORT          // support-desk agent: sees and answers support tickets, nothing else
   ADMIN
   CISO
   COMPLIANCE_MANAGER

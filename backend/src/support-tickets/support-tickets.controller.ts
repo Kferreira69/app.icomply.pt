@@ -24,10 +24,7 @@ export class SupportTicketsController {
 
   @Get('stats')
   getStats(@Request() req: any) {
-    if (req.user.role !== 'SUPER_ADMIN') {
-      return { open: 0, inProgress: 0, waitingUser: 0, resolved: 0, total: 0 };
-    }
-    return this.service.getStats();
+    return this.service.getStats(req.user.userId);
   }
 
   @Get('attachments/:attachmentId/download')
@@ -36,7 +33,7 @@ export class SupportTicketsController {
     @Param('attachmentId') attachmentId: string,
     @Res() res: Response,
   ) {
-    return this.service.downloadAttachment(attachmentId, req.user.organizationId, res);
+    return this.service.downloadAttachment(attachmentId, req.user.userId, res);
   }
 
   @Get()
@@ -67,7 +64,7 @@ export class SupportTicketsController {
     @UploadedFile() file: Express.Multer.File,
     @Query('replyId') replyId?: string,
   ) {
-    return this.service.uploadAttachment(ticketId, req.user.organizationId, file, replyId);
+    return this.service.uploadAttachment(ticketId, req.user.organizationId, file, replyId, req.user.userId);
   }
 
   @Patch(':id')
