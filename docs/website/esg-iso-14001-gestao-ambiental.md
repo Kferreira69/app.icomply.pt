@@ -120,7 +120,7 @@ Usar dados fictícios (ex.: "Consumo de energia elétrica", "Gestão de resíduo
 
 **Preciso de um domínio extra para a ISO 14001?** Não. Faz parte do domínio ESG & Sustentabilidade. *(confirmar com a política de preços)*
 
-**Posso gerir a ISO 14001 e a ISO 9001 no mesmo sistema?** Sim. Os documentos de todas as normas ficam na mesma Gestão Documental, por norma e cláusula, e cada pessoa só vê o que o seu perfil permite.
+**Posso gerir a ISO 14001 e a ISO 9001 no mesmo sistema?** Sim, e é a grande vantagem. A Gestão Documental é única: manual, procedimentos e registos de todas as normas ficam no mesmo sítio, organizados por norma e cláusula, com versões e aprovação. Chega-se lá a partir de cada domínio (Ambiente, Qualidade, Segurança…), já filtrado pela norma em que está a trabalhar. Um procedimento comum a várias normas — por exemplo, o controlo de documentos — guarda-se uma só vez e é partilhado: um só ficheiro, uma só versão e uma só aprovação, visível nas listas de cada norma. Cada pessoa só vê os documentos que o seu perfil permite.
 
 **Garante a certificação?** Não. A plataforma ajuda a implementar, manter e demonstrar o sistema; a certificação é decidida pelo organismo certificador.
 

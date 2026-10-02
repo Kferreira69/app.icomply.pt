@@ -57,7 +57,9 @@ describe('QualityDocumentsService — access by management-system standard', () 
       await service.list(ORG, 'u', {});
       const where = prisma.qualityDocument.findMany.mock.calls[0][0].where;
       expect(where.organizationId).toBe(ORG);
-      expect(where.standard.in.sort()).toEqual(['GENERAL', 'ISO_45001']);
+      // documents filed under a readable standard, or shared with one
+      expect(where.OR[0].standard.in.sort()).toEqual(['GENERAL', 'ISO_45001']);
+      expect(where.OR[1].alsoStandards.hasSome.sort()).toEqual(['GENERAL', 'ISO_45001']);
     });
 
     it('refuses a standard the user cannot read, and rejects an unknown one', async () => {
@@ -66,7 +68,64 @@ describe('QualityDocumentsService — access by management-system standard', () 
       await expect(service.list(ORG, 'u', { standard: 'ISO_999' })).rejects.toBeInstanceOf(BadRequestException);
       const { service: ok, prisma } = make(consultant);
       await ok.list(ORG, 'u', { standard: 'ISO_14001' });
-      expect(prisma.qualityDocument.findMany.mock.calls[0][0].where.standard).toBe('ISO_14001');
+      expect(prisma.qualityDocument.findMany.mock.calls[0][0].where.OR)
+        .toEqual([{ standard: 'ISO_14001' }, { alsoStandards: { has: 'ISO_14001' } }]);
+    });
+
+    it('flags per document whether the caller can change it (shared documents belong to their primary standard)', async () => {
+      const { service, prisma } = make({ ...nobody, environment: 2, quality: 1 });
+      prisma.qualityDocument.findMany.mockResolvedValue([
+        docOf('ISO_14001', { id: 'a' }),
+        docOf('ISO_9001', { id: 'b', alsoStandards: ['ISO_14001'] }),
+      ]);
+      const out = await service.list(ORG, 'u', { standard: 'ISO_14001' });
+      expect(out.find((d: any) => d.id === 'a')?.canWrite).toBe(true);
+      expect(out.find((d: any) => d.id === 'b')?.canWrite).toBe(false);
+    });
+  });
+
+  describe('documents shared between standards', () => {
+    const env = { ...nobody, environment: 2 };
+
+    it('can be read by the team of any standard it serves, but not by others', async () => {
+      const shared = docOf('ISO_9001', { alsoStandards: ['ISO_14001'] });
+      const { service } = make(env, shared);
+      await expect(service.get('d1', ORG, 'u')).resolves.toMatchObject({ canWrite: false });
+      const { service: other } = make({ ...nobody, soa: 2 }, shared);
+      await expect(other.get('d1', ORG, 'u')).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('can only be changed by the team of the primary standard', async () => {
+      const shared = docOf('ISO_9001', { status: 'DRAFT', alsoStandards: ['ISO_14001'] });
+      const { service } = make(env, shared);
+      await expect(service.submit('d1', ORG, 'u')).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.remove('d1', ORG, 'u')).rejects.toBeInstanceOf(ForbiddenException);
+      const { service: owner } = make({ ...nobody, quality: 2 }, shared);
+      await expect(owner.submit('d1', ORG, 'u')).resolves.toBeDefined();
+    });
+
+    it('is created with its extra standards, ignoring duplicates and the primary one', async () => {
+      const { service, prisma } = make({ ...consultant, workforce: 2 });
+      await service.create(ORG, 'u', { title: 'Controlo de documentos', clause: '7.5', standard: 'ISO_9001', alsoStandards: 'ISO_14001, ISO_9001, ISO_14001,ISO_45001' }, file);
+      expect(prisma.qualityDocument.create.mock.calls[0][0].data.alsoStandards).toEqual(['ISO_14001', 'ISO_45001']);
+    });
+
+    it('rejects unknown standards and sharing with a standard the user cannot write', async () => {
+      const { service, storage } = make({ ...consultant, environment: 1 });
+      await expect(service.create(ORG, 'u', { title: 'x', clause: '4', alsoStandards: ['NOPE'] }, file)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.create(ORG, 'u', { title: 'x', clause: '4', alsoStandards: ['ISO_14001'] }, file)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(storage.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('update: adding a standard needs write access to it; removing one does not; moving the primary drops it from the extras', async () => {
+      const doc = docOf('ISO_9001', { status: 'DRAFT', alsoStandards: ['ISO_14001'] });
+      const { service: noEnv, prisma } = make({ ...nobody, quality: 2, environment: 1, soa: 2 }, doc);
+      await expect(noEnv.update('d1', ORG, 'u', { alsoStandards: ['ISO_14001', 'ISO_45001'] })).rejects.toBeInstanceOf(ForbiddenException);
+      await noEnv.update('d1', ORG, 'u', { alsoStandards: [] });
+      expect(prisma.qualityDocument.update.mock.calls[0][0].data.alsoStandards).toEqual([]);
+      const { service: full, prisma: p2 } = make(consultant, doc);
+      await full.update('d1', ORG, 'u', { standard: 'ISO_14001' });
+      expect(p2.qualityDocument.update.mock.calls[0][0].data.alsoStandards).toEqual([]);
     });
   });
 

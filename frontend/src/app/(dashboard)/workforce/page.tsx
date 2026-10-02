@@ -1,4 +1,5 @@
 'use client';
+import { DocumentsShortcut } from '@/components/documents/documents-shortcut';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1075,6 +1076,8 @@ export default function WorkforcePage() {
           </p>
         </div>
       </div>
+
+      <DocumentsShortcut standard="ISO_45001" label="ISO 45001" />
 
       {/* Tab bar */}
       <div className="flex overflow-x-auto gap-1 bg-gray-100 p-1 rounded-xl w-full">

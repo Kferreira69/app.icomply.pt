@@ -178,14 +178,20 @@ export class SearchService {
       {
         // Access is per management-system standard (ISO 9001 → quality, ISO 14001 → environment…)
         type: 'quality-document', label: 'Documento (ISO)', module: '*',
+        // A document shared with other standards is visible to every team it serves; the link opens
+        // the list of the first standard the reader can actually see.
         rowAllowed: (r, perms) => {
-          const mod = DOC_STANDARDS.find(s => s.key === r.standard)?.module;
-          return !!mod && (perms[mod] ?? 0) >= 1;
+          const view = [r.standard, ...(r.alsoStandards ?? [])].find(k => {
+            const mod = DOC_STANDARDS.find(s => s.key === k)?.module;
+            return !!mod && (perms[mod] ?? 0) >= 1;
+          });
+          r.viewStandard = view;
+          return !!view;
         },
         find: org => p.qualityDocument.findMany({
           where: { organizationId: org }, orderBy, take: CAP,
           select: {
-            id: true, standard: true, clause: true, code: true, title: true, docType: true, description: true,
+            id: true, standard: true, alsoStandards: true, clause: true, code: true, title: true, docType: true, description: true,
             status: true, currentVersion: true, tags: true,
             versions: { select: { fileName: true, changeNote: true } },
           },
@@ -195,13 +201,13 @@ export class SearchService {
           { key: 'code', text: r.code ?? '', weight: W.CODE, fuzzy: true },
           { key: 'tags', text: words(r.tags), weight: W.TAG },
           { key: 'file', text: r.versions.map((v: any) => v.fileName).join(' '), weight: W.FILE, fuzzy: true },
-          { key: 'sub', text: `${standardLabel(r.standard)} cláusula ${r.clause} ${r.docType}`, weight: W.SUB },
+          { key: 'sub', text: `${[r.standard, ...(r.alsoStandards ?? [])].map(standardLabel).join(' ')} cláusula ${r.clause} ${r.docType}`, weight: W.SUB },
           { key: 'description', text: r.description ?? '', weight: W.DESC },
           { key: 'note', text: r.versions.map((v: any) => v.changeNote ?? '').join(' '), weight: W.NOTE },
         ],
         title: r => (r.code ? `${r.code} — ${r.title}` : r.title),
         subtitle: r => dot(standardLabel(r.standard).split(' · ')[0], `Cláusula ${r.clause}`, `v${r.currentVersion}`, st(r.status)),
-        href: r => link('/quality/documents', r.title, `standard=${r.standard}`),
+        href: r => link('/quality/documents', r.title, `standard=${r.viewStandard ?? r.standard}`),
       },
       {
         type: 'task', label: 'Tarefa', module: 'tasks',

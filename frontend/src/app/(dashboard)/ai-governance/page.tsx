@@ -1,4 +1,5 @@
 'use client';
+import { DocumentsShortcut } from '@/components/documents/documents-shortcut';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -479,6 +480,8 @@ export default function AiGovernancePage() {
           </div>
         </div>
       </div>
+
+      <DocumentsShortcut standard="ISO_42001" label="ISO 42001" />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">

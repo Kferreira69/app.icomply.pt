@@ -271,8 +271,8 @@ const ENDPOINT_GROUPS = [
     desc: 'Documentos controlados por norma ISO, com versões (ficheiro real) e aprovação',
     endpoints: [
       { method: 'GET',    path: '/quality-documents/standards',     desc: 'Normas visíveis para o utilizador e se pode alterá-las' },
-      { method: 'GET',    path: '/quality-documents?standard=',     desc: 'Listar documentos (filtros: standard, clause, status, docType)' },
-      { method: 'POST',   path: '/quality-documents',               desc: 'Criar documento + ficheiro (multipart; standard, clause, title…)' },
+      { method: 'GET',    path: '/quality-documents?standard=',     desc: 'Listar documentos (filtros: standard, clause, status, docType); inclui os partilhados com a norma e canWrite por documento' },
+      { method: 'POST',   path: '/quality-documents',               desc: 'Criar documento + ficheiro (multipart; standard, clause, title…; alsoStandards = outras normas a que também se aplica)' },
       { method: 'GET',    path: '/quality-documents/:id',           desc: 'Detalhe e histórico de versões' },
       { method: 'GET',    path: '/quality-documents/:id/file',      desc: 'Descarregar a versão atual (ou ?versionId=)' },
       { method: 'POST',   path: '/quality-documents/:id/versions',  desc: 'Carregar nova versão (volta a rascunho)' },

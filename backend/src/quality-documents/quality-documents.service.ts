@@ -5,7 +5,7 @@ import { PermissionsService } from '../permissions/permissions.service';
 import {
   DOC_ALLOWED_EXT, DOC_MAX_BYTES, isAllowedDocFile, nextMinorVersion,
 } from '../common/storage/upload-rules';
-import { DEFAULT_DOC_STANDARD, DOC_STANDARDS, DOC_STANDARD_KEYS } from './document-standards';
+import { DEFAULT_DOC_STANDARD, DOC_STANDARDS, DOC_STANDARD_KEYS, standardLabel } from './document-standards';
 
 export const QUALITY_DOC_TYPES = ['MANUAL', 'PROCEDURE', 'INSTRUCTION', 'FORM', 'RECORD', 'OTHER'] as const;
 export const QUALITY_DOC_MAX_BYTES = DOC_MAX_BYTES;
@@ -42,6 +42,36 @@ export class QualityDocumentsService {
           ? 'Sem permissão de escrita neste sistema de gestão'
           : 'Sem acesso aos documentos deste sistema de gestão',
       );
+    }
+  }
+
+  /**
+   * A document serves its primary standard plus any `alsoStandards`. Reading it needs read access to
+   * ANY of them (a shared procedure is visible to every team it serves); changing it — new version,
+   * approval, move, delete — needs write access to the PRIMARY one, which stays its single owner.
+   */
+  private canOn(perms: Record<string, number>, doc: { standard: string; alsoStandards?: string[] }, need: Level): boolean {
+    if (need === 2) return this.levelOf(perms, doc.standard) >= 2;
+    return [doc.standard, ...(doc.alsoStandards ?? [])].some(k => this.levelOf(perms, k) >= 1);
+  }
+
+  /** Validates the "also applies to" list: known standards, no duplicates, not the primary one. */
+  private parseAlso(raw: unknown, primary: string): string[] {
+    const list = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
+    const keys = [...new Set(list.map(x => String(x).trim()).filter(Boolean))].filter(k => k !== primary);
+    const bad = keys.filter(k => !DOC_STANDARD_KEYS.includes(k));
+    if (bad.length) throw new BadRequestException(`Sistema de gestão inválido: ${bad.join(', ')}`);
+    return keys;
+  }
+
+  /** Sharing a document with a standard makes it visible to that standard's team, so it needs write access there too. */
+  private async assertCanShare(userId: string, keys: string[], already: string[] = []) {
+    const added = keys.filter(k => !already.includes(k));
+    if (!added.length) return;
+    const perms = await this.permissions.getUserPermissions(userId);
+    const denied = added.filter(k => this.levelOf(perms, k) < 2);
+    if (denied.length) {
+      throw new ForbiddenException(`Sem permissão de escrita para partilhar com: ${denied.map(standardLabel).join(', ')}`);
     }
   }
 
@@ -101,16 +131,17 @@ export class QualityDocumentsService {
 
     const where: any = { organizationId: orgId };
     if (filters.standard) {
+      // A standard's list = documents filed under it + documents shared with it.
       const standard = this.assertStandard(filters.standard);
       if (!allowed.includes(standard)) throw new ForbiddenException('Sem acesso aos documentos deste sistema de gestão');
-      where.standard = standard;
+      where.OR = [{ standard }, { alsoStandards: { has: standard } }];
     } else {
-      where.standard = { in: allowed };
+      where.OR = [{ standard: { in: allowed } }, { alsoStandards: { hasSome: allowed } }];
     }
     if (filters.clause) where.clause = filters.clause;
     if (filters.status) where.status = filters.status;
     if (filters.docType) where.docType = filters.docType;
-    return this.prisma.qualityDocument.findMany({
+    const docs = await this.prisma.qualityDocument.findMany({
       where,
       orderBy: [{ standard: 'asc' }, { clause: 'asc' }, { title: 'asc' }],
       include: {
@@ -119,6 +150,8 @@ export class QualityDocumentsService {
         _count: { select: { versions: true } },
       },
     });
+    // canWrite is per document: a shared document can be read here but only changed by its primary standard's team.
+    return docs.map(d => ({ ...d, canWrite: this.canOn(perms, d, 2) }));
   }
 
   private async load(id: string, orgId: string) {
@@ -137,12 +170,21 @@ export class QualityDocumentsService {
   /** Load a document and check the caller may read (1) or change (2) it. */
   private async open(id: string, orgId: string, userId: string, need: Level) {
     const doc = await this.load(id, orgId);
-    await this.assertAccess(userId, doc.standard, need);
+    const perms = await this.permissions.getUserPermissions(userId);
+    if (!this.canOn(perms, doc, need)) {
+      throw new ForbiddenException(
+        need === 2
+          ? 'Sem permissão de escrita neste sistema de gestão'
+          : 'Sem acesso aos documentos deste sistema de gestão',
+      );
+    }
     return doc;
   }
 
-  get(id: string, orgId: string, userId: string) {
-    return this.open(id, orgId, userId, 1);
+  async get(id: string, orgId: string, userId: string) {
+    const doc = await this.open(id, orgId, userId, 1);
+    const perms = await this.permissions.getUserPermissions(userId);
+    return { ...doc, canWrite: this.canOn(perms, doc, 2) };
   }
 
   // ── commands ──
@@ -150,6 +192,8 @@ export class QualityDocumentsService {
   async create(orgId: string, userId: string, body: any, file?: Express.Multer.File) {
     const standard = this.assertStandard(body?.standard);
     await this.assertAccess(userId, standard, 2);
+    const also = this.parseAlso(body?.alsoStandards, standard);
+    await this.assertCanShare(userId, also);
     const f = this.assertFile(file);
     const title = String(body?.title ?? '').trim();
     const clause = String(body?.clause ?? '').trim();
@@ -168,6 +212,7 @@ export class QualityDocumentsService {
       data: {
         organizationId: orgId,
         standard,
+        alsoStandards: also,
         clause,
         code: body?.code ? String(body.code).trim() : null,
         title,
@@ -195,11 +240,17 @@ export class QualityDocumentsService {
   }
 
   async update(id: string, orgId: string, userId: string, body: any) {
-    await this.open(id, orgId, userId, 2);
+    const current = await this.open(id, orgId, userId, 2);
     const data: any = {};
     if (body.standard !== undefined) {
       data.standard = this.assertStandard(body.standard);
       await this.assertAccess(userId, data.standard, 2); // moving a document needs write access to the target too
+    }
+    if (body.alsoStandards !== undefined || data.standard !== undefined) {
+      const primary = data.standard ?? current.standard;
+      const also = this.parseAlso(body.alsoStandards !== undefined ? body.alsoStandards : current.alsoStandards, primary);
+      await this.assertCanShare(userId, also, current.alsoStandards);
+      data.alsoStandards = also;
     }
     if (body.title !== undefined) data.title = String(body.title).trim();
     if (body.code !== undefined) data.code = body.code ? String(body.code).trim() : null;
