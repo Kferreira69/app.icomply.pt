@@ -174,7 +174,7 @@ export const CATALOG_DOMAINS: CatalogDomain[] = [
 
 /** Platform-wide capabilities that cut across domains. */
 export const CATALOG_PLATFORM_FEATURES: string[] = [
-  'Gestão Documental por norma ISO (versões, aprovação, separação de funções)',
+  'Gestão Documental por norma ISO (versões, aprovação, separação de funções), com documentos partilhados entre normas',
   'Pesquisa global em todo o conteúdo',
   'Controlos unificados entre normas',
   'Riscos, tarefas, evidências e relatórios partilhados por todos os domínios',

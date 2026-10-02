@@ -1,4 +1,5 @@
 'use client';
+import { DocumentsShortcut } from '@/components/documents/documents-shortcut';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -796,6 +797,8 @@ export default function BusinessContinuityPage() {
           </Button>
         )}
       </div>
+
+      <DocumentsShortcut standard="ISO_22301" label="ISO 22301" />
 
       {/* Stats */}
       {dashboard && activeTab === 'plans' && (

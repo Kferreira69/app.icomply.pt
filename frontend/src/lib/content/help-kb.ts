@@ -167,6 +167,10 @@ export const KB_CATEGORIES = [
         title: 'O que é a Gestão Documental e como a uso',
         body: 'A Gestão Documental guarda os documentos controlados de cada sistema de gestão (informação documentada, cláusula 7.5): manuais, procedimentos, instruções de trabalho, formulários e registos. Encontras em Gerir → Políticas & Relatórios → Gestão Documental, ou nos menus de Qualidade e Ambiente.\n\n1. Escolhe a norma no seletor (ISO 9001, 14001, 45001, 27001, 22301, 37001, 27701, 42001, 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894 ou Geral)\n2. Clica em "Novo documento": indica a cláusula (4, 5.3, 7.5, 8.2…), o código, o título, o tipo e carrega o ficheiro\n3. Os documentos aparecem agrupados por cláusula, com o histórico de versões\n4. Fluxo: Rascunho → Em revisão → Aprovado → Obsoleto. Uma nova versão volta a Rascunho; quem carregou a versão não a pode aprovar\n\nCada pessoa só vê e altera os documentos das normas a que o seu perfil dá acesso.',
       },
+      {
+        title: 'Como partilhar o mesmo documento entre várias normas',
+        body: 'Um procedimento comum a várias normas — por exemplo, o controlo de documentos (cláusula 7.5) usado na ISO 9001 e na ISO 14001 — guarda-se uma só vez. Ao criar o documento, escolhe a norma principal e, em "Aplica-se também a", as outras normas. Num documento existente usa o ícone Partilhar.\n\nO documento continua a ter um só ficheiro, um só histórico de versões e uma só aprovação, e aparece na lista de cada norma (nas outras com a etiqueta "Partilhado de…"). Quem lê qualquer uma das normas pode vê-lo e descarregá-lo; só a equipa da norma principal o pode alterar, aprovar ou eliminar. Para partilhar com uma norma precisas de permissão de escrita nela. Cada página de norma (ISO 27001, 45001, 22301, 37001, 27701, 42001…) tem um atalho para os seus documentos.',
+      },
     ],
   },
   {

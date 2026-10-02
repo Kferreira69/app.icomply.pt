@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
 import {
   Plus, FileText, Download, Upload, Send, CheckCircle2, Ban, RotateCcw,
-  Trash2, ChevronDown, ChevronRight, History,
+  Trash2, ChevronDown, ChevronRight, History, Share2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -66,11 +66,58 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
+/** "Applies to" picker: one document, one file and one approval, filed for several standards. */
+function AlsoStandards({ standards, primary, value, onChange }: {
+  standards: Standard[]; primary: string; value: string[]; onChange: (v: string[]) => void;
+}) {
+  const options = standards.filter(x => x.canWrite && x.key !== primary);
+  if (!options.length) return null;
+  const toggle = (k: string) => onChange(value.includes(k) ? value.filter(x => x !== k) : [...value, k]);
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Aplica-se também a <span className="text-gray-400 font-normal">(o mesmo documento, partilhado)</span></label>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map(x => {
+          const on = value.includes(x.key);
+          return (
+            <button type="button" key={x.key} onClick={() => toggle(x.key)}
+              className={`text-xs rounded-full border px-2.5 py-1 ${on ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+              {x.label.split(' · ')[0]}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-gray-400 mt-1">Um procedimento comum (ex.: controlo de documentos) fica num só sítio, com uma só versão e aprovação, e aparece nas listas de cada norma. Só a norma principal o pode alterar.</p>
+    </div>
+  );
+}
+
+function ShareModal({ doc, standards, onClose, onSave, busy }: {
+  doc: any; standards: Standard[]; onClose: () => void; onSave: (also: string[]) => void; busy: boolean;
+}) {
+  const [also, setAlso] = useState<string[]>(doc.alsoStandards ?? []);
+  // keep standards already shared that this user cannot write to (they can be removed but not added)
+  const known = standards.filter(x => x.key !== doc.standard);
+  return (
+    <ModalShell title={`Partilhar — ${doc.title}`} onClose={onClose}>
+      <div className="p-5 space-y-3">
+        <p className="text-xs text-gray-500">Norma principal: <b>{standards.find(x => x.key === doc.standard)?.label ?? doc.standard}</b>. A cláusula {doc.clause} é a mesma nas normas ISO de gestão (estrutura de alto nível).</p>
+        <AlsoStandards standards={known.map(x => ({ ...x, canWrite: x.canWrite || also.includes(x.key) }))} primary={doc.standard} value={also} onChange={setAlso} />
+      </div>
+      <div className="p-5 border-t flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+        <Button size="sm" disabled={busy} onClick={() => onSave(also)}>{busy ? 'A guardar…' : 'Guardar'}</Button>
+      </div>
+    </ModalShell>
+  );
+}
+
 function NewDocumentModal({ onClose, onSave, busy, standards, initialStandard }: {
   onClose: () => void; onSave: (f: FormData) => void; busy: boolean;
   standards: Standard[]; initialStandard: string;
 }) {
   const [form, setForm] = useState({ standard: initialStandard, clause: '', title: '', code: '', docType: 'MANUAL', description: '', version: '1.0', reviewDate: '', tags: '' });
+  const [also, setAlso] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const s = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
   const valid = /^\d+(\.\d+)*$/.test(form.clause) && form.title.trim() && file;
@@ -78,6 +125,8 @@ function NewDocumentModal({ onClose, onSave, busy, standards, initialStandard }:
   function submit() {
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
+    const extra = also.filter(k => k !== form.standard);
+    if (extra.length) fd.append('alsoStandards', extra.join(','));
     fd.append('file', file as File);
     onSave(fd);
   }
@@ -91,6 +140,7 @@ function NewDocumentModal({ onClose, onSave, busy, standards, initialStandard }:
             {standards.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
           </select>
         </div>
+        <AlsoStandards standards={standards} primary={form.standard} value={also} onChange={setAlso} />
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Cláusula *</label>
@@ -210,6 +260,7 @@ function DocumentsInner() {
   const [typeFilter, setTypeFilter] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [versionFor, setVersionFor] = useState<any>(null);
+  const [shareFor, setShareFor] = useState<any>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Record<string, boolean>>({});
 
@@ -242,6 +293,10 @@ function DocumentsInner() {
 
   const createMut = useMutation({ mutationFn: (f: FormData) => qualityDocumentsApi.create(f), onSuccess: () => { refresh(); setShowNew(false); }, onError });
   const versionMut = useMutation({ mutationFn: ({ id, f }: { id: string; f: FormData }) => qualityDocumentsApi.addVersion(id, f), onSuccess: () => { refresh(); setVersionFor(null); }, onError });
+  const shareMut = useMutation({
+    mutationFn: ({ id, also }: { id: string; also: string[] }) => qualityDocumentsApi.update(id, { alsoStandards: also }),
+    onSuccess: () => { refresh(); setShareFor(null); }, onError,
+  });
   const actionMut = useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'submit' | 'approve' | 'obsolete' | 'revert' | 'remove' }) => qualityDocumentsApi[action](id),
     onSuccess: refresh, onError,
@@ -304,12 +359,20 @@ function DocumentsInner() {
               {open && items.map((d: any) => {
                 const st = STATUS[d.status] ?? STATUS.DRAFT;
                 const showHist = history[d.id];
+                const canWrite = !!d.canWrite; // per document: a shared document is changed by its primary standard's team
+                const sharedFrom = d.standard !== standard ? standards.find(x => x.key === d.standard)?.label.split(' · ')[0] ?? d.standard.replace('_', ' ') : null;
+                const alsoLabels: string[] = (d.alsoStandards ?? []).filter((k: string) => k !== standard)
+                  .map((k: string) => standards.find(x => x.key === k)?.label.split(' · ')[0] ?? k.replace('_', ' '));
                 return (
                   <div key={d.id} className="border-b last:border-b-0">
                     <div className="flex flex-wrap items-center gap-3 px-5 py-3">
                       <span className="text-xs font-mono bg-blue-50 text-blue-700 rounded px-2 py-0.5">{d.clause}</span>
                       <div className="flex-1 min-w-[200px]">
-                        <p className="text-sm font-medium text-gray-900">{d.code ? `${d.code} · ` : ''}{d.title}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {d.code ? `${d.code} · ` : ''}{d.title}
+                          {sharedFrom && <span title="Documento da norma indicada, partilhado com esta" className="ml-2 align-middle text-[10px] font-medium rounded-full px-2 py-0.5 bg-violet-100 text-violet-700">Partilhado de {sharedFrom}</span>}
+                          {alsoLabels.length > 0 && <span title="Este documento também serve estas normas" className="ml-2 align-middle text-[10px] font-medium rounded-full px-2 py-0.5 bg-blue-50 text-blue-700">Também: {alsoLabels.join(', ')}</span>}
+                        </p>
                         <p className="text-xs text-gray-400">
                           {DOC_TYPES[d.docType] ?? d.docType} · v{d.currentVersion} · {d.owner?.firstName} {d.owner?.lastName}
                           {d.reviewDate ? ` · revisão ${format(new Date(d.reviewDate), 'dd/MM/yyyy')}` : ''}
@@ -319,6 +382,7 @@ function DocumentsInner() {
                       <div className="flex items-center gap-1">
                         <button title="Descarregar versão atual" className="p-1.5 rounded hover:bg-gray-100" onClick={() => download(d.id)}><Download className="w-4 h-4" /></button>
                         <button title="Histórico de versões" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setHistory(p => ({ ...p, [d.id]: !showHist }))}><History className="w-4 h-4" /></button>
+                        {canWrite && <button title="Partilhar com outras normas" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setShareFor(d)}><Share2 className="w-4 h-4" /></button>}
                         {canWrite && <button title="Nova versão" className="p-1.5 rounded hover:bg-gray-100" onClick={() => setVersionFor(d)}><Upload className="w-4 h-4" /></button>}
                         {canWrite && d.status === 'DRAFT' && <button title="Submeter para revisão" className="p-1.5 rounded hover:bg-amber-50 text-amber-600" onClick={() => actionMut.mutate({ id: d.id, action: 'submit' })}><Send className="w-4 h-4" /></button>}
                         {canWrite && d.status === 'IN_REVIEW' && <button title="Aprovar" className="p-1.5 rounded hover:bg-green-50 text-green-600" onClick={() => actionMut.mutate({ id: d.id, action: 'approve' })}><CheckCircle2 className="w-4 h-4" /></button>}
@@ -338,6 +402,7 @@ function DocumentsInner() {
       )}
 
       {showNew && <NewDocumentModal busy={createMut.isPending} standards={standards.filter(x => x.canWrite)} initialStandard={standard} onClose={() => setShowNew(false)} onSave={f => createMut.mutate(f)} />}
+      {shareFor && <ShareModal doc={shareFor} standards={standards} busy={shareMut.isPending} onClose={() => setShareFor(null)} onSave={also => shareMut.mutate({ id: shareFor.id, also })} />}
       {versionFor && <NewVersionModal doc={versionFor} busy={versionMut.isPending} onClose={() => setVersionFor(null)} onSave={f => versionMut.mutate({ id: versionFor.id, f })} />}
     </div>
   );
