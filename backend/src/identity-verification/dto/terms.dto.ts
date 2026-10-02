@@ -6,7 +6,7 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 /** Commercial terms for automated checks, proposed by the platform operator for one organisation. */
 export class ProposeTermsDto {
   @IsIn(['EUR'])
-  currency: 'EUR' = 'EUR';
+  currency = 'EUR' as const;
 
   /** One-off set-up fee charged when the customer accepts the terms. */
   @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1_000_000)
