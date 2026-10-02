@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpCode, HttpStatus, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, HttpStatus, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
@@ -39,6 +39,20 @@ export class LeadsAdminController {
   async list(@Request() req: any, @Query('status') status?: string, @Query('type') type?: string) {
     await this.licensing.assertSuperAdmin(req.user.userId);
     return this.leads.list({ status, type });
+  }
+
+  /** GDPR erasure on request: every lead of one email (in the body: an address in the URL would end up in access logs). */
+  @Post('erase')
+  @HttpCode(HttpStatus.OK)
+  async removeByEmail(@Request() req: any, @Body() body: { email?: string }) {
+    await this.licensing.assertSuperAdmin(req.user.userId);
+    return this.leads.removeByEmail(body?.email ?? '');
+  }
+
+  @Delete(':id')
+  async remove(@Request() req: any, @Param('id') id: string) {
+    await this.licensing.assertSuperAdmin(req.user.userId);
+    return this.leads.remove(id);
   }
 
   @Patch(':id')

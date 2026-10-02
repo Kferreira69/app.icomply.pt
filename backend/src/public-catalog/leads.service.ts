@@ -1,11 +1,15 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MailService } from '../common/mail/mail.service';
 import { CreateLeadDto, LEAD_STATUSES, LEAD_TYPES, UpdateLeadDto } from './leads.dto';
 
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s: string) => s.replace(/[&<>"']/g, c => ESCAPES[c]);
+
+/** Leads are kept 24 months after their last activity unless the person became a customer / user. */
+export const LEAD_RETENTION_MONTHS = 24;
 
 const TYPE_LABEL: Record<string, string> = {
   DEMO: 'Pedido de demonstração',
@@ -89,6 +93,54 @@ export class LeadsService {
       items,
       counts: Object.fromEntries(counts.map(c => [c.status, c._count._all])),
     };
+  }
+
+  /** GDPR erasure: removes one lead. */
+  async remove(id: string) {
+    const exists = await this.prisma.productLead.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) throw new NotFoundException('Lead não encontrado');
+    await this.prisma.productLead.delete({ where: { id } });
+    return { deleted: 1 };
+  }
+
+  /** GDPR erasure on request: removes every lead of one email address. */
+  async removeByEmail(email: string) {
+    const e = (email ?? '').trim().toLowerCase();
+    if (!e || !e.includes('@')) throw new BadRequestException('Indique um email válido.');
+    const r = await this.prisma.productLead.deleteMany({ where: { email: e } });
+    return { deleted: r.count };
+  }
+
+  /**
+   * Retention: a lead is deleted 24 months after its last activity (creation, status change or note)
+   * unless its email belongs to a registered user or an organisation contact — i.e. there is a
+   * customer / free-user relationship. Runs daily; returns how many were removed.
+   */
+  @Cron('15 3 * * *')
+  async purgeExpired(now: Date = new Date()): Promise<number> {
+    const cutoff = new Date(now);
+    cutoff.setUTCMonth(cutoff.getUTCMonth() - LEAD_RETENTION_MONTHS);
+    let removed = 0;
+    let skip = 0; // rows that must be kept (still related) stay in the result set, so page past them
+    for (;;) {
+      const batch = await this.prisma.productLead.findMany({
+        where: { updatedAt: { lt: cutoff } }, select: { id: true, email: true },
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }], take: 500, skip,
+      });
+      if (!batch.length) break;
+      const emails = [...new Set(batch.map(l => l.email))];
+      const [users, contacts] = await Promise.all([
+        this.prisma.user.findMany({ where: { email: { in: emails, mode: 'insensitive' }, status: { not: 'DELETED' } }, select: { email: true } }),
+        this.prisma.orgContact.findMany({ where: { email: { in: emails, mode: 'insensitive' } }, select: { email: true } }),
+      ]);
+      const related = new Set([...users, ...contacts].map(r => (r.email ?? '').toLowerCase()));
+      const doomed = batch.filter(l => !related.has(l.email.toLowerCase())).map(l => l.id);
+      if (doomed.length) removed += (await this.prisma.productLead.deleteMany({ where: { id: { in: doomed } } })).count;
+      skip += batch.length - doomed.length;
+      if (batch.length < 500) break;
+    }
+    if (removed) this.logger.log(`Lead retention: removed ${removed} lead(s) older than ${LEAD_RETENTION_MONTHS} months without a customer relationship`);
+    return removed;
   }
 
   async update(id: string, dto: UpdateLeadDto) {

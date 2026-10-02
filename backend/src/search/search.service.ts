@@ -378,7 +378,7 @@ export class SearchService {
         href: r => link('/vendors', r.name),
       },
       {
-        type: 'unified-control', label: 'Controlo unificado', module: 'governance',
+        type: 'unified-control', label: 'Controlo unificado', module: 'soa',
         find: org => p.unifiedControl.findMany({
           where: { organizationId: org }, orderBy, take: CAP,
           select: {

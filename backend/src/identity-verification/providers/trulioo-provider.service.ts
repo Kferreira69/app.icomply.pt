@@ -36,6 +36,7 @@ export class TruliooProviderService implements KycProvider {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -77,7 +78,8 @@ export class TruliooProviderService implements KycProvider {
     const data = await this.request('/watchlists/v1/search', {
       SearchArguments: { Name: input.name, Country: input.country },
     });
-    const matches = (data as any)?.Matches ?? [];
+    const matches = (data as any)?.Matches;
+    if (!Array.isArray(matches)) throw new Error('Trulioo returned an unexpected response'); // never read a malformed answer as "clean"
     return { status: matches.length > 0 ? 'REVIEW' : 'APPROVED', rawResult: data as Record<string, unknown> };
   }
 

@@ -11,6 +11,7 @@ import { CreateTicketDto } from './dto/create-ticket.dto';
 import { CreateReplyDto } from './dto/create-reply.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { TicketStatus } from '../generated/prisma/client';
+import { ParseEnumPipe } from '@nestjs/common';
 
 @UseGuards(JwtAuthGuard)
 @Controller('support-tickets')
@@ -39,11 +40,12 @@ export class SupportTicketsController {
   @Get()
   findAll(
     @Request() req: any,
-    @Query('status') status?: TicketStatus,
+    @Query('status', new ParseEnumPipe(TicketStatus, { optional: true })) status?: TicketStatus,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
-    return this.service.findAll(req.user.userId, req.user.role, status, page, limit);
+    // bounded paging: a negative page or a huge limit must not reach the database
+    return this.service.findAll(req.user.userId, req.user.role, status, Math.max(1, page ?? 1), Math.min(100, Math.max(1, limit ?? 20)));
   }
 
   @Get(':id')

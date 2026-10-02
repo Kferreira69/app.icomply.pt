@@ -27,18 +27,25 @@ export interface SanctionsScreeningInput {
 export interface VerificationResult {
   status: VerificationStatus;
   providerRefId?: string;
+  /** Hosted page the person must open to take the photos / scan the document (when the provider uses one). */
+  actionUrl?: string;
   riskScore?: number;
   rawResult: Record<string, unknown>;
 }
 
 export interface NormalizedWebhookResult {
   providerRefId: string;
+  /** Name the provider actually verified (from the document). When it does not match the subject of the request, a person decides. */
+  verifiedName?: string;
   status: VerificationStatus;
   riskScore?: number;
   rawResult: Record<string, unknown>;
 }
 
-/** What a provider can do. The service refuses a request the chosen provider cannot serve. */
+/** The three things the module can ask a provider for; routing is decided per feature. */
+export type KycFeature = 'individual' | 'business' | 'sanctions';
+
+/** What a provider can do. The service never sends a request a provider cannot serve (it routes elsewhere or goes manual). */
 export interface KycCapabilities {
   individual: boolean;
   business: boolean;
@@ -67,7 +74,7 @@ export interface KycProvider {
   verifyBusiness(input: BusinessVerificationInput): Promise<VerificationResult>;
   screenSanctions(input: SanctionsScreeningInput): Promise<VerificationResult>;
   /** Authenticate the call (signature) and normalise it. Must throw ForbiddenException when it is not authentic. */
-  handleWebhook(payload: unknown, ctx: WebhookContext): NormalizedWebhookResult;
+  handleWebhook(payload: unknown, ctx: WebhookContext): NormalizedWebhookResult | Promise<NormalizedWebhookResult>;
 }
 
 /** How the registry discovers a provider: whether it has credentials, and how to build it. */

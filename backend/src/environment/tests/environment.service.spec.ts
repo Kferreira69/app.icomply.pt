@@ -228,6 +228,23 @@ describe('EnvironmentService - objectives linked to ESG metrics', () => {
     expect(prisma.environmentalObjective.update.mock.calls[1][0].data).not.toHaveProperty('esgMetricId');
   });
 
+  it('editing OTHER fields of a linked objective works without ESG access when the link is unchanged', async () => {
+    const { svc, prisma } = make({ environment: 2, esg: 0 });
+    prisma.environmentalObjective.findFirst.mockResolvedValue({ id: 'o1', esgMetricId: 'm1' });
+    // the form always sends back the link it was given
+    await svc.updateObjective(ORG, 'u1', 'o1', { status: 'IN_PROGRESS', esgMetricId: 'm1' });
+    expect(prisma.environmentalObjective.update.mock.calls[0][0].data).not.toHaveProperty('esgMetricId');
+    expect(prisma.environmentalObjective.update.mock.calls[0][0].data.status).toBe('IN_PROGRESS');
+  });
+
+  it('changing or removing the link needs ESG access (unlinking is not a bypass)', async () => {
+    const { svc, prisma } = make({ environment: 2, esg: 0 });
+    prisma.environmentalObjective.findFirst.mockResolvedValue({ id: 'o1', esgMetricId: 'm1' });
+    await expect(svc.updateObjective(ORG, 'u1', 'o1', { esgMetricId: null })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.updateObjective(ORG, 'u1', 'o1', { esgMetricId: 'm2' })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.environmentalObjective.update).not.toHaveBeenCalled();
+  });
+
   it('the current value comes from the linked ESG metric', async () => {
     const { svc } = make({ esg: 1 }, [{ id: 'o1', current: 950, esgMetricId: 'm1', esgMetric: METRIC }]);
     const [o] = await svc.listObjectives(ORG, 'u1');

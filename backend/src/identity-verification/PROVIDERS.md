@@ -58,6 +58,30 @@ account** — applicant creation, the Sumsub AML endpoint and the webhook digest
 before production use. The capture step (document / selfie upload via the vendor's web SDK) is not
 built yet.
 
+## Providers shipped (2026-10-02) and how to switch between them
+
+| Provider | id | Does | Webhook | Env vars |
+|---|---|---|---|---|
+| **Didit** (default when configured) | `DIDIT` | KYC (hosted link), KYB (hosted link), sanctions/PEP (synchronous) | `/identity-verification/webhook/didit` — `X-Signature-V2` / `X-Signature` + 5-min timestamp | `DIDIT_API_KEY`, `DIDIT_WEBHOOK_SECRET`, `DIDIT_WORKFLOW_KYC`, `DIDIT_WORKFLOW_KYB` (optional), `DIDIT_CALLBACK_URL` (optional) |
+| **OpenSanctions** | `OPENSANCTIONS` | sanctions / PEP only (a possible match always goes to a person) | — | `OPENSANCTIONS_API_KEY`, `OPENSANCTIONS_DATASET` (default `default`) |
+| **Stripe Identity** | `STRIPE_IDENTITY` | KYC only (document + selfie, hosted link) | `/identity-verification/webhook/stripe_identity` — `Stripe-Signature` | `STRIPE_IDENTITY_SECRET_KEY`, `STRIPE_IDENTITY_WEBHOOK_SECRET`, `STRIPE_IDENTITY_RETURN_URL` (optional) |
+| **Sumsub** | `SUMSUB` | KYC, KYB, sanctions | `/identity-verification/webhook/sumsub` | see below |
+| **Trulioo** | `TRULIOO` | KYC, KYB, sanctions (synchronous) | — | `TRULIOO_API_KEY` |
+
+**Routing is per feature** (`individual`, `business`, `sanctions`) and is changed by the platform operator at any time, with no deploy:
+Backoffice → *KYC · Condições* → **Fornecedores (quem faz o quê)** — for one customer or **for all customers at once**
+(`PUT /identity-verification/admin/:orgId/routing`, `PUT /identity-verification/admin/routing/all`).
+Examples: everything on Didit; documents on Stripe Identity + sanctions on OpenSanctions; back to Sumsub.
+If the chosen provider is not configured or cannot do a feature, the platform default is used, then any configured
+provider that can, and finally manual mode. Customers never choose the vendor and what they pay does not change with it.
+
+**Going live with a provider (e.g. Didit):** create the account and the workflows in its console (sandbox first) →
+set the env vars above on the server (`.env.*`) → create the webhook in the provider console pointing at the URL above with the
+secret you set → test in the sandbox → propose commercial terms to the customer (*KYC · Condições*) → the customer's admin accepts.
+Until then everything keeps working in manual mode.
+
+**Adding another vendor:** one file in `providers/` implementing `KycProvider` + one line in `PROVIDER_DEFINITIONS`.
+
 ## Provider-independent operation: manual mode and commercial terms
 
 The module does not wait for any vendor. Once the `identity_verification` add-on is active an

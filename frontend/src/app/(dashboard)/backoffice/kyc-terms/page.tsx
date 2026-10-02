@@ -14,6 +14,53 @@ const errMsg = (e: any) => {
 const input = 'w-full border rounded-lg px-3 py-2 text-sm';
 
 /** Backoffice: propose the commercial terms (set-up fee + PAYG per feature) of automated KYC for one customer. */
+const FEATURES = [
+  { key: 'default', label: 'Predefinição (tudo o que não tiver escolha própria)' },
+  { key: 'individual', label: 'Verificação de pessoas' },
+  { key: 'business', label: 'Verificação de empresas' },
+  { key: 'sanctions', label: 'Sanções / PEP' },
+] as const;
+
+/** Which provider serves which feature — switch vendor at any time, for one customer or for all of them. */
+function RoutingEditor({ orgId, settings, onSaved }: { orgId: string; settings: any; onSaved: () => void }) {
+  const configured: any[] = (settings.providers ?? []).filter((p: any) => p.configured);
+  const current = (k: string) => (k === 'default' ? settings.selected : settings.routing?.[k]?.chosen) ?? '';
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const value = (k: string) => (k in draft ? draft[k] : current(k));
+  const payload = () => Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, v === '' ? null : v]));
+  const one = useMutation({ mutationFn: () => identityVerificationApi.setRouting(orgId, payload()), onSuccess: () => { setDraft({}); onSaved(); }, onError: e => alert(errMsg(e)) });
+  const all = useMutation({ mutationFn: () => identityVerificationApi.setRoutingAll(payload()), onSuccess: r => { setDraft({}); onSaved(); alert(`Atualizado em ${r.data.updated} cliente(s).`); }, onError: e => alert(errMsg(e)) });
+
+  return (
+    <div className="bg-white rounded-xl border p-5 space-y-3">
+      <h2 className="font-semibold text-gray-900">Fornecedores (quem faz o quê)</h2>
+      <p className="text-xs text-gray-500">
+        Fornecedores configurados na plataforma: {configured.length ? configured.map((p: any) => p.displayName).join(', ') : 'nenhum (tudo manual)'}.
+        Mudar de fornecedor não altera o que o cliente paga. Se o escolhido não puder fazer a funcionalidade, usa-se outro que possa; se nenhum puder, fica manual.
+      </p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {FEATURES.map(f => (
+          <div key={f.key}>
+            <label className="block text-sm mb-1">{f.label}</label>
+            <select className={input} value={value(f.key)} onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))}>
+              <option value="">Automático (predefinição da plataforma)</option>
+              {configured.filter((p: any) => f.key === 'default' || p.capabilities?.[f.key]).map((p: any) => <option key={p.id} value={p.id}>{p.displayName}</option>)}
+            </select>
+            {f.key !== 'default' && <p className="text-[11px] text-gray-400 mt-0.5">Hoje: {settings.routing?.[f.key]?.effective ?? 'manual'}</p>}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={!Object.keys(draft).length || one.isPending} onClick={() => one.mutate()}>Aplicar a este cliente</Button>
+        <Button size="sm" variant="outline" disabled={!Object.keys(draft).length || all.isPending}
+          onClick={() => { if (confirm('Aplicar a TODOS os clientes com o add-on de Verificação de Identidade?')) all.mutate(); }}>
+          Aplicar a todos os clientes
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function KycTermsPage() {
   const qc = useQueryClient();
   const [orgId, setOrgId] = useState('');
@@ -71,6 +118,8 @@ export default function KycTermsPage() {
             ) : <p className="text-gray-500">Ainda sem condições propostas.</p>}
             <p className="text-gray-500">Este mês: {settings.usage.automatedChecks} verificações automáticas · {settings.usage.amount} € {c.accepted && '(faturar manualmente em Licenciamento)'}</p>
           </div>
+
+          <RoutingEditor orgId={orgId} settings={settings} onSaved={() => qc.invalidateQueries({ queryKey: ['kyc-terms', orgId] })} />
 
           <div className="bg-white rounded-xl border p-5 space-y-3">
             <h2 className="font-semibold text-gray-900">{c.terms ? 'Rever condições (nova versão)' : 'Propor condições'}</h2>

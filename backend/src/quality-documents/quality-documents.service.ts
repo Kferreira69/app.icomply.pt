@@ -138,9 +138,10 @@ export class QualityDocumentsService {
     } else {
       where.OR = [{ standard: { in: allowed } }, { alsoStandards: { hasSome: allowed } }];
     }
-    if (filters.clause) where.clause = filters.clause;
-    if (filters.status) where.status = filters.status;
-    if (filters.docType) where.docType = filters.docType;
+    // query values can arrive as arrays/objects (?status[not]=x): only plain strings become filters
+    if (typeof filters.clause === 'string' && filters.clause) where.clause = filters.clause;
+    if (typeof filters.status === 'string' && filters.status) where.status = filters.status;
+    if (typeof filters.docType === 'string' && filters.docType) where.docType = filters.docType;
     const docs = await this.prisma.qualityDocument.findMany({
       where,
       orderBy: [{ standard: 'asc' }, { clause: 'asc' }, { title: 'asc' }],
@@ -252,7 +253,10 @@ export class QualityDocumentsService {
       await this.assertCanShare(userId, also, current.alsoStandards);
       data.alsoStandards = also;
     }
-    if (body.title !== undefined) data.title = String(body.title).trim();
+    if (body.title !== undefined) {
+      data.title = String(body.title).trim();
+      if (!data.title) throw new BadRequestException('Título obrigatório');
+    }
     if (body.code !== undefined) data.code = body.code ? String(body.code).trim() : null;
     if (body.description !== undefined) data.description = body.description || null;
     if (body.docType !== undefined && QUALITY_DOC_TYPES.includes(body.docType)) data.docType = body.docType;

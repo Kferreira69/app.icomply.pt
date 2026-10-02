@@ -25,6 +25,7 @@ export class SearchController {
     @Query('limit') limit?: string,
   ) {
     const n = Math.min(Math.max(parseInt(limit ?? '', 10) || 30, 1), 100);
-    return this.service.search(userId, orgId, q ?? '', n);
+    // ?q=a&q=b arrives as an array: only a plain string is a query
+    return this.service.search(userId, orgId, typeof q === 'string' ? q : '', n);
   }
 }

@@ -75,8 +75,8 @@ await fetch('https://api.icomply.pt/api/v1/public/leads', {
 ### RGPD
 - Mostrar a Política de Privacidade e a caixa de consentimento (sem pré-marcar). A aplicação guarda a data do consentimento (`consentAt`).
 - Finalidade: responder ao pedido. Comunicações de marketing/newsletter exigem consentimento próprio (usar `type: "NEWSLETTER"` com texto específico).
-- Retenção: definir prazo (ex.: apagar leads `CLOSED` sem relação comercial após 24 meses) — a decidir pela Contemporary Constellation.
-- Direitos dos titulares (acesso/apagamento): a lista de leads está no backoffice; apagar a pedido exige remoção na base de dados (ainda não há botão).
+- Retenção (decidida): **24 meses após a última atividade** do lead (criação, mudança de estado ou nota), salvo se o email pertencer a um utilizador ou a um contacto de um cliente (relação de cliente ou utilizador gratuito). A aplicação apaga automaticamente, todos os dias às 03:15. Indicar este prazo na Política de Privacidade.
+- Direitos dos titulares (acesso/apagamento): backoffice → *Leads do site* tem o botão de apagar um lead e "apagar tudo deste email".
 
 ### Tratamento no backoffice
 Menu *Ferramentas → Leads do site* (apenas super-administradores da Contemporary Constellation): filtrar por estado/tipo, mudar o estado (`NEW → CONTACTED → QUALIFIED → CLOSED`) e registar notas. As **sugestões de funcionalidades** (`FEATURE_REQUEST`) alimentam o roteiro: o que for pedido por várias organizações sobe na prioridade e, quando entregue, volta ao site através do catálogo.
