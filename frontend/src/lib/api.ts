@@ -551,6 +551,8 @@ export const translationsApi = {
 export const leadsApi = {
   list:   (params?: { status?: string; type?: string }) => api.get('/backoffice/leads', { params }),
   update: (id: string, data: { status?: string; notes?: string }) => api.patch(`/backoffice/leads/${id}`, data),
+  remove: (id: string) => api.delete(`/backoffice/leads/${id}`),
+  removeByEmail: (email: string) => api.post('/backoffice/leads/erase', { email }),
 };
 
 // ── Licensing (backoffice + self-service) ─────────────────────
@@ -887,7 +889,6 @@ export const itsmApi = {
 export const identityVerificationApi = {
   list:        (status?: string) => api.get('/identity-verification', { params: { status } }),
   settings:    () => api.get('/identity-verification/providers'),
-  setProvider: (provider: string | null) => api.put('/identity-verification/provider', { provider }),
   acceptTerms: (version: number) => api.post('/identity-verification/terms/accept', { version }),
   individual:  (data: any) => api.post('/identity-verification/individual', data),
   business:    (data: any) => api.post('/identity-verification/business', data),
@@ -897,6 +898,8 @@ export const identityVerificationApi = {
   // platform operator (backoffice)
   adminSettings: (orgId: string) => api.get(`/identity-verification/admin/${orgId}`),
   proposeTerms:  (orgId: string, data: any) => api.put(`/identity-verification/admin/${orgId}/terms`, data),
+  setRouting:    (orgId: string, data: Record<string, string | null>) => api.put(`/identity-verification/admin/${orgId}/routing`, data),
+  setRoutingAll: (data: Record<string, string | null>) => api.put('/identity-verification/admin/routing/all', data),
 };
 
 export const amlApi = {

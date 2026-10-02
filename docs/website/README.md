@@ -8,6 +8,7 @@ Uma pasta com os textos prontos a publicar no website (PT-PT + EN), **um ficheir
 |---|---|---|
 | `esg-iso-14001-gestao-ambiental.md` | ISO 14001 **dentro do domínio ESG**: o que alterar na página ESG, cartões, secção, FAQ, notícia (PT + EN); objetivos ligados às métricas ESG | 1.1.0 |
 | `novas-normas-e-plataforma-1-1.md` | 7 normas novas (ISO 22000, 13485, 20000-1, 27018, 27036, NIST AI RMF, ISO 23894), Gestão Documental, Pesquisa global, mensagem "comece com um domínio e cresça", formulários, notícia, FAQ (PT + EN) | 1.1.0 |
+| `PACOTE-COWORK-COMPLETO.md` | **Tudo num só ficheiro** (brief + textos + integração + lacunas) para entregar ao Claude Co-work sem dependências | 1.1.0 |
 | `BRIEF-COWORK.md` | **Brief autónomo para o Claude Co-work**: regras, alterações por página, correções de lacunas (Taxonomia UE, ePrivacy/RGPC, Continuidade/ISO 22301) e lista de verificação | 1.1.0 |
 | `INTEGRATION.md` | Ligação site ↔ aplicação: catálogo público e receção de leads/sugestões (API, CORS, RGPD) | 1.1.0 |
 | `lacunas-site-vs-app.md` | Registo do que o site diz vs o que a aplicação faz (e vice-versa) | 1.1.0 |

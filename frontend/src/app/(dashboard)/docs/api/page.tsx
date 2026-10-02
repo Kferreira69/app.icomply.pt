@@ -240,6 +240,8 @@ const ENDPOINT_GROUPS = [
       { method: 'POST',  path: '/identity-verification/sanctions-screening', desc: 'Rastreio de sanções / PEP' },
       { method: 'PATCH', path: '/identity-verification/:id/decision',     desc: 'Decisão humana (APPROVED / REJECTED + fundamentação)' },
       { method: 'PUT',   path: '/identity-verification/admin/:orgId/terms', desc: 'Backoffice: propor condições comerciais a um cliente' },
+      { method: 'PUT',   path: '/identity-verification/admin/:orgId/routing', desc: 'Backoffice: fornecedor por funcionalidade (individual / business / sanctions / default) para um cliente' },
+      { method: 'PUT',   path: '/identity-verification/admin/routing/all', desc: 'Backoffice: o mesmo, para todos os clientes de uma vez' },
       { method: 'POST',  path: '/identity-verification/webhook/:provider', desc: 'Webhook do fornecedor (autenticado pela assinatura sobre o corpo bruto)' },
     ],
   },
@@ -273,6 +275,8 @@ const ENDPOINT_GROUPS = [
       { method: 'POST', path: '/public/leads',        desc: 'Demonstração, contacto, sugestão de funcionalidade ou novidades (consentimento obrigatório; 5 por 10 min por IP)' },
       { method: 'GET',  path: '/backoffice/leads',    desc: 'Backoffice (super-admin): listar leads por estado/tipo' },
       { method: 'PATCH', path: '/backoffice/leads/:id', desc: 'Backoffice (super-admin): estado e notas do lead' },
+      { method: 'DELETE', path: '/backoffice/leads/:id', desc: 'Backoffice (super-admin): apagar um lead (RGPD)' },
+      { method: 'POST', path: '/backoffice/leads/erase', desc: 'Backoffice (super-admin): apagar todos os leads de um email (corpo: {email}; pedido de apagamento)' },
     ],
   },
   {

@@ -12,7 +12,7 @@ import { IdentityVerificationService } from './identity-verification.service';
 import { VerifyIndividualDto } from './dto/verify-individual.dto';
 import { VerifyBusinessDto } from './dto/verify-business.dto';
 import { ScreenSanctionsDto } from './dto/screen-sanctions.dto';
-import { SetProviderDto } from './dto/set-provider.dto';
+import { RoutingDto } from './dto/routing.dto';
 import { DecisionDto } from './dto/decision.dto';
 import { AcceptTermsDto, ProposeTermsDto } from './dto/terms.dto';
 
@@ -38,13 +38,6 @@ export class IdentityVerificationController {
   @RequireModule('aml', 1)
   providers(@CurrentUser() user: any) {
     return this.service.getProviderSettings(user.organizationId);
-  }
-
-  @Put('provider')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequireModule('aml', 2)
-  setProvider(@Body() dto: SetProviderDto, @CurrentUser() user: any) {
-    return this.service.setProvider(user.organizationId, dto.provider ?? null);
   }
 
   /** The customer's administrator accepts the commercial terms (set-up fee + pay-as-you-go) for automated checks. */
@@ -91,6 +84,22 @@ export class IdentityVerificationController {
   async adminSettings(@Param('orgId') orgId: string, @Req() req: any) {
     await this.licensing.assertSuperAdmin(req.user.userId);
     return this.service.getProviderSettings(orgId);
+  }
+
+  /** Choose which provider serves each feature for one customer (documents → Didit, sanctions → OpenSanctions…). */
+  @Put('admin/:orgId/routing')
+  @UseGuards(JwtAuthGuard)
+  async setRouting(@Param('orgId') orgId: string, @Body() dto: RoutingDto, @Req() req: any) {
+    await this.licensing.assertSuperAdmin(req.user.userId);
+    return this.service.setRouting(orgId, dto);
+  }
+
+  /** Same for every customer at once: switch the whole platform from one vendor to another. */
+  @Put('admin/routing/all')
+  @UseGuards(JwtAuthGuard)
+  async setRoutingForAll(@Body() dto: RoutingDto, @Req() req: any) {
+    await this.licensing.assertSuperAdmin(req.user.userId);
+    return this.service.setRoutingForAll(dto);
   }
 
   @Put('admin/:orgId/terms')

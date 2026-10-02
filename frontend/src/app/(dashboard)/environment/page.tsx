@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -330,7 +330,12 @@ function ObjectiveModal({ item, onClose, onSave, busy }: { item: any | null; onC
 
   return (
     <Modal title={item ? 'Editar objetivo' : 'Novo objetivo ambiental'} onClose={onClose} busy={busy} valid={!!f.title.trim()}
-      onSave={() => onSave({ ...f, deadline: f.deadline || null, esgMetricId: f.esgMetricId || null })}>
+      onSave={() => {
+        const body: any = { ...f, deadline: f.deadline || null, esgMetricId: f.esgMetricId || null };
+        // users without ESG access cannot see the link: sending it back unchanged must not be treated as an edit of the link
+        if (item && (item.esgMetricId ?? null) === body.esgMetricId) delete body.esgMetricId;
+        onSave(body);
+      }}>
       <Field label="Objetivo *"><input className={inp} placeholder="Ex.: Reduzir o consumo de eletricidade em 10%" value={f.title} onChange={e => s('title', e.target.value)} /></Field>
       <Field label="Descrição"><textarea className={cn(inp, 'resize-none')} rows={2} value={f.description} onChange={e => s('description', e.target.value)} /></Field>
       {metrics.length > 0 && (
@@ -520,6 +525,8 @@ function EnvironmentInner() {
   const params = useSearchParams();
   const initial = params.get('tab') as TabKey | null;
   const [tab, setTab] = useState<TabKey>(TABS.some(t => t.key === initial) ? (initial as TabKey) : 'requirements');
+  // a link to another tab while the page is already open (e.g. from search) only changes the query string
+  useEffect(() => { if (initial && TABS.some(t => t.key === initial)) setTab(initial); }, [initial]);
   const { can } = usePermissions();
   const canWrite = can('environment', 2);
 

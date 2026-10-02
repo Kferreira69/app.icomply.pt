@@ -19,11 +19,22 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
   SUPER_ADMIN: 7,
 };
 
+/** Routes a SUPPORT agent may call: the support desk plus what the app shell needs to log in and render. */
+const SUPPORT_ALLOWED = /^\/api\/v\d+\/(support-tickets|auth|permissions|notifications|health|users\/me|licensing\/my|feature-flags\/my|organizations\/me|translations)(\/|\?|$)/;
+export const supportMayCall = (url: string) => SUPPORT_ALLOWED.test(url);
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // A support agent has no module access; everything outside the support desk and the app shell is refused,
+    // including routes that carry no @RequireModule (those are otherwise open to any authenticated user).
+    const req = context.switchToHttp().getRequest();
+    if (req?.user?.role === 'SUPPORT' && !supportMayCall(String(req.originalUrl ?? req.url ?? ''))) {
+      throw new ForbiddenException('Acesso restrito ao suporte');
+    }
+
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),

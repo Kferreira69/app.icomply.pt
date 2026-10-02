@@ -6,7 +6,7 @@ import { SupportTicketsService } from './support-tickets.service';
 import { MailModule } from '../common/mail/mail.module';
 
 @Module({
-  imports: [MulterModule.register({ storage: multer.memoryStorage() }), MailModule],
+  imports: [MulterModule.register({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } }), MailModule],
   controllers: [SupportTicketsController],
   providers: [SupportTicketsService],
 })

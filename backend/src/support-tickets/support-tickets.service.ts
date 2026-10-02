@@ -46,6 +46,7 @@ export class SupportTicketsService {
       select: { role: true, status: true, organization: { select: { name: true } } },
     });
     return !!u
+      && u.status === 'ACTIVE'
       && (u.role === UserRole.SUPER_ADMIN || u.role === UserRole.SUPPORT)
       && u.organization.name.toLowerCase().includes(PLATFORM_ORG);
   }
@@ -124,30 +125,40 @@ export class SupportTicketsService {
 
   // ── tickets ──────────────────────────────────────────────────
 
-  private async nextTicketNumber(): Promise<string> {
-    const count = await this.prisma.supportTicket.count();
-    return '#' + String(count + 1).padStart(4, '0');
+  /** Next number = highest existing + 1 (count()+1 collided after deletions and under concurrency). */
+  private async nextTicketNumber(skip = 0): Promise<string> {
+    const last = await this.prisma.supportTicket.findFirst({ orderBy: { ticketNumber: 'desc' }, select: { ticketNumber: true } });
+    const n = parseInt((last?.ticketNumber ?? '#0').replace(/\D/g, ''), 10) || 0;
+    return '#' + String(n + 1 + skip).padStart(4, '0');
   }
 
   async create(userId: string, organizationId: string, dto: CreateTicketDto) {
-    const ticketNumber = await this.nextTicketNumber();
-    const ticket = await this.prisma.supportTicket.create({
-      data: {
-        ticketNumber,
-        organizationId,
-        userId,
-        category: dto.category ?? 'OTHER',
-        priority: dto.priority ?? 'MEDIUM',
-        subject: dto.subject,
-        description: dto.description,
-      },
-      include: {
-        user: { select: USER_SELECT },
-        organization: { select: { name: true } },
-        replies: true,
-        attachments: true,
-      },
-    });
+    let ticket: any;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        ticket = await this.prisma.supportTicket.create({
+          data: {
+            ticketNumber: await this.nextTicketNumber(attempt),
+            organizationId,
+            userId,
+            category: dto.category ?? 'OTHER',
+            priority: dto.priority ?? 'MEDIUM',
+            subject: dto.subject,
+            description: dto.description,
+          },
+          include: {
+            user: { select: USER_SELECT },
+            organization: { select: { name: true } },
+            replies: true,
+            attachments: true,
+          },
+        });
+        break;
+      } catch (e: any) {
+        // P2002 = another ticket took that number in the meantime: try the next one
+        if (e?.code !== 'P2002' || attempt >= 5) throw e;
+      }
+    }
     void this.notifyStaffNewTicket(ticket, ticket.organization.name)
       .catch(e => this.logger.warn(`New-ticket notification failed: ${e?.message ?? e}`));
     const { organization, ...result } = ticket;
@@ -222,10 +233,13 @@ export class SupportTicketsService {
           attachments: true,
         },
       }),
-      this.prisma.supportTicket.update({
-        where: { id: ticketId },
-        data: { status: isSupport ? TicketStatus.WAITING_USER : TicketStatus.IN_PROGRESS },
-      }),
+      // an internal note is invisible to the customer, so it must not flip the status they see
+      isInternal
+        ? this.prisma.supportTicket.findUniqueOrThrow({ where: { id: ticketId } })
+        : this.prisma.supportTicket.update({
+            where: { id: ticketId },
+            data: { status: isSupport ? TicketStatus.WAITING_USER : TicketStatus.IN_PROGRESS },
+          }),
     ]);
 
     if (isSupport && !isInternal) {
@@ -295,6 +309,10 @@ export class SupportTicketsService {
     if (!file) throw new BadRequestException('No file provided');
     // only someone who can see the ticket may attach to it (the author or support staff)
     if (userId) await this.findOne(ticketId, userId);
+    if (replyId) {
+      const reply = await this.prisma.ticketReply.findUnique({ where: { id: replyId }, select: { ticketId: true } });
+      if (!reply || reply.ticketId !== ticketId) throw new BadRequestException('Resposta inválida para este ticket');
+    }
 
     const { key } = await this.storage.uploadFile(
       file.buffer,
