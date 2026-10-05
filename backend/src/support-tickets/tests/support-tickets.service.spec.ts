@@ -208,8 +208,16 @@ describe('SupportTicketsService — automated-test accounts', () => {
     expect(await service.removeTestTicket('t1', 'agent')).toEqual({ deleted: 1 });
     prisma.supportTicket.findUnique.mockResolvedValue(ticket()); // ana@cliente.pt — a real customer
     await expect(service.removeTestTicket('t1', 'agent')).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.removeTestTicket('t1', 'author')).rejects.toBeInstanceOf(ForbiddenException); // not staff
+    await expect(service.removeTestTicket('t1', 'author')).rejects.toBeInstanceOf(ForbiddenException); // a customer cannot delete even their own
     expect(prisma.supportTicket.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it('a test account can delete its own test ticket (so the e2e suites tidy up), but not another account\'s', async () => {
+    const { service, prisma } = make();
+    prisma.supportTicket.delete = jest.fn().mockResolvedValue({});
+    prisma.supportTicket.findUnique.mockResolvedValue(testTicket({ userId: 'author' }));
+    expect(await service.removeTestTicket('t1', 'author')).toEqual({ deleted: 1 });
+    await expect(service.removeTestTicket('t1', 'other')).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
 

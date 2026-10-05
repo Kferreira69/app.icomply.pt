@@ -287,12 +287,15 @@ export class SupportTicketsService {
     return updated;
   }
 
-  /** Staff can delete tickets opened by the automated-test accounts (clean-up); real customers' tickets are never deleted. */
+  /**
+   * Clean-up of tickets opened by the automated-test accounts. Allowed to support staff and to the test account
+   * that opened the ticket (so the e2e suites can tidy up after themselves); a real customer's ticket is never deleted.
+   */
   async removeTestTicket(id: string, requesterId: string) {
-    if (!(await this.isStaff(requesterId))) throw new ForbiddenException('Only support team can delete tickets');
     const t = await this.prisma.supportTicket.findUnique({ where: { id }, include: { user: { select: USER_SELECT } } });
     if (!t) throw new NotFoundException('Ticket not found');
     if (!isTestAccount(t.user.email)) throw new ForbiddenException('Só é possível apagar tickets das contas de teste automático');
+    if (t.userId !== requesterId && !(await this.isStaff(requesterId))) throw new ForbiddenException('Only support team can delete tickets');
     await this.prisma.supportTicket.delete({ where: { id } });
     return { deleted: 1 };
   }
