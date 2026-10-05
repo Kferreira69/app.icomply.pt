@@ -1,6 +1,6 @@
 # PACOTE COMPLETO PARA O CLAUDE CO-WORK — atualização do website icomply.pt
 
-> **Este ficheiro é autónomo**: contém, na íntegra, todos os documentos de que o brief precisa (os nomes de ficheiro citados dentro de cada parte referem-se às secções abaixo). Não é preciso nenhum outro ficheiro. Gerado a partir de docs/website/ em 2026-10-02.
+> **Este ficheiro é autónomo**: contém, na íntegra, todos os documentos de que o brief precisa (os nomes de ficheiro citados dentro de cada parte referem-se às secções abaixo). Não é preciso nenhum outro ficheiro. Gerado a partir de docs/website/ em 2026-10-05.
 
 ## Índice
 - 1. Brief (ler primeiro)  (origem: BRIEF-COWORK.md)
@@ -89,7 +89,7 @@ Disponível em **modo manual** (pedido registado, decisão humana com fundamenta
 
 ## 5. Para a equipa técnica (não é para o Co-work)
 
-Para os formulários funcionarem a partir do browser, cada ambiente da aplicação precisa de `CORS_ORIGINS` com `https://icomply.pt` (e `https://www.icomply.pt` se existir); `LEADS_NOTIFY_EMAIL` é opcional. Detalhes em `INTEGRATION.md`.
+A API já aceita pedidos do browser vindos de `https://icomply.pt` e `https://www.icomply.pt` (nada a configurar). Os avisos de novos leads vão para `LEADS_NOTIFY_EMAIL` (opcional); os de suporte técnico para `support@icomply.pt`. Detalhes em `INTEGRATION.md`.
 
 
 ---
@@ -543,14 +543,14 @@ await fetch('https://api.icomply.pt/api/v1/public/leads', {
 ```
 
 ### Configuração necessária (por ambiente)
-- `CORS_ORIGINS` deve incluir a origem do site (`https://icomply.pt`, e `https://www.icomply.pt` se existir), senão o browser bloqueia o pedido.
+- **CORS: nada a configurar para o site.** A API já aceita pedidos vindos de `https://icomply.pt` e de `https://www.icomply.pt` (lista fixa em `backend/src/main.ts`). A variável `CORS_ORIGINS` só serve para acrescentar outros domínios (por exemplo, um site de pré-visualização).
 - `LEADS_NOTIFY_EMAIL` (opcional): caixa que recebe um email por cada lead. Sem esta variável os leads ficam apenas no backoffice.
 
 ### RGPD
 - Mostrar a Política de Privacidade e a caixa de consentimento (sem pré-marcar). A aplicação guarda a data do consentimento (`consentAt`).
 - Finalidade: responder ao pedido. Comunicações de marketing/newsletter exigem consentimento próprio (usar `type: "NEWSLETTER"` com texto específico).
-- Retenção: definir prazo (ex.: apagar leads `CLOSED` sem relação comercial após 24 meses) — a decidir pela Contemporary Constellation.
-- Direitos dos titulares (acesso/apagamento): a lista de leads está no backoffice; apagar a pedido exige remoção na base de dados (ainda não há botão).
+- Retenção (decidida): **24 meses após a última atividade** do lead (criação, mudança de estado ou nota), salvo se o email pertencer a um utilizador ou a um contacto de um cliente (relação de cliente ou utilizador gratuito). A aplicação apaga automaticamente, todos os dias às 03:15. Indicar este prazo na Política de Privacidade.
+- Direitos dos titulares (acesso/apagamento): backoffice → *Leads do site* tem o botão de apagar um lead e "apagar tudo deste email".
 
 ### Tratamento no backoffice
 Menu *Ferramentas → Leads do site* (apenas super-administradores da Contemporary Constellation): filtrar por estado/tipo, mudar o estado (`NEW → CONTACTED → QUALIFIED → CLOSED`) e registar notas. As **sugestões de funcionalidades** (`FEATURE_REQUEST`) alimentam o roteiro: o que for pedido por várias organizações sobe na prioridade e, quando entregue, volta ao site através do catálogo.
