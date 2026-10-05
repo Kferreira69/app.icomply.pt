@@ -92,6 +92,7 @@ async function bootstrap() {
     'http://localhost:3000',
     'https://app.icomply.pt',
     'https://icomply.pt',
+    'https://www.icomply.pt',
     'https://staging.icomply.pt',
     'https://dev.icomply.pt',
   ];

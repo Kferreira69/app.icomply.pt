@@ -12,6 +12,7 @@ import { UpdateTicketDto } from './dto/update-ticket.dto';
 
 const USER_SELECT = { id: true, firstName: true, lastName: true, email: true };
 const PLATFORM_ORG = 'contemporary constellation';
+export const isTestAccount = (email?: string | null) => /@icomply-test\.pt$/i.test(email ?? '');
 
 const CATEGORY_LABEL: Record<string, string> = {
   ONBOARDING: 'Arranque', TECHNICAL_ISSUE: 'Problema técnico', BILLING: 'Faturação',
@@ -159,7 +160,8 @@ export class SupportTicketsService {
         if (e?.code !== 'P2002' || attempt >= 5) throw e;
       }
     }
-    void this.notifyStaffNewTicket(ticket, ticket.organization.name)
+    // tickets opened by the automated-test accounts (*@icomply-test.pt) must not page the support team
+    if (!isTestAccount(ticket.user?.email)) void this.notifyStaffNewTicket(ticket, ticket.organization.name)
       .catch(e => this.logger.warn(`New-ticket notification failed: ${e?.message ?? e}`));
     const { organization, ...result } = ticket;
     return result;
@@ -245,7 +247,7 @@ export class SupportTicketsService {
     if (isSupport && !isInternal) {
       void this.notifyAuthor(ticket, 'O suporte respondeu ao seu pedido', dto.body)
         .catch(e => this.logger.warn(`Reply notification failed: ${e?.message ?? e}`));
-    } else if (!isSupport) {
+    } else if (!isSupport && !isTestAccount(ticket.user?.email)) {
       const name = `${reply.author.firstName} ${reply.author.lastName}`;
       void this.notifyStaffCustomerReply(ticket, name, dto.body)
         .catch(e => this.logger.warn(`Reply notification failed: ${e?.message ?? e}`));
@@ -283,6 +285,16 @@ export class SupportTicketsService {
         .catch(e => this.logger.warn(`Resolved notification failed: ${e?.message ?? e}`));
     }
     return updated;
+  }
+
+  /** Staff can delete tickets opened by the automated-test accounts (clean-up); real customers' tickets are never deleted. */
+  async removeTestTicket(id: string, requesterId: string) {
+    if (!(await this.isStaff(requesterId))) throw new ForbiddenException('Only support team can delete tickets');
+    const t = await this.prisma.supportTicket.findUnique({ where: { id }, include: { user: { select: USER_SELECT } } });
+    if (!t) throw new NotFoundException('Ticket not found');
+    if (!isTestAccount(t.user.email)) throw new ForbiddenException('Só é possível apagar tickets das contas de teste automático');
+    await this.prisma.supportTicket.delete({ where: { id } });
+    return { deleted: 1 };
   }
 
   async getStats(requesterId: string) {
