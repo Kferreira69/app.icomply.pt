@@ -282,6 +282,15 @@ export default function AdminSupportPage() {
     }
   };
 
+  // Tickets opened by the automated-test accounts can be cleaned up from here; real customers' tickets cannot be deleted.
+  const isTestTicket = !!selectedTicket && /@icomply-test.pt$/i.test((selectedTicket as any).user?.email ?? '');
+  const deleteTestTicket = async () => {
+    if (!selectedTicket || !confirm('Apagar este ticket de teste?')) return;
+    await api.delete(`/support-tickets/${selectedTicket.id}`);
+    setSelectedTicket(null);
+    load();
+  };
+
   const updateStatus = async (status: string) => {
     if (!selectedTicket) return;
     setUpdatingStatus(true);
@@ -448,6 +457,11 @@ export default function AdminSupportPage() {
           {/* Status actions */}
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap shrink-0 bg-gray-50">
             <span className="text-xs text-gray-500 mr-1">Alterar:</span>
+            {isTestTicket && (
+              <button onClick={deleteTestTicket} className="text-xs px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 order-last ml-auto">
+                Apagar (ticket de teste)
+              </button>
+            )}
             {(['IN_PROGRESS', 'WAITING_USER', 'RESOLVED', 'CLOSED'] as const).map(s => (
               <button
                 key={s}

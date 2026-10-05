@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Param, Patch, Post, Query,
+  Body, Controller, Delete, Get, Param, Patch, Post, Query,
   Request, UseGuards, ParseIntPipe, DefaultValuePipe,
   UseInterceptors, UploadedFile, Res,
 } from '@nestjs/common';
@@ -67,6 +67,11 @@ export class SupportTicketsController {
     @Query('replyId') replyId?: string,
   ) {
     return this.service.uploadAttachment(ticketId, req.user.organizationId, file, replyId, req.user.userId);
+  }
+
+  @Delete(':id')
+  removeTestTicket(@Request() req: any, @Param('id') id: string) {
+    return this.service.removeTestTicket(id, req.user.userId);
   }
 
   @Patch(':id')

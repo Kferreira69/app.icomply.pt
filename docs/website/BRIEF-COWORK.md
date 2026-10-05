@@ -70,4 +70,4 @@ Disponível em **modo manual** (pedido registado, decisão humana com fundamenta
 
 ## 5. Para a equipa técnica (não é para o Co-work)
 
-Para os formulários funcionarem a partir do browser, cada ambiente da aplicação precisa de `CORS_ORIGINS` com `https://icomply.pt` (e `https://www.icomply.pt` se existir); `LEADS_NOTIFY_EMAIL` é opcional. Detalhes em `INTEGRATION.md`.
+A API já aceita pedidos do browser vindos de `https://icomply.pt` e `https://www.icomply.pt` (nada a configurar). Os avisos de novos leads vão para `LEADS_NOTIFY_EMAIL` (opcional); os de suporte técnico para `support@icomply.pt`. Detalhes em `INTEGRATION.md`.

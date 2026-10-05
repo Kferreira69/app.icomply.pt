@@ -220,6 +220,7 @@ const ENDPOINT_GROUPS = [
       { method: 'GET',   path: '/support-tickets/stats',                    desc: 'Contagens por estado (só suporte)' },
       { method: 'GET',   path: '/support-tickets/:id',                      desc: 'Detalhe; as notas internas só aparecem ao suporte' },
       { method: 'POST',  path: '/support-tickets/:id/replies',              desc: 'Responder (suporte pode marcar nota interna); notifica a outra parte' },
+      { method: 'DELETE', path: '/support-tickets/:id',                     desc: 'Suporte: apagar um ticket aberto por uma conta de teste automático (nunca tickets de clientes)' },
       { method: 'PATCH', path: '/support-tickets/:id',                      desc: 'Suporte: estado, prioridade, atribuição (só a membros da equipa)' },
       { method: 'POST',  path: '/support-tickets/:id/attachments',          desc: 'Anexar ficheiro (autor ou suporte)' },
       { method: 'GET',   path: '/support-tickets/attachments/:id/download', desc: 'Descarregar anexo (mesma visibilidade do ticket)' },

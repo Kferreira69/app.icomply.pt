@@ -69,7 +69,7 @@ await fetch('https://api.icomply.pt/api/v1/public/leads', {
 ```
 
 ### Configuração necessária (por ambiente)
-- `CORS_ORIGINS` deve incluir a origem do site (`https://icomply.pt`, e `https://www.icomply.pt` se existir), senão o browser bloqueia o pedido.
+- **CORS: nada a configurar para o site.** A API já aceita pedidos vindos de `https://icomply.pt` e de `https://www.icomply.pt` (lista fixa em `backend/src/main.ts`). A variável `CORS_ORIGINS` só serve para acrescentar outros domínios (por exemplo, um site de pré-visualização).
 - `LEADS_NOTIFY_EMAIL` (opcional): caixa que recebe um email por cada lead. Sem esta variável os leads ficam apenas no backoffice.
 
 ### RGPD

@@ -185,6 +185,34 @@ describe('SupportTicketsService — numbering, internal notes, staff status', ()
   });
 });
 
+describe('SupportTicketsService — automated-test accounts', () => {
+  const testTicket = (over: any = {}) => ticket({ user: { id: 'author', firstName: 'T', lastName: 'E', email: 'teste.consultant@icomply-test.pt' }, ...over });
+
+  it('tickets opened by a *@icomply-test.pt account do not page the support team', async () => {
+    const { service, prisma, mail } = make({ env: 'suporte@icomply.pt' });
+    prisma.supportTicket.create.mockImplementation(async ({ data }: any) => testTicket({ ...data }));
+    await service.create('author', 'org1', { subject: '[E2E] x', description: 'd' } as any);
+    await flush();
+    expect(mail.sendTicketEmail).not.toHaveBeenCalled();
+    // …nor do their replies
+    prisma.supportTicket.findUnique.mockResolvedValue(testTicket());
+    await service.addReply('t1', 'author', 'ADMIN' as any, { body: 'ola' } as any);
+    await flush();
+    expect(mail.sendTicketEmail).not.toHaveBeenCalled();
+  });
+
+  it('support staff can delete a test ticket, but never a real customer ticket', async () => {
+    const { service, prisma } = make();
+    prisma.supportTicket.findUnique.mockResolvedValue(testTicket());
+    prisma.supportTicket.delete = jest.fn().mockResolvedValue({});
+    expect(await service.removeTestTicket('t1', 'agent')).toEqual({ deleted: 1 });
+    prisma.supportTicket.findUnique.mockResolvedValue(ticket()); // ana@cliente.pt — a real customer
+    await expect(service.removeTestTicket('t1', 'agent')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.removeTestTicket('t1', 'author')).rejects.toBeInstanceOf(ForbiddenException); // not staff
+    expect(prisma.supportTicket.delete).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('SupportTicketsService — updates and attachments', () => {
   it('only staff update tickets, and only assign them to staff', async () => {
     const { service } = make();
