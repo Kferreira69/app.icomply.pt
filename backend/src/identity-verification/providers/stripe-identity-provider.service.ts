@@ -7,6 +7,7 @@ import {
   KycCapabilities,
   KycProvider,
   NormalizedWebhookResult,
+  ProviderCheckResult,
   ProviderDefinition,
   SanctionsScreeningInput,
   VerificationResult,
@@ -116,6 +117,49 @@ export class StripeIdentityProviderService implements KycProvider {
     if (!res.ok) throw new Error(`Stripe Identity API error ${res.status}`);
     const o = d?.verified_outputs;
     return o ? [o.first_name, o.last_name].filter(Boolean).join(' ') || undefined : undefined;
+  }
+
+  /** Current state of a session (same outcome rules as the webhook). A session still waiting for the person looks like "requires_input" without an error. */
+  async fetchStatus(providerRefId: string): Promise<NormalizedWebhookResult> {
+    const res = await fetch(`${this.baseUrl}/v1/identity/verification_sessions/${encodeURIComponent(providerRefId)}?expand[]=verified_outputs`, {
+      headers: { Authorization: `Bearer ${this.cfg.secretKey}` },
+      signal: AbortSignal.timeout(30000),
+    });
+    const d: any = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(`Stripe Identity API error ${res.status}`);
+    const failed = d.status === 'requires_input' && !!d.last_error;
+    const status: VerificationStatus = failed ? 'REVIEW' : mapStripeIdentity(d.status);
+    const o = d.verified_outputs;
+    const verifiedName = o ? [o.first_name, o.last_name].filter(Boolean).join(' ') || undefined : undefined;
+    if (status === 'APPROVED' && !verifiedName) {
+      return { providerRefId, status: 'REVIEW', rawResult: { sessionId: d.id, status: d.status, nameUnavailable: true } };
+    }
+    return {
+      providerRefId, status, verifiedName,
+      rawResult: {
+        sessionId: d.id, status: d.status,
+        lastError: d.last_error ? { code: d.last_error.code, reason: d.last_error.reason } : null, // never PII
+      },
+    };
+  }
+
+  /** Listing sessions is harmless and proves the key works (and has Identity permissions). */
+  async check(): Promise<ProviderCheckResult> {
+    try {
+      const res = await fetch(`${this.baseUrl}/v1/identity/verification_sessions?limit=1`, {
+        headers: { Authorization: `Bearer ${this.cfg.secretKey}` },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.status === 401) return { ok: false, detail: 'A Stripe recusou a chave (401). Confirme STRIPE_IDENTITY_SECRET_KEY.' };
+      if (res.status === 403) return { ok: false, detail: 'A chave não tem permissões de Identity (403). Use uma chave com acesso a Identity.' };
+      if (!res.ok) return { ok: false, detail: `A Stripe respondeu HTTP ${res.status}.` };
+      return {
+        ok: true,
+        detail: 'A Stripe aceitou a chave. ' + (this.cfg.webhookSecret ? 'Segredo do webhook configurado.' : 'Sem segredo do webhook (STRIPE_IDENTITY_WEBHOOK_SECRET): use "Atualizar estado" para obter resultados.'),
+      };
+    } catch {
+      return { ok: false, detail: 'Não foi possível contactar a Stripe (rede ou tempo esgotado).' };
+    }
   }
 
   async handleWebhook(payload: any, ctx: WebhookContext): Promise<NormalizedWebhookResult> {

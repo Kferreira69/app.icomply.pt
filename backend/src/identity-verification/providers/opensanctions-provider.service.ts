@@ -5,6 +5,7 @@ import {
   KycCapabilities,
   KycProvider,
   NormalizedWebhookResult,
+  ProviderCheckResult,
   ProviderDefinition,
   SanctionsScreeningInput,
   VerificationResult,
@@ -74,6 +75,11 @@ export class OpenSanctionsProviderService implements KycProvider {
         })),
       },
     };
+  }
+
+  /** Every query is billed (0,10 €), so the key is not exercised here: the first real screening proves it. */
+  async check(): Promise<ProviderCheckResult> {
+    return { ok: null, detail: 'Chave configurada. A validade só se confirma na primeira consulta (cada consulta é cobrada pela OpenSanctions).' };
   }
 
   handleWebhook(_payload: unknown, _ctx: WebhookContext): NormalizedWebhookResult {

@@ -898,6 +898,11 @@ export const identityVerificationApi = {
   // platform operator (backoffice)
   adminSettings: (orgId: string) => api.get(`/identity-verification/admin/${orgId}`),
   proposeTerms:  (orgId: string, data: any) => api.put(`/identity-verification/admin/${orgId}/terms`, data),
+  refresh:       (id: string) => api.post(`/identity-verification/${id}/refresh`),
+  sendLink:      (id: string, email: string) => api.post(`/identity-verification/${id}/send-link`, { email }),
+  adminUsage:    (month?: string) => api.get('/identity-verification/admin/usage', { params: { month } }),
+  adminCheck:    (providerId: string) => api.post(`/identity-verification/admin/providers/${providerId}/check`),
+  setupInvoiced: (orgId: string, invoiced: boolean) => api.put(`/identity-verification/admin/${orgId}/setup-invoiced`, { invoiced }),
   setRouting:    (orgId: string, data: Record<string, string | null>) => api.put(`/identity-verification/admin/${orgId}/routing`, data),
   setRoutingAll: (data: Record<string, string | null>) => api.put('/identity-verification/admin/routing/all', data),
 };

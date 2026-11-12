@@ -82,6 +82,19 @@ Until then everything keeps working in manual mode.
 
 **Adding another vendor:** one file in `providers/` implementing `KycProvider` + one line in `PROVIDER_DEFINITIONS`.
 
+## Operating the module (what is built in)
+
+| Need | How |
+|---|---|
+| Is the provider reachable with the configured credentials? | Backoffice → *KYC · Condições* → **Fornecedores ligados** → *Testar ligação* (`POST /identity-verification/admin/providers/:id/check`). A harmless call: it never creates anything or costs money. OpenSanctions cannot be tested for free (every query is billed), so it reports "not verifiable". |
+| A result never arrived | Each automated check can be refreshed (`POST /identity-verification/:id/refresh`, button *Atualizar estado*); in addition `reconcilePending` runs every 20 minutes and asks the provider about checks still PENDING after 10 minutes (up to 30 days old). Both use `KycProvider.fetchStatus` (Didit: `GET /v3/session/{id}/decision/`; Stripe: retrieve the session). |
+| A late or repeated notification | `applyOutcome` never overwrites a person's decision or a final APPROVED/REJECTED, and writes with a guarded update. |
+| The person must open a link | The hosted link is stored (`actionUrl`), shown in the request and can be emailed (`POST /:id/send-link`, max 3 per check, https links only, the person's name is never in the email). |
+| Avoid surprise bills | `monthlyCap` in the commercial terms (operator sets it, the customer accepts it). A check that would exceed it is handled manually (flag `capReached`). Paid routes are throttled (30/min per IP). |
+| What to invoice | Backoffice → *Consumo e faturação*: automated checks per customer / provider / feature for a month at the price recorded on each check, set-up fees of accepted terms (mark as invoiced), CSV. Invoicing itself stays manual (Moloni). |
+| AML page | `POST /aml/screenings` with `automated`: company → KYB; person KYC → document verification; person SANCTIONS/PEP/ADVERSE_MEDIA → sanctions screening. The screening is linked (`IdentityVerification.amlScreeningId`) and its result (CLEAR / HIT / POTENTIAL_MATCH / PENDING) follows the verification, including a human decision. |
+| Customer has no add-on | `GET /providers` returns `addonActive: false`; the page shows an activation notice with a one-click support request instead of a form. |
+
 ## Provider-independent operation: manual mode and commercial terms
 
 The module does not wait for any vendor. Once the `identity_verification` add-on is active an
