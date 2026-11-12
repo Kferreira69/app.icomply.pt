@@ -35,6 +35,7 @@ const SCREENING_RESULT: Record<string, { label: string; color: string }> = {
   HIT:             { label: 'Correspondência', color: 'text-red-600' },
   POTENTIAL_MATCH: { label: 'Possível Match',  color: 'text-orange-600' },
   FALSE_POSITIVE:  { label: 'Falso Positivo',  color: 'text-gray-500' },
+  PENDING:         { label: 'Em verificação',  color: 'text-blue-600' }, // set by the automatic check; follows it until it is decided
 };
 const POLICY_CATEGORIES = ['AML', 'KYC', 'SANCTIONS', 'BRIBERY', 'FRAUD'];
 const ENTITY_TYPES = ['CUSTOMER', 'SUPPLIER', 'PARTNER', 'EMPLOYEE', 'COUNTERPARTY'];
@@ -164,7 +165,7 @@ function ScreeningModal({ onClose, onSave }: { onClose: () => void; onSave: (d: 
         {!form.automated && (
           <div><label className="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
             <select className="w-full border rounded-lg px-3 py-2 text-sm" value={form.result} onChange={e => s('result', e.target.value)}>
-              {Object.entries(SCREENING_RESULT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
+              {Object.entries(SCREENING_RESULT).filter(([k]) => k !== 'PENDING').map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
         )}
         <div><label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
           <textarea className="w-full border rounded-lg px-3 py-2 text-sm resize-none" rows={2} value={form.notes} onChange={e => s('notes', e.target.value)} /></div>
@@ -396,7 +397,17 @@ export default function AmlPage() {
 
   const createCaseMut = useMutation({ mutationFn: (d: any) => amlApi.createCase(d), onSuccess: () => { inv(['aml-cases', 'aml-dashboard']); setShowModal(null); } });
   const updateCaseMut = useMutation({ mutationFn: ({ id, data }: any) => amlApi.updateCase(id, data), onSuccess: () => { inv(['aml-cases']); setEditItem(null); } });
-  const createScreeningMut = useMutation({ mutationFn: (d: any) => amlApi.createScreening(d), onSuccess: () => { inv(['aml-screenings']); setShowModal(null); } });
+  const [verificationLink, setVerificationLink] = useState<string | null>(null);
+  const createScreeningMut = useMutation({
+    mutationFn: (d: any) => amlApi.createScreening(d),
+    onSuccess: (res: any) => {
+      inv(['aml-screenings']);
+      const link = res?.data?.verification?.actionUrl;
+      setShowModal(link ? 'verification-link' : null);
+      if (link) setVerificationLink(link);
+    },
+    onError: (e: any) => alert(e?.response?.data?.message || e?.message || 'Erro inesperado'),
+  });
   const createPolicyMut = useMutation({ mutationFn: (d: any) => amlApi.createPolicy(d), onSuccess: () => { inv(['aml-policies']); setShowModal(null); } });
   const createRiskMut = useMutation({ mutationFn: (d: any) => amlApi.createRiskAssessment(d), onSuccess: () => { inv(['aml-risk', 'aml-dashboard']); setShowModal(null); } });
   const updateRiskMut = useMutation({ mutationFn: ({ id, data }: any) => amlApi.updateRiskAssessment(id, data), onSuccess: () => { inv(['aml-risk']); setEditItem(null); } });
@@ -633,6 +644,19 @@ export default function AmlPage() {
 
       {/* ── Create modals ── */}
       {showModal === 'cases' && <CaseModal onClose={() => setShowModal(null)} onSave={d => createCaseMut.mutate(d)} />}
+      {showModal === 'verification-link' && verificationLink && (
+        <ModalShell title="Verificação criada" onClose={() => { setShowModal(null); setVerificationLink(null); }}>
+          <div className="p-5 space-y-3 text-sm text-gray-700">
+            <p>Envie este link à pessoa para concluir a verificação (fotografar o documento e fazer uma selfie). O resultado aparece aqui sozinho.</p>
+            <input readOnly className="w-full border rounded-lg px-3 py-2 text-xs bg-gray-50" value={verificationLink} onFocus={e => e.currentTarget.select()} />
+            <p className="text-xs text-gray-500">Também o encontra, com a opção de o enviar por email, em Verificação de Identidade.</p>
+          </div>
+          <div className="p-5 border-t flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard?.writeText(verificationLink); }}>Copiar link</Button>
+            <Button size="sm" onClick={() => { setShowModal(null); setVerificationLink(null); }}>Fechar</Button>
+          </div>
+        </ModalShell>
+      )}
       {showModal === 'screening' && <ScreeningModal onClose={() => setShowModal(null)} onSave={d => createScreeningMut.mutate(d)} />}
       {showModal === 'policies' && (
         <ModalShell title="Nova Política AML" onClose={() => setShowModal(null)}>

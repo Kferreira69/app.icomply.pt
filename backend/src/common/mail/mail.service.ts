@@ -162,6 +162,7 @@ export class MailService {
     excerpt?: string;
     url: string;
     cta: string;
+    footer?: string;
   }): Promise<void> {
     const esc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
     const rows = mail.facts.map(([k, v]) =>
@@ -178,7 +179,7 @@ export class MailService {
           <a href="${esc(mail.url)}" style="background: #1a56db; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">${esc(mail.cta)}</a>
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-        <p style="color: #999; font-size: 12px;">iComply Support</p>
+        <p style="color: #999; font-size: 12px;">${esc(mail.footer ?? 'iComply Support')}</p>
       </div>
     `);
   }

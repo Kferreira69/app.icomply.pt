@@ -24,4 +24,10 @@ describe('webhook routes bypass the global login guard', () => {
       for (const n of others) expect(isPublic((ctrl.prototype as any)[n])).toBe(false);
     }
   });
+
+  it('GET admin/usage is declared before GET admin/:orgId (otherwise "usage" would be read as an organisation id)', () => {
+    const order = Object.getOwnPropertyNames(IdentityVerificationController.prototype);
+    expect(order.indexOf('adminUsage')).toBeGreaterThan(-1);
+    expect(order.indexOf('adminUsage')).toBeLessThan(order.indexOf('adminSettings'));
+  });
 });
