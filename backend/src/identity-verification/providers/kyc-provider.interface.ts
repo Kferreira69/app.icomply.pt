@@ -54,6 +54,12 @@ export interface KycCapabilities {
   webhooks: boolean;
 }
 
+/** Result of "can the platform talk to this provider with the configured credentials?". `ok: null` = cannot be checked without a billable call. */
+export interface ProviderCheckResult {
+  ok: boolean | null;
+  detail: string;
+}
+
 export interface WebhookContext {
   /** Exact bytes received — signatures are computed over these, not over re-serialised JSON. */
   rawBody?: Buffer;
@@ -75,6 +81,13 @@ export interface KycProvider {
   screenSanctions(input: SanctionsScreeningInput): Promise<VerificationResult>;
   /** Authenticate the call (signature) and normalise it. Must throw ForbiddenException when it is not authentic. */
   handleWebhook(payload: unknown, ctx: WebhookContext): NormalizedWebhookResult | Promise<NormalizedWebhookResult>;
+  /**
+   * Ask the provider for the CURRENT state of a verification (safety net for a lost webhook, and the "refresh" button).
+   * Same normalised shape as a webhook; providers that cannot do it simply do not implement it.
+   */
+  fetchStatus?(providerRefId: string): Promise<NormalizedWebhookResult>;
+  /** Harmless call that proves the credentials work. Never a billable one. */
+  check?(): Promise<ProviderCheckResult>;
 }
 
 /** How the registry discovers a provider: whether it has credentials, and how to build it. */

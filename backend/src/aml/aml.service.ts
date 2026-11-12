@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { IdentityVerificationService } from '../identity-verification/identity-verification.service';
+import { AML_RESULT_OF_STATUS, IdentityVerificationService } from '../identity-verification/identity-verification.service';
+import { date, oneOf, required, text } from '../common/utils/input';
+
+const SUBJECT_TYPES = ['INDIVIDUAL', 'ENTITY', 'BUSINESS'] as const;
+const SCREENING_TYPES = ['KYC', 'SANCTIONS', 'PEP', 'ADVERSE_MEDIA'] as const;
+// what the AML screening list can show (see SCREENING_RESULT in the AML page)
+const SCREENING_RESULTS = ['CLEAR', 'HIT', 'POTENTIAL_MATCH', 'FALSE_POSITIVE', 'PENDING'] as const;
 
 @Injectable()
 export class AmlService {
@@ -114,50 +120,74 @@ export class AmlService {
     });
   }
 
-  // dto.automated=true routes the check through the real KYC/KYB/AML provider
-  // (requires the `identity_verification` addon) instead of just recording
-  // whatever the user typed in manually.
+  /**
+   * A screening is recorded by hand (the person states the result) or, with `automated`, run through the
+   * identity-verification module (needs the `identity_verification` add-on). Only the fields below are accepted:
+   * the body used to be spread into the database call, so any extra field (e.g. the country sent by the automated
+   * form) made it fail AFTER a paid check had been created.
+   *
+   *  - company / entity            → KYB (registry, beneficial owners, AML)
+   *  - person, type KYC            → document + selfie verification
+   *  - person, SANCTIONS/PEP/MEDIA → sanctions / PEP screening
+   *
+   * The screening then follows the verification: when the provider (or a person) decides it, the result shown in the
+   * AML list is updated.
+   */
   async createScreening(orgId: string, dto: any, screenedBy: string) {
-    const { automated, ...screeningDto } = dto;
+    const db = this.prisma as any;
+    const subjectName = required(dto?.subjectName, 'Nome', 200);
+    const subjectType = oneOf(dto?.subjectType ?? 'INDIVIDUAL', SUBJECT_TYPES, 'Tipo');
+    const screeningType = oneOf(dto?.screeningType ?? 'KYC', SCREENING_TYPES, 'Tipo de screening');
+    const notes = text(dto?.notes, 1500);
 
-    if (!automated) {
-      return (this.prisma as any).amlScreening.create({
+    let caseId: string | null = null;
+    if (dto?.caseId) {
+      const c = await db.amlCase.findFirst({ where: { id: String(dto.caseId), organizationId: orgId }, select: { id: true } });
+      if (!c) throw new BadRequestException('Caso inválido');
+      caseId = c.id;
+    }
+
+    if (!dto?.automated) {
+      return db.amlScreening.create({
         data: {
-          ...screeningDto,
-          organizationId: orgId,
-          screenedBy,
-          screenedAt: new Date(),
+          organizationId: orgId, screenedBy, screenedAt: new Date(), subjectName, subjectType, screeningType, notes, caseId,
+          result: oneOf(dto?.result ?? 'CLEAR', SCREENING_RESULTS, 'Resultado'),
         },
       });
     }
 
-    const isBusiness = dto.subjectType === 'BUSINESS' || dto.subjectType === 'ENTITY';
-    const verification = isBusiness
-      ? await this.identityVerification.verifyBusiness(orgId, screenedBy, {
-          legalName: dto.subjectName,
-          country: dto.country,
-          vatNumber: dto.vatNumber,
-        })
-      : await this.identityVerification.verifyIndividual(orgId, screenedBy, {
-          fullName: dto.subjectName,
-          country: dto.country,
-          documentNumber: dto.documentNumber,
-        });
+    const country = String(dto?.country ?? '').trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(country)) throw new BadRequestException('Indique o país (2 letras, ex.: PT).');
 
-    const resultMap: Record<string, string> = {
-      APPROVED: 'CLEAR', REJECTED: 'MATCH', REVIEW: 'REVIEW', PENDING: 'PENDING', ERROR: 'ERROR',
-    };
+    let verification: any;
+    if (subjectType !== 'INDIVIDUAL') {
+      verification = await this.identityVerification.verifyBusiness(orgId, screenedBy, {
+        legalName: subjectName, country, vatNumber: text(dto?.vatNumber, 40) ?? undefined,
+      });
+    } else if (screeningType === 'KYC') {
+      verification = await this.identityVerification.verifyIndividual(orgId, screenedBy, {
+        fullName: subjectName, country, documentNumber: text(dto?.documentNumber, 60) ?? undefined,
+      });
+    } else {
+      const dob = date(dto?.dateOfBirth, 'Data de nascimento');
+      verification = await this.identityVerification.screenSanctions(orgId, screenedBy, {
+        name: subjectName, country, dateOfBirth: dob ? dob.toISOString().slice(0, 10) : undefined,
+      });
+    }
 
-    return (this.prisma as any).amlScreening.create({
+    const screening = await db.amlScreening.create({
       data: {
-        ...screeningDto,
-        organizationId: orgId,
-        screenedBy,
-        screenedAt: new Date(),
-        result: resultMap[verification.status] ?? 'PENDING',
-        notes: `Verificação automática (${verification.provider}), ref: ${verification.providerRefId ?? verification.id}`,
+        organizationId: orgId, screenedBy, screenedAt: new Date(), subjectName, subjectType, screeningType, caseId,
+        result: AML_RESULT_OF_STATUS[verification.status as keyof typeof AML_RESULT_OF_STATUS] ?? 'PENDING',
+        notes: [notes, `Verificação ${verification.automated ? 'automática' : 'manual'} (${verification.provider}), ref: ${verification.providerRefId ?? verification.id}`]
+          .filter(Boolean).join('\n'),
       },
     });
+    await this.identityVerification.linkAmlScreening(orgId, verification.id, screening.id);
+    return {
+      ...screening,
+      verification: { id: verification.id, status: verification.status, provider: verification.provider, automated: verification.automated, actionUrl: verification.actionUrl ?? null },
+    };
   }
 
   async listPolicies(orgId: string) {

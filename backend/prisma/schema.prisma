@@ -3430,6 +3430,9 @@ model IdentityVerification {
   // go through an external provider and are billable under the terms the customer accepted.
   automated      Boolean   @default(true)
   actionUrl      String?   // hosted link the person opens to complete the check (Didit, Stripe Identity…)
+  feature        String?   // individual | business | sanctions — what was asked of the provider (usage report)
+  linkSentCount  Int       @default(0) // times the verification link was emailed to the person (capped)
+  linkSentAt     DateTime?
   unitPrice      Decimal?  @db.Decimal(10, 2)  // PAYG price charged for this check (from the accepted terms)
   currency       String?
   termsVersion   Int?

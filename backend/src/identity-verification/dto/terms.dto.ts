@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -22,6 +22,10 @@ export class ProposeTermsDto {
   @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100_000)
   priceSanctions?: number;
 
+  /** Spending ceiling per calendar month. When a new automated check would exceed it, the request is handled manually. Leave out for no ceiling. */
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(1) @Max(1_000_000)
+  monthlyCap?: number;
+
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000)
   note?: string;
 }
@@ -30,4 +34,14 @@ export class AcceptTermsDto {
   /** The version of the terms the customer is accepting (so they cannot accept terms they have not seen). */
   @IsInt() @Min(1)
   version!: number;
+}
+
+export class SendLinkDto {
+  @Transform(trim) @IsEmail() @MaxLength(200)
+  email!: string;
+}
+
+export class SetupInvoicedDto {
+  @IsBoolean()
+  invoiced!: boolean;
 }

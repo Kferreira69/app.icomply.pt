@@ -228,6 +228,22 @@ export const KB_CATEGORIES = [
         body: 'Em Ética → Verificação de Identidade registas pedidos para pessoas, empresas e rastreio de sanções/PEP. O módulo funciona sempre, sem depender de nenhum fornecedor:\n• Modo manual (sem custos adicionais): o pedido fica registado e uma pessoa decide — Aprovar ou Rejeitar — indicando a fundamentação (diligências feitas, listas consultadas). O nº do documento é guardado mascarado.\n• Modo automático: um fornecedor especializado faz a verificação. Só é usado quando o fornecedor está ligado à plataforma E um administrador da tua organização aceitou as condições comerciais (taxa de arranque única + preço por verificação). Até lá os pedidos seguem em modo manual, sem custos surpresa.\n\nO add-on de Verificação de Identidade tem de estar ativo na tua licença.',
       },
       {
+        title: 'O resultado de uma verificação automática não chegou: o que fazer',
+        body: 'Os resultados chegam sozinhos do fornecedor, mas se um aviso se perder o pedido pode ficar "A processar". Há duas redes de segurança: a plataforma pergunta ao fornecedor pelos pedidos pendentes de 20 em 20 minutos, e tu podes carregar em "Atualizar estado" no próprio pedido para saber já. Se o fornecedor ainda não tiver resultado, a mensagem diz-to; a pessoa pode não ter concluído os passos (reenvia-lhe o link). Uma decisão tomada por uma pessoa nunca é alterada por um resultado tardio do fornecedor.',
+      },
+      {
+        title: 'Como enviar o link de verificação à pessoa',
+        body: 'Quando um pedido automático gera um link (para fotografar o documento e fazer uma selfie), aparece no pedido: podes copiá-lo, abri-lo ou enviá-lo por email com "enviar por email" — o email segue em nome da tua organização e não leva o nome da pessoa. Cada pedido permite até 3 envios por email; depois copia o link e envia-o pelo teu meio habitual. O link só funciona enquanto o pedido está por concluir.',
+      },
+      {
+        title: 'O que vejo quando preciso de decidir um pedido',
+        body: 'Os pedidos "Aguarda decisão" mostram o que ajuda a decidir: os alertas do fornecedor (por exemplo, documento expirado), um aviso se o nome lido no documento não coincide com o do pedido, o que foi escrito no pedido manual (o número do documento aparece mascarado) e se o pedido ficou manual por o teto mensal ter sido atingido. Podes aprovar ou rejeitar com fundamentação. Uma rejeição automática pode ser revista uma vez por uma pessoa (por exemplo, um falso positivo numa lista de sanções); uma decisão humana é definitiva. Os screenings criados em AML acompanham o resultado: a lista de AML atualiza-se quando o pedido é decidido.',
+      },
+      {
+        title: 'Teto mensal de consumo da verificação automática',
+        body: 'As condições comerciais podem incluir um teto de consumo por mês. Enquanto o consumo estiver abaixo do teto, os pedidos seguem automáticos; quando um novo pedido o fizesse ultrapassar, fica em modo manual (sem custo) até ao mês seguinte, e o ecrã avisa. O teto é um limite de segurança e não um mínimo: nunca pagas mais do que o combinado sem o teres aceite. O consumo do mês e o teto aparecem no cartão do modo.',
+      },
+      {
         title: 'Que fornecedores fazem a verificação automática e quem escolhe',
         body: 'A plataforma liga-se a vários fornecedores especializados (Didit, Sumsub, Trulioo, Stripe Identity e OpenSanctions) e cada tipo de pedido — pessoas, empresas, sanções/PEP — pode ser tratado por um fornecedor diferente. Quem escolhe é a equipa da plataforma, que pode mudar de fornecedor a qualquer momento sem que tenhas de fazer nada: as condições que aceitaste e o que pagas por verificação não mudam com o fornecedor. Quando o pedido gera um link (por exemplo, para fotografar o documento e fazer uma selfie), ele aparece no pedido: copia-o e envia-o à pessoa a verificar. Se nenhum fornecedor puder tratar um pedido, ele fica em modo manual.',
       },

@@ -52,8 +52,11 @@ function make(opts: { addonActive?: boolean; metadata?: any; providers?: any[]; 
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
+  prisma.organization = { findUnique: jest.fn().mockResolvedValue({ name: 'ACME SA' }) };
+  prisma.amlScreening = { updateMany: jest.fn().mockResolvedValue({ count: 1 }) };
   const licensing: any = { hasActiveAddon: jest.fn().mockResolvedValue(opts.addonActive ?? true) };
-  return { service: new IdentityVerificationService(prisma, licensing, registry), prisma, registry, sumsub, trulioo, sanctionsOnly, licensing };
+  const mail: any = { sendTicketEmail: jest.fn().mockResolvedValue(undefined) };
+  return { service: new IdentityVerificationService(prisma, licensing, registry, mail), prisma, registry, sumsub, trulioo, sanctionsOnly, licensing, mail };
 }
 
 const person = { fullName: 'Ana Silva', country: 'PT' };

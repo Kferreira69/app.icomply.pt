@@ -7,6 +7,7 @@ import {
   KycCapabilities,
   KycProvider,
   NormalizedWebhookResult,
+  ProviderCheckResult,
   ProviderDefinition,
   SanctionsScreeningInput,
   VerificationResult,
@@ -37,6 +38,26 @@ const STATUS_MAP: Record<string, VerificationStatus> = {
 };
 export const mapDiditStatus = (s: unknown): VerificationStatus =>
   (typeof s === 'string' && STATUS_MAP[s]) || 'REVIEW'; // unknown → a person looks at it
+
+/**
+ * Warning codes the provider attached to any check of the session (e.g. an expired document): what a person needs to
+ * decide an "In Review" without opening the provider's console. Codes only — never document data or names.
+ */
+export function warningCodes(decision: any): string[] {
+  const out = new Set<string>();
+  const take = (w: unknown) => {
+    const code = typeof w === 'string' ? w : (w as any)?.risk ?? (w as any)?.code ?? (w as any)?.short_description;
+    if (typeof code === 'string' && code.trim()) out.add(code.trim().slice(0, 80));
+  };
+  if (decision && typeof decision === 'object') {
+    for (const w of Array.isArray(decision.warnings) ? decision.warnings : []) take(w);
+    for (const v of Object.values(decision)) {
+      if (!Array.isArray(v)) continue;
+      for (const item of v) for (const w of Array.isArray((item as any)?.warnings) ? (item as any).warnings : []) take(w);
+    }
+  }
+  return [...out].slice(0, 20);
+}
 
 export interface DiditConfig {
   apiKey: string;
@@ -177,18 +198,55 @@ export class DiditProviderService implements KycProvider {
     if (!ok) throw new ForbiddenException('Invalid webhook signature');
   }
 
-  handleWebhook(payload: any, ctx: WebhookContext): NormalizedWebhookResult {
-    this.assertAuthentic(payload, ctx);
-    const aml = Array.isArray(payload?.decision?.aml_screenings) ? payload.decision.aml_screenings[0] : undefined;
+  /** Webhook payloads carry the decision under `decision`; GET /decision/ returns it at the top level. */
+  private normalize(payload: any): NormalizedWebhookResult {
+    const decision = payload?.decision && typeof payload.decision === 'object' ? payload.decision : payload;
+    const aml = Array.isArray(decision?.aml_screenings) ? decision.aml_screenings[0] : undefined;
+    const warnings = warningCodes(decision);
     return {
-      providerRefId: payload?.session_id ?? '',
-      status: mapDiditStatus(payload?.status),
+      providerRefId: payload?.session_id ?? decision?.session_id ?? '',
+      status: mapDiditStatus(payload?.status ?? decision?.status),
       riskScore: typeof aml?.score === 'number' ? Math.min(100, Math.round(aml.score)) : undefined,
       rawResult: {
-        webhookType: payload?.webhook_type, status: payload?.status, sessionId: payload?.session_id,
+        webhookType: payload?.webhook_type, status: payload?.status ?? decision?.status, sessionId: payload?.session_id ?? decision?.session_id,
         environment: payload?.environment, amlHits: aml?.total_hits,
+        ...(warnings.length ? { warnings } : {}),
       },
     };
+  }
+
+  handleWebhook(payload: any, ctx: WebhookContext): NormalizedWebhookResult {
+    this.assertAuthentic(payload, ctx);
+    return this.normalize(payload);
+  }
+
+  async fetchStatus(providerRefId: string): Promise<NormalizedWebhookResult> {
+    const d = await this.request(`/v3/session/${encodeURIComponent(providerRefId)}/decision/`);
+    const out = this.normalize(d);
+    return { ...out, providerRefId }; // the session we asked about, whatever the body echoes
+  }
+
+  /**
+   * Proves the API key is accepted without creating anything: asking for a session that cannot exist is answered
+   * 404 for a valid key and 401/403 for an invalid one.
+   */
+  async check(): Promise<ProviderCheckResult> {
+    try {
+      const res = await fetch(`${this.baseUrl}/v3/session/00000000-0000-0000-0000-000000000000/decision/`, {
+        headers: { 'x-api-key': this.cfg.apiKey, Accept: 'application/json' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.status === 401 || res.status === 403) return { ok: false, detail: `A Didit recusou a chave (HTTP ${res.status}). Confirme a chave de API e se é a do ambiente certo.` };
+      const parts = [
+        'A Didit aceitou a chave.',
+        this.cfg.workflowKyc ? 'Fluxo KYC configurado.' : 'Sem fluxo KYC (DIDIT_WORKFLOW_KYC): pessoas ficam em modo manual.',
+        this.cfg.workflowKyb ? 'Fluxo KYB configurado.' : 'Sem fluxo KYB (DIDIT_WORKFLOW_KYB): empresas ficam em modo manual.',
+        this.cfg.webhookSecret ? 'Segredo do webhook configurado.' : 'Sem segredo do webhook (DIDIT_WEBHOOK_SECRET): os resultados não chegam sozinhos (use "Atualizar estado").',
+      ];
+      return { ok: true, detail: parts.join(' ') };
+    } catch {
+      return { ok: false, detail: 'Não foi possível contactar a Didit (rede ou tempo esgotado).' };
+    }
   }
 }
 

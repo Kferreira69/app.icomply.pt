@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, Building2, ShieldAlert, CheckCircle2, XCircle, Clock, Cpu, Hand, Euro, Info, Link2, Copy } from 'lucide-react';
-import { identityVerificationApi } from '@/lib/api';
+import { UserCheck, Building2, ShieldAlert, CheckCircle2, XCircle, Clock, Cpu, Hand, Euro, Info, Link2, Copy, RefreshCw, Mail, AlertTriangle, Lock } from 'lucide-react';
+import { api, identityVerificationApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth-store';
 import { usePermissions } from '@/hooks/use-permissions';
 import { ModuleGuard } from '@/components/module-guard';
@@ -38,6 +38,83 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div><label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>{children}</div>;
 }
 const input = 'w-full border rounded-lg px-3 py-2 text-sm';
+
+/** The add-on is not active for this organisation: explain and offer a one-click request instead of a form that would fail. */
+function AddonNotice() {
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function request() {
+    setBusy(true);
+    try {
+      const { data } = await api.post('/support-tickets', {
+        category: 'ONBOARDING', priority: 'MEDIUM',
+        subject: 'Ativar a Verificação de Identidade (KYC/KYB/sanções)',
+        description: 'Gostaríamos de ativar o add-on de Verificação de Identidade para a nossa organização. Por favor contactem-nos com as condições.',
+      });
+      setTicket(data?.ticketNumber ?? 'enviado');
+    } catch (e) { alert(errMsg(e)); } finally { setBusy(false); }
+  }
+  return (
+    <div className="bg-white rounded-xl border border-amber-200 shadow-sm p-5 flex items-start gap-3">
+      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0"><Lock className="w-5 h-5" /></div>
+      <div className="space-y-2">
+        <p className="font-semibold text-gray-900">Este módulo ainda não está ativo para a sua organização</p>
+        <p className="text-sm text-gray-600">A Verificação de Identidade (pessoas, empresas, sanções e PEP) é um add-on. Começa em modo manual, sem custos adicionais; a verificação automática é opcional e só é cobrada depois de aceitar as condições.</p>
+        {ticket
+          ? <p className="text-sm text-green-700">Pedido enviado ({ticket}). Entraremos em contacto em breve.</p>
+          : <Button size="sm" disabled={busy} onClick={request}>{busy ? 'A enviar…' : 'Pedir ativação'}</Button>}
+      </div>
+    </div>
+  );
+}
+
+/** What a person needs in order to decide: provider alerts, name mismatch, what was typed (masked), cap notice. */
+function RowDetails({ v }: { v: any }) {
+  const r = v.rawResult ?? {};
+  const warnings: string[] = Array.isArray(r.warnings) ? r.warnings : [];
+  const typed = r.mode === 'manual' && r.input ? [r.input.documentType, r.input.documentNumber, r.input.email, r.input.vatNumber, r.input.registrationNumber].filter(Boolean).join(' · ') : '';
+  return (
+    <>
+      {warnings.length > 0 && (
+        <p className="text-xs mt-1 flex items-center gap-1 flex-wrap text-amber-700">
+          <AlertTriangle className="w-3.5 h-3.5" /> Alertas do fornecedor:
+          {warnings.map(w => <span key={w} className="bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">{w.replace(/_/g, ' ').toLowerCase()}</span>)}
+        </p>
+      )}
+      {r.nameMismatch && <p className="text-xs text-amber-700 mt-1">O nome verificado no documento não coincide com o do pedido — confirme antes de aprovar.</p>}
+      {r.nameUnavailable && <p className="text-xs text-amber-700 mt-1">Não foi possível confirmar o nome no documento — confirme manualmente.</p>}
+      {r.capReached && <p className="text-xs text-gray-500 mt-1">Teto mensal de consumo atingido: este pedido ficou em modo manual.</p>}
+      {typed && <p className="text-xs text-gray-500 mt-1">{typed}</p>}
+    </>
+  );
+}
+
+/** Emails the hosted link to the person (a few sends per verification). */
+function SendLink({ v, onDone }: { v: any; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState('');
+  const mut = useMutation({
+    mutationFn: () => identityVerificationApi.sendLink(v.id, email.trim()),
+    onSuccess: r => { setMsg(`Enviado. Restam ${r.data.remaining} envio(s).`); setOpen(false); setEmail(''); onDone(); },
+    onError: e => setMsg(errMsg(e)),
+  });
+  if ((v.linkSentCount ?? 0) >= 3) return <span className="text-gray-400">limite de envios por email atingido</span>;
+  return (
+    <>
+      {open ? (
+        <span className="inline-flex items-center gap-1">
+          <input type="email" autoFocus placeholder="email da pessoa" className="border rounded px-2 py-0.5 text-xs w-44" value={email} onChange={e => setEmail(e.target.value)} />
+          <button className="text-blue-700 hover:underline disabled:opacity-40" disabled={!email.includes('@') || mut.isPending} onClick={() => mut.mutate()}>{mut.isPending ? 'a enviar…' : 'enviar'}</button>
+          <button className="text-gray-400 hover:underline" onClick={() => setOpen(false)}>cancelar</button>
+        </span>
+      ) : (
+        <button className="inline-flex items-center gap-1 text-blue-700 hover:underline" onClick={() => { setOpen(true); setMsg(''); }}><Mail className="w-3 h-3" /> enviar por email</button>
+      )}
+      {msg && <span className="text-gray-500">{msg}</span>}
+    </>
+  );
+}
 
 function ModeCard({ settings, canAccept, onAccept, busy }: { settings: any; canAccept: boolean; onAccept: (v: number) => void; busy: boolean }) {
   const c = settings.commercial;
@@ -99,8 +176,14 @@ function ModeCard({ settings, canAccept, onAccept, busy }: { settings: any; canA
         </p>
       )}
 
-      {settings.usage?.automatedChecks > 0 && (
-        <p className="text-xs text-gray-500">Este mês ({settings.usage.month}): {settings.usage.automatedChecks} verificações automáticas · {money(settings.usage.amount, settings.usage.currency)}</p>
+      {(settings.usage?.automatedChecks > 0 || settings.usage?.cap != null) && (
+        <p className="text-xs text-gray-500">
+          Este mês ({settings.usage.month}): {settings.usage.automatedChecks} verificações automáticas · {money(settings.usage.amount, settings.usage.currency)}
+          {settings.usage.cap != null && <> de um teto de {money(settings.usage.cap, settings.usage.currency)}</>}
+        </p>
+      )}
+      {settings.usage?.capReached && (
+        <p className="text-xs text-amber-700 flex gap-1.5"><AlertTriangle className="w-4 h-4 flex-shrink-0" /> Teto mensal de consumo atingido: os novos pedidos ficam em modo manual até ao próximo mês.</p>
       )}
     </div>
   );
@@ -214,6 +297,12 @@ function IdentityInner() {
   });
   const refresh = () => { qc.invalidateQueries({ queryKey: ['identity-settings'] }); qc.invalidateQueries({ queryKey: ['identity-verifications'] }); };
   const acceptMut = useMutation({ mutationFn: (v: number) => identityVerificationApi.acceptTerms(v), onSuccess: refresh, onError: e => alert(errMsg(e)) });
+  const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
+  const refreshMut = useMutation({
+    mutationFn: (v: any) => identityVerificationApi.refresh(v.id).then(r => ({ before: v.status, after: r.data?.status as string })),
+    onSuccess: (r, v) => { refresh(); setNotice({ id: v.id, text: r.after === r.before ? 'O fornecedor ainda não tem resultado.' : `Estado atualizado: ${STATUS[r.after]?.label ?? r.after}.` }); },
+    onError: (e, v) => setNotice({ id: v.id, text: errMsg(e) }),
+  });
   const decideMut = useMutation({
     mutationFn: ({ id, d }: { id: string; d: any }) => identityVerificationApi.decide(id, d),
     onSuccess: () => { refresh(); setDeciding(null); }, onError: e => alert(errMsg(e)),
@@ -230,8 +319,9 @@ function IdentityInner() {
         <p className="text-sm text-gray-500">KYC · KYB · rastreio de sanções e PEP. Funciona em modo manual desde o primeiro dia; a verificação automática por um fornecedor especializado liga-se quando for contratada.</p>
       </div>
 
-      {settings && <ModeCard settings={settings} canAccept={isAdmin} busy={acceptMut.isPending} onAccept={v => acceptMut.mutate(v)} />}
-      <NewVerification canWrite={canWrite} mode={settings?.mode ?? 'MANUAL'} onDone={refresh} />
+      {settings && settings.addonActive === false && <AddonNotice />}
+      {settings && settings.addonActive !== false && <ModeCard settings={settings} canAccept={isAdmin} busy={acceptMut.isPending} onAccept={v => acceptMut.mutate(v)} />}
+      {settings?.addonActive !== false && <NewVerification canWrite={canWrite} mode={settings?.mode ?? 'MANUAL'} onDone={refresh} />}
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-2">
@@ -254,6 +344,7 @@ function IdentityInner() {
                   {v.automated && v.unitPrice != null ? ` · ${money(v.unitPrice, v.currency ?? 'EUR')}` : ''}
                   {v.riskScore != null ? ` · risco ${v.riskScore}` : ''}
                 </p>
+                <RowDetails v={v} />
                 {v.decisionNote && <p className="text-xs text-gray-600 mt-0.5">“{v.decisionNote}”</p>}
                 {v.actionUrl && v.status === 'PENDING' && (
                   <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap">
@@ -264,13 +355,22 @@ function IdentityInner() {
                       <Copy className="w-3 h-3" /> copiar link
                     </button>
                     <a className="text-blue-700 hover:underline" href={v.actionUrl} target="_blank" rel="noopener noreferrer">abrir</a>
+                    {canWrite && <SendLink v={v} onDone={refresh} />}
                   </p>
                 )}
+                {notice && notice.id === v.id && <p className="text-xs text-gray-500 mt-1">{notice.text}</p>}
               </div>
               <span className={cn('text-xs font-medium rounded-full px-2.5 py-0.5 flex items-center gap-1', st.cls)}>
                 {v.status === 'APPROVED' ? <CheckCircle2 className="w-3 h-3" /> : v.status === 'REJECTED' ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}{st.label}
               </span>
-              {canWrite && ['REVIEW', 'ERROR'].includes(v.status) && <Button size="sm" variant="outline" onClick={() => setDeciding(v)}>Decidir</Button>}
+              {canWrite && v.automated && v.status === 'PENDING' && v.providerRefId && (
+                <Button size="sm" variant="outline" disabled={refreshMut.isPending} onClick={() => refreshMut.mutate(v)}>
+                  <RefreshCw className={cn('w-3.5 h-3.5 mr-1', refreshMut.isPending && refreshMut.variables?.id === v.id && 'animate-spin')} /> Atualizar estado
+                </Button>
+              )}
+              {canWrite && (['REVIEW', 'ERROR'].includes(v.status) || (v.status === 'REJECTED' && !v.decidedAt)) && (
+                <Button size="sm" variant="outline" onClick={() => setDeciding(v)}>{v.status === 'REJECTED' ? 'Rever decisão' : 'Decidir'}</Button>
+              )}
             </div>
           );
         })}
