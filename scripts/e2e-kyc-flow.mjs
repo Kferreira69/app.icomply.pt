@@ -88,9 +88,14 @@ if (PHASE === 'setup') {
   check('add-on Verificação de Identidade ativado', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
   r = await call('PUT', `/identity-verification/admin/${orgId}/routing`, adminToken, { default: 'DIDIT', individual: 'DIDIT', business: 'DIDIT' });
   check('encaminhamento: Didit serve indivíduos e empresas', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
+  // the cap is an amount in EUR and counts the whole calendar month: set it RELATIVE to what was already used,
+  // so the run can be repeated. Room for 1 sanctions screening (0.5) + 3 individual checks (3 x 1) = 3.5.
+  r = await call('GET', '/identity-verification/providers', token);
+  const usedBefore = Number(r.body?.usage?.amount ?? 0);
+  const cap = Math.round((usedBefore + 3.5) * 100) / 100;
   r = await call('PUT', `/identity-verification/admin/${orgId}/terms`, adminToken,
-    { currency: 'EUR', setupFee: 0, priceIndividual: 1, priceBusiness: 3, priceSanctions: 0.5, monthlyCap: 3, note: 'E2E sandbox — teto baixo de propósito' });
-  check('condições propostas (teto mensal de 3 verificações automáticas)', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
+    { currency: 'EUR', setupFee: 0, priceIndividual: 1, priceBusiness: 3, priceSanctions: 0.5, monthlyCap: cap, note: 'E2E sandbox — teto baixo de propósito' });
+  check(`condições propostas (teto mensal de ${cap} €: 1 sanções + 3 indivíduos)`, [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
   r = await call('GET', '/identity-verification/providers', token);
   const version = r.body?.commercial?.terms?.version;
   check('as condições aparecem com versão', Number.isInteger(version), short(r.body));
@@ -99,7 +104,11 @@ if (PHASE === 'setup') {
   r = await call('GET', '/identity-verification/providers', token);
   check('modo AUTOMATED (add-on + Didit + condições aceites)', r.body?.mode === 'AUTOMATED', short(r.body?.mode) + ' ' + short(r.body?.reason));
 
-  // 3. three verifications; the sandbox scenario is chosen when the sessions are closed afterwards
+  // 3a. standalone sanctions/PEP screening is synchronous: the answer comes back in the same call
+  r = await call('POST', '/identity-verification/sanctions-screening', token, { name: 'E2E Teste Sancoes', country: 'PT' });
+  check('rastreio de sanções/PEP responde na hora (Didit, automático, resultado final)', [200, 201].includes(r.status) && r.body?.automated === true && r.body?.provider === 'DIDIT' && ['APPROVED', 'REVIEW', 'REJECTED'].includes(r.body?.status), `${r.status} ${short(r.body)}`);
+
+  // 3b. three verifications; the sandbox scenario is chosen when the sessions are closed afterwards
   const made = [];
   for (const [name, fullName] of [['approve', 'E2E Aprovada'], ['aml_hit', 'E2E Sancoes'], ['review', 'E2E Revisao']]) {
     r = await call('POST', '/identity-verification/individual', token, { fullName, country: 'PT' });
@@ -107,7 +116,7 @@ if (PHASE === 'setup') {
     check(`verificação "${name}" criada na Didit (PENDING, com link)`, ok, `${r.status} ${short(r.body)}`);
     if (ok) made.push({ name, id: r.body.id, providerRefId: r.body.providerRefId, actionUrl: r.body.actionUrl });
   }
-  fs.writeFileSync(STATE, JSON.stringify({ orgId, made }, null, 2));
+  fs.writeFileSync(STATE, JSON.stringify({ orgId, cap, made }, null, 2));
   console.log(`\nState: ${STATE}`);
   for (const m of made) console.log(`SESSION ${m.name}  didit_session=${m.providerRefId}`);
 
@@ -134,8 +143,10 @@ if (PHASE === 'verify') {
   for (const m of st.made) {
     check(`webhook da Didit atualizou "${m.name}" → ${want[m.name]}`, rows[m.name]?.status === want[m.name], `está ${rows[m.name]?.status}`);
   }
+  // (Didit's sandbox simulate sets the outcome only: it does not produce AML screening details, so those are covered by the
+  // adapter's unit tests, written against real payloads. Here: the decision and its reason reached us.)
   const hit = rows.aml_hit;
-  check('cenário de sanções: o resultado AML ficou registado', !!hit && (hit.riskScore != null || JSON.stringify(hit.rawResult ?? {}).toLowerCase().includes('aml')), short(hit?.rawResult));
+  check('cenário de sanções recusado: a decisão da Didit ficou registada', hit?.rawResult?.status === 'Declined', short(hit?.rawResult));
 
   // "Atualizar estado" goes to the provider and must agree with what the webhook said
   const first = st.made[0];
@@ -143,8 +154,8 @@ if (PHASE === 'verify') {
   check('"Atualizar estado" consulta a Didit e concorda com o webhook', r.status === 200 && r.body?.status === want[first.name], `${r.status} ${short(r.body?.status)}`);
 
   const u = await call('GET', '/identity-verification/providers', token);
-  // the cap is an amount in EUR: 3 EUR = three individual checks at 1 EUR
-  check('consumo do mês regista as 3 verificações automáticas (3 €) e o teto de 3 €', u.body?.usage?.cap === 3 && Number(u.body?.usage?.amount) >= 3 && u.body?.usage?.capReached === true, short(u.body?.usage));
+  // the cap is an amount in EUR; this run used 0.5 (sanctions) + 3 x 1 (individual) = 3.5 €, exactly up to the cap
+  check(`consumo do mês chegou ao teto de ${st.cap} € e o módulo mostra "teto atingido"`, u.body?.usage?.cap === st.cap && Number(u.body?.usage?.amount) >= st.cap && u.body?.usage?.capReached === true, short(u.body?.usage));
 }
 
 if (PHASE === 'cleanup') {
