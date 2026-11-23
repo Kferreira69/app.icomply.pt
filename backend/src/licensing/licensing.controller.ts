@@ -127,6 +127,13 @@ export class LicensingController {
     return this.svc.createInvoice(orgId, dto);
   }
 
+  /** Reemite no Moloni uma fatura que falhou (idempotente: se já tem documento, não repete). */
+  @Post('invoices/:invoiceId/moloni')
+  async emitMoloni(@Param('invoiceId') id: string, @Request() req: any) {
+    await this.svc.assertSuperAdmin(req.user.userId);
+    return this.svc.emitMoloni(id);
+  }
+
   @Put('invoices/:invoiceId/paid')
   async markPaid(@Param('invoiceId') id: string, @Body() dto: any, @Request() req: any) {
     await this.svc.assertSuperAdmin(req.user.userId);

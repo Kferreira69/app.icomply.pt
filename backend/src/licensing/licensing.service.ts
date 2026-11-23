@@ -5,6 +5,8 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../common/mail/mail.service';
 import { v4 as uuid } from 'uuid';
+import { MoloniClient } from './moloni/moloni.client';
+import { MoloniBilling, vatTreatment, planReference, BillingCustomer } from './moloni/moloni.billing';
 
 // ── Module catalogue ─────────────────────────────────────────
 
@@ -482,11 +484,13 @@ export class LicensingService {
   async createInvoice(organizationId: string, dto: any) {
     const license = await this.prisma.license.findUnique({
       where: { organizationId },
-      include: { modules: { where: { enabled: true } } },
+      include: { modules: { where: { enabled: true } }, organization: { select: { country: true, vatNumber: true } } },
     });
     if (!license) throw new NotFoundException('License not found');
 
-    const taxRate = dto.taxRate ?? 23;
+    // Clientes fora de Portugal com NIF/VAT: M40, sem IVA português. Os restantes casos mantêm 23 %.
+    const treatment = vatTreatment(license.organization?.country, license.organization?.vatNumber);
+    const taxRate = dto.taxRate ?? (treatment.kind === 'REVIEW' ? 23 : treatment.rate);
     const amounts = this.calcInvoiceAmount(license.id, license.modules, license.billingCycle, taxRate);
 
     const invoice = await this.prisma.licenseInvoice.create({
@@ -505,22 +509,17 @@ export class LicensingService {
       },
     });
 
-    if (this.moloniClientId && this.moloniCompanyId && dto.sendToMoloni) {
-      try {
-        const moloniResult = await this.sendToMoloni(invoice, license, dto);
-        await this.prisma.licenseInvoice.update({
-          where: { id: invoice.id },
-          data: { moloniId: moloniResult.id, moloniDocNo: moloniResult.number, status: 'SENT' },
-        });
-      } catch (e: any) {
-        console.error('Moloni error:', e.message);
-      }
+    if (dto.sendToMoloni) {
+      await this.emitMoloni(invoice.id, { paidNow: !!dto.paidNow });
     }
 
     return invoice;
   }
 
   async markPaid(invoiceId: string, dto: any = {}) {
+    const before = await this.prisma.licenseInvoice.findUnique({ where: { id: invoiceId } });
+    if (!before) throw new NotFoundException('Invoice not found');
+
     const invoice = await this.prisma.licenseInvoice.update({
       where: { id: invoiceId },
       data: {
@@ -531,16 +530,17 @@ export class LicensingService {
       include: { license: true },
     });
 
-    // Auto-create Moloni receipt when marked as paid
-    if (this.moloniClientId && this.moloniCompanyId && invoice.moloniId) {
+    // Recibo no Moloni: só para faturas (FT) já fechadas e ainda não pagas. As faturas-recibo (FR) já nascem pagas
+    // e as em rascunho não podem ter documentos associados.
+    if (this.moloniBilling() && before.status !== 'PAID' && invoice.moloniId && invoice.moloniDocNo && !invoice.moloniReceiptId) {
       try {
-        const receiptResult = await this.createMoloniReceipt(invoice);
-        await this.prisma.licenseInvoice.update({
-          where: { id: invoiceId },
-          data: { moloniReceiptId: receiptResult.id, moloniReceiptNo: receiptResult.number },
-        });
+        const customer = await this.moloniCustomer(invoice.license.organizationId);
+        const receipt = await this.moloniBilling()!.receipt(
+          invoice.moloniId, customer, Number(invoice.totalAmount), `Pagamento fatura ${invoice.moloniDocNo}`,
+        );
+        await this.prisma.licenseInvoice.update({ where: { id: invoiceId }, data: { moloniReceiptId: receipt.documentId } });
       } catch (e: any) {
-        console.error('Moloni receipt error:', e.message);
+        await this.recordMoloniError(invoice.licenseId, invoiceId, `recibo: ${e.message}`);
       }
     }
 
@@ -694,6 +694,8 @@ export class LicensingService {
           await this.createInvoice(organizationId, {
             description: `iComply ${planKey} — ${billingCycle}`,
             sendToMoloni: true,
+            // Cartão confirmado pelo Stripe: fatura-recibo.
+            paidNow: obj.payment_status === 'paid',
           });
         }
         break;
@@ -773,81 +775,104 @@ export class LicensingService {
 
   // ── Moloni ────────────────────────────────────────────────────
 
-  private async getMoloniToken(): Promise<string> {
-    const res = await fetch(`${this.moloniBaseUrl}/grant/`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type:    'password',
-        client_id:     this.moloniClientId!,
-        client_secret: this.moloniClientSecret!,
-        username:      this.moloniUsername!,
-        password:      this.moloniPassword!,
-      }),
+  private moloni?: MoloniBilling | null;
+
+  /** Cliente de faturação, ou null se o Moloni não estiver configurado neste ambiente. */
+  private moloniBilling(): MoloniBilling | null {
+    if (this.moloni !== undefined) return this.moloni;
+    const num = (k: string) => { const v = Number(this.config.get<string>(k)); return Number.isFinite(v) && v > 0 ? v : undefined; };
+    if (!(this.moloniClientId && this.moloniClientSecret && this.moloniUsername && this.moloniPassword && num('MOLONI_COMPANY_ID'))) {
+      return (this.moloni = null);
+    }
+    const client = new MoloniClient({
+      baseUrl: this.moloniBaseUrl,
+      clientId: this.moloniClientId, clientSecret: this.moloniClientSecret,
+      username: this.moloniUsername, password: this.moloniPassword,
+      companyId: num('MOLONI_COMPANY_ID')!,
     });
-    if (!res.ok) throw new Error('Moloni auth failed');
-    const data = await res.json() as any;
-    return data.access_token;
+    return (this.moloni = new MoloniBilling(client, {
+      documentSetName: this.config.get<string>('MOLONI_DOCUMENT_SET') || 'ICY',
+      // Rascunho por omissão: só passa a "1" (fechado e comunicado à AT) depois de validar no Moloni.
+      status: this.config.get<string>('MOLONI_DOC_STATUS') === '1' ? 1 : 0,
+      taxId23: num('MOLONI_TAX_ID_23'),
+      languageId: num('MOLONI_LANGUAGE_ID') ?? 1,
+      defaultPaymentMethodId: num('MOLONI_DEFAULT_PAYMENT_METHOD_ID'),
+      defaultMaturityDateId: num('MOLONI_DEFAULT_MATURITY_DATE_ID'),
+      cardPaymentMethodId: num('MOLONI_STRIPE_PAYMENT_METHOD_ID'),
+    }));
   }
 
-  private async sendToMoloni(invoice: any, license: any, dto: any): Promise<{ id: string; number: string }> {
-    const token = await this.getMoloniToken();
+  private async moloniCustomer(organizationId: string): Promise<BillingCustomer> {
     const org = await this.prisma.organization.findUnique({
-      where: { id: license.organizationId },
-      select: { name: true, vatNumber: true, billingEmail: true, address: true },
+      where: { id: organizationId },
+      include: { license: { select: { moloniCustomerId: true, contactEmail: true } }, orgAddresses: true },
     });
-
-    const payload = {
-      company_id:        this.moloniCompanyId,
-      date:              new Date().toISOString().split('T')[0],
-      expiration_date:   dto.dueDate ? new Date(dto.dueDate).toISOString().split('T')[0] : undefined,
-      document_set_name: 'ICY',
-      customer_name:     org?.name,
-      customer_vat:      org?.vatNumber || '999999990',
-      customer_email:    license.contactEmail || org?.billingEmail,
-      notes:             invoice.description,
-      products: [{
-        name:  invoice.description,
-        qty:   1,
-        price: Number(invoice.amount),
-        exemption_reason: null,
-        taxes: [{ value: Number(invoice.taxRate), order: 1, cumulative: 0 }],
-      }],
+    if (!org) throw new NotFoundException('Organization not found');
+    const addr = org.orgAddresses.find(a => a.type === 'BILLING') ?? org.orgAddresses.find(a => a.isPrimary) ?? org.orgAddresses[0];
+    return {
+      moloniCustomerId: org.license?.moloniCustomerId,
+      vat: org.vatNumber,
+      name: org.legalName || org.name,
+      email: org.license?.contactEmail || org.billingEmail,
+      address: addr?.street || org.address,
+      city: addr?.city,
+      zipCode: addr?.postalCode,
+      country: org.country,
     };
-
-    const res = await fetch(`${this.moloniBaseUrl}/invoices/insert/`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`Moloni invoice failed: ${await res.text()}`);
-    const data = await res.json() as any;
-    return { id: String(data.document_id), number: data.document_number || '' };
   }
 
-  private async createMoloniReceipt(invoice: any): Promise<{ id: string; number: string }> {
-    const token = await this.getMoloniToken();
-    const payload = {
-      company_id:        this.moloniCompanyId,
-      date:              new Date().toISOString().split('T')[0],
-      document_set_name: 'ICY',
-      associated_documents: [{ document_id: invoice.moloniId, value: Number(invoice.totalAmount) }],
-      payments: [{
-        payment_method_id: 1, // Transferência bancária — to be configurable
-        date:  new Date().toISOString().split('T')[0],
-        value: Number(invoice.totalAmount),
-        notes: `Pagamento fatura ${invoice.moloniDocNo}`,
-      }],
-    };
+  private async recordMoloniError(licenseId: string, invoiceId: string, message: string) {
+    console.error(`Moloni (fatura ${invoiceId}): ${message}`);
+    await (this.prisma as any).subscriptionEvent.create({
+      data: { licenseId, type: 'MOLONI_ERROR', metadata: { invoiceId, message: String(message).slice(0, 500) } },
+    }).catch(() => undefined);
+  }
 
-    const res = await fetch(`${this.moloniBaseUrl}/receipts/insert/`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload),
+  /**
+   * Emite no Moloni o documento de uma fatura da app (FT, ou FR se já está paga). Idempotente: se a fatura já tem
+   * documento não repete. Em caso de erro regista um evento MOLONI_ERROR e devolve ok:false (pode-se repetir).
+   */
+  async emitMoloni(invoiceId: string, opts: { paidNow?: boolean } = {}): Promise<{ ok: boolean; message?: string; documentId?: string }> {
+    const billing = this.moloniBilling();
+    if (!billing) return { ok: false, message: 'Moloni não configurado neste ambiente' };
+
+    const invoice = await this.prisma.licenseInvoice.findUnique({
+      where: { id: invoiceId },
+      include: { license: true },
     });
-    if (!res.ok) throw new Error(`Moloni receipt failed: ${await res.text()}`);
-    const data = await res.json() as any;
-    return { id: String(data.document_id), number: data.document_number || '' };
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (invoice.moloniId) return { ok: true, documentId: invoice.moloniId, message: 'já emitida' };
+
+    try {
+      const customer = await this.moloniCustomer(invoice.license.organizationId);
+      const treatment = vatTreatment(customer.country, customer.vat);
+      if (treatment.kind === 'REVIEW') throw new Error(treatment.reason);
+      const { reference, qty } = planReference(invoice.license.plan, invoice.license.billingCycle);
+
+      const result = await billing.emit({
+        customer, treatment, reference, qty,
+        netAmount: Number(invoice.amount),
+        description: invoice.description || `iComply ${invoice.license.plan}`,
+        ourReference: invoice.id.slice(0, 8),
+        dueDate: invoice.dueDate ?? undefined,
+        paidNow: !!opts.paidNow,
+      });
+
+      await this.prisma.licenseInvoice.update({
+        where: { id: invoice.id },
+        data: {
+          moloniId: result.documentId,
+          moloniDocNo: result.documentNumber || null,
+          ...(result.kind === 'FR'
+            ? { status: 'PAID', paidAt: new Date() }
+            : result.closed ? { status: 'SENT' } : {}),
+        },
+      });
+      return { ok: true, documentId: result.documentId };
+    } catch (e: any) {
+      await this.recordMoloniError(invoice.licenseId, invoice.id, e.message);
+      return { ok: false, message: e.message };
+    }
   }
 
   // ── MRR / ARR analytics ───────────────────────────────────────
