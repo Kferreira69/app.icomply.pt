@@ -14,6 +14,7 @@ import {
   VerificationStatus,
   WebhookContext,
 } from './kyc-provider.interface';
+import { toAlpha3 } from './iso-country';
 
 // Didit (https://docs.didit.me) — pay-as-you-go, no set-up fee.
 //  - KYC / KYB: POST /v3/session/ with a workflow id (created in the Didit console) → hosted `url`
@@ -139,7 +140,8 @@ export class DiditProviderService implements KycProvider {
     const [first, ...rest] = input.fullName.trim().split(/\s+/);
     return this.session(this.cfg.workflowKyc, {
       contact_details: input.email ? { email: input.email, send_notification_emails: false } : undefined,
-      expected_details: { first_name: first, last_name: rest.join(' ') || undefined, id_country: input.country },
+      // Didit only accepts ISO alpha-3 here (a "PT" is refused with 400 → our users saw "o fornecedor não conseguiu concluir")
+      expected_details: { first_name: first, last_name: rest.join(' ') || undefined, id_country: toAlpha3(input.country) },
     });
   }
 

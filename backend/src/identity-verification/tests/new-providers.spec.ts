@@ -41,7 +41,7 @@ describe('Didit', () => {
     expect(url).toBe('https://verification.didit.me/v3/session/');
     expect(init.headers['x-api-key']).toBe('key');
     const body = JSON.parse(init.body);
-    expect(body).toMatchObject({ workflow_id: 'wf-kyc', callback: 'https://app.test/done', expected_details: { first_name: 'Ana', last_name: 'Maria Silva', id_country: 'PT' } });
+    expect(body).toMatchObject({ workflow_id: 'wf-kyc', callback: 'https://app.test/done', expected_details: { first_name: 'Ana', last_name: 'Maria Silva', id_country: 'PRT' } }); // Didit refuses alpha-2 here
     expect(body.vendor_data).toMatch(/^[0-9a-f-]{36}$/); // unique per request
     expect(r).toMatchObject({ status: 'PENDING', providerRefId: 's-1', actionUrl: 'https://verify.didit.me/s/abc' });
   });

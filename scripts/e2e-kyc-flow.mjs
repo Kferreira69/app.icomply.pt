@@ -68,7 +68,8 @@ async function login(email, password) {
 }
 const jwt = t => JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString());
 
-const token = await login();
+const adminToken = await login(E2E_EMAIL, E2E_PASSWORD);                                                  // platform operator
+const token = CUSTOMER_EMAIL === E2E_EMAIL ? adminToken : await login(CUSTOMER_EMAIL, CUSTOMER_PASSWORD); // customer ADMIN
 const claims = jwt(token);
 const orgId = claims.organizationId ?? claims.orgId;
 console.log(`env=${ENV} phase=${PHASE} org=${orgId}\n`);
