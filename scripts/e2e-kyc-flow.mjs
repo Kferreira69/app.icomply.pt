@@ -5,9 +5,13 @@
 //
 // Credentials are NOT passed on the command line or typed in the chat. Put them in a file OUTSIDE the repository
 // (default: %USERPROFILE%\.icomply-e2e.env, or the path in E2E_ENV_FILE), one per line:
-//   E2E_EMAIL=...        an account that is BOTH platform super-admin AND ADMIN of the organisation to test with
+//   E2E_EMAIL=...            platform super-admin (Contemporary Constellation)
 //   E2E_PASSWORD=...
-// (E2E_EMAIL / E2E_PASSWORD may also come from the environment.)
+//   E2E_CUSTOMER_EMAIL=...   an ADMIN of the CUSTOMER organisation to test with (accepts the terms and requests the checks)
+//   E2E_CUSTOMER_PASSWORD=...
+// The organisation under test is the one of the customer account. If the customer pair is left out, E2E_EMAIL is used
+// for both (only works when that account is super-admin AND ADMIN of an organisation that has a licence).
+// (All four may also come from the environment.)
 //
 // Phases (Didit's sandbox sessions are closed in between, with the Didit MCP / console "simulate"):
 //   node scripts/e2e-kyc-flow.mjs <dev|staging> setup    -> checks provider, activates add-on, routing, terms, acceptance,
@@ -35,6 +39,8 @@ if (fs.existsSync(envFile)) {
   }
 }
 const { E2E_EMAIL, E2E_PASSWORD } = process.env;
+const CUSTOMER_EMAIL = process.env.E2E_CUSTOMER_EMAIL || E2E_EMAIL;
+const CUSTOMER_PASSWORD = process.env.E2E_CUSTOMER_PASSWORD || E2E_PASSWORD;
 if (!E2E_EMAIL || !E2E_PASSWORD) { console.error(`Missing E2E_EMAIL / E2E_PASSWORD (file ${envFile} or environment).`); process.exit(2); }
 
 const STATE = path.join(os.tmpdir(), `icomply-e2e-kyc-${ENV}.json`);
@@ -50,9 +56,9 @@ async function call(method, p, token, json) {
   const t = await r.text(); let body; try { body = JSON.parse(t); } catch { body = t; }
   return { status: r.status, body };
 }
-async function login() {
+async function login(email, password) {
   for (let i = 0; i < 4; i++) {
-    const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: E2E_EMAIL, password: E2E_PASSWORD }) });
+    const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const j = await r.json().catch(() => ({}));
     if (r.status === 429) { await sleep(65000); continue; }
     if (j.accessToken) return j.accessToken;
@@ -70,18 +76,18 @@ if (!orgId) { console.error('Could not read the organisation from the token.'); 
 
 if (PHASE === 'setup') {
   // 1. platform operator + provider reachable
-  let r = await call('GET', '/identity-verification/admin/usage', token);
+  let r = await call('GET', '/identity-verification/admin/usage', adminToken);
   check('a conta é super-admin da plataforma', r.status === 200, `${r.status} ${short(r.body)}`);
   if (r.status !== 200) process.exit(1);
-  r = await call('POST', '/identity-verification/admin/providers/DIDIT/check', token);
+  r = await call('POST', '/identity-verification/admin/providers/DIDIT/check', adminToken);
   check('Didit configurada e acessível ("Testar ligação")', r.status === 200 && (r.body?.ok === true || r.body?.reachable === true || r.body?.configured === true), `${r.status} ${short(r.body)}`);
 
   // 2. add-on, routing, terms, acceptance
-  r = await call('PATCH', `/licensing/clients/${orgId}/addons/identity_verification`, token, { enabled: true });
+  r = await call('PATCH', `/licensing/clients/${orgId}/addons/identity_verification`, adminToken, { enabled: true });
   check('add-on Verificação de Identidade ativado', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
-  r = await call('PUT', `/identity-verification/admin/${orgId}/routing`, token, { default: 'DIDIT', individual: 'DIDIT', business: 'DIDIT' });
+  r = await call('PUT', `/identity-verification/admin/${orgId}/routing`, adminToken, { default: 'DIDIT', individual: 'DIDIT', business: 'DIDIT' });
   check('encaminhamento: Didit serve indivíduos e empresas', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
-  r = await call('PUT', `/identity-verification/admin/${orgId}/terms`, token,
+  r = await call('PUT', `/identity-verification/admin/${orgId}/terms`, adminToken,
     { currency: 'EUR', setupFee: 0, priceIndividual: 1, priceBusiness: 3, priceSanctions: 0.5, monthlyCap: 3, note: 'E2E sandbox — teto baixo de propósito' });
   check('condições propostas (teto mensal de 3 verificações automáticas)', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
   r = await call('GET', '/identity-verification/providers', token);
@@ -141,7 +147,7 @@ if (PHASE === 'verify') {
 }
 
 if (PHASE === 'cleanup') {
-  const r = await call('PATCH', `/licensing/clients/${orgId}/addons/identity_verification`, token, { enabled: false });
+  const r = await call('PATCH', `/licensing/clients/${orgId}/addons/identity_verification`, adminToken, { enabled: false });
   check('add-on desativado outra vez (o histórico fica)', [200, 201].includes(r.status), `${r.status} ${short(r.body)}`);
 }
 
