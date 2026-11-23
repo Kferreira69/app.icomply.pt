@@ -51,6 +51,8 @@ export function warningCodes(decision: any): string[] {
   };
   if (decision && typeof decision === 'object') {
     for (const w of Array.isArray(decision.warnings) ? decision.warnings : []) take(w);
+    // Didit also aggregates the warnings of every check here (real sandbox decision, 2026-11-19)
+    for (const w of Array.isArray(decision.decision_trace?.status_warnings) ? decision.decision_trace.status_warnings : []) take(w);
     for (const v of Object.values(decision)) {
       if (!Array.isArray(v)) continue;
       for (const item of v) for (const w of Array.isArray((item as any)?.warnings) ? (item as any).warnings : []) take(w);

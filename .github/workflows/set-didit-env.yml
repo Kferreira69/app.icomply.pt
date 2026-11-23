@@ -1,0 +1,103 @@
+name: Set Didit env on VPS
+
+# Manual workflow: copies the Didit credentials from GitHub secrets into the environment file of the chosen
+# environment on the VPS and recreates only the backend container. Values never appear in logs or in the chat.
+#
+# Secrets (Settings → Secrets and variables → Actions), one set per environment, suffix DEV | STAGING | PROD:
+#   DIDIT_API_KEY_<ENV>          required  (x-api-key of the Didit application: sandbox for DEV/STAGING, live for PROD)
+#   DIDIT_WEBHOOK_SECRET_<ENV>   required  (signing secret of the webhook destination)
+# Workflow ids are not secrets: they are typed when the workflow is run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment
+        type: choice
+        required: true
+        options: [DEV, STAGING, PROD]
+      workflow_kyc:
+        description: DIDIT_WORKFLOW_KYC (workflow id for individuals)
+        type: string
+        required: true
+      workflow_kyb:
+        description: DIDIT_WORKFLOW_KYB (workflow id for businesses, optional)
+        type: string
+        required: false
+
+concurrency:
+  group: set-didit-env-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  set:
+    name: Set Didit env (${{ inputs.target }})
+    runs-on: ubuntu-latest
+    env:
+      DIDIT_API_KEY: ${{ secrets[format('DIDIT_API_KEY_{0}', inputs.target)] }}
+      DIDIT_WEBHOOK_SECRET: ${{ secrets[format('DIDIT_WEBHOOK_SECRET_{0}', inputs.target)] }}
+      DIDIT_WORKFLOW_KYC: ${{ inputs.workflow_kyc }}
+      DIDIT_WORKFLOW_KYB: ${{ inputs.workflow_kyb }}
+      TARGET: ${{ inputs.target }}
+
+    steps:
+      - name: Check inputs
+        run: |
+          [ -n "$DIDIT_API_KEY" ] || { echo "::error::Missing secret DIDIT_API_KEY_${TARGET}"; exit 1; }
+          [ -n "$DIDIT_WEBHOOK_SECRET" ] || { echo "::error::Missing secret DIDIT_WEBHOOK_SECRET_${TARGET}"; exit 1; }
+          echo "::add-mask::$DIDIT_API_KEY"
+          echo "::add-mask::$DIDIT_WEBHOOK_SECRET"
+          case "$TARGET" in
+            DEV)     echo "DIR=/opt/icomply/dev"        >> "$GITHUB_ENV"; echo "ENVFILE=.env.dev"        >> "$GITHUB_ENV"; echo "COMPOSE=docker-compose.dev.yml"     >> "$GITHUB_ENV"; echo "HEALTH=https://api.dev.icomply.pt/api/v1/health"     >> "$GITHUB_ENV" ;;
+            STAGING) echo "DIR=/opt/icomply/staging"    >> "$GITHUB_ENV"; echo "ENVFILE=.env.staging"    >> "$GITHUB_ENV"; echo "COMPOSE=docker-compose.staging.yml" >> "$GITHUB_ENV"; echo "HEALTH=https://api.staging.icomply.pt/api/v1/health" >> "$GITHUB_ENV" ;;
+            PROD)    echo "DIR=/opt/icomply/production" >> "$GITHUB_ENV"; echo "ENVFILE=.env.production" >> "$GITHUB_ENV"; echo "COMPOSE=docker-compose.vps.yml"     >> "$GITHUB_ENV"; echo "HEALTH=https://api.icomply.pt/api/v1/health"         >> "$GITHUB_ENV" ;;
+            *) echo "::error::Unknown target"; exit 1 ;;
+          esac
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Update the environment file and restart the backend
+        run: |
+          set -e
+          umask 077
+          f="$RUNNER_TEMP/didit.env"
+          {
+            printf 'DIDIT_API_KEY=%s\n' "$DIDIT_API_KEY"
+            printf 'DIDIT_WEBHOOK_SECRET=%s\n' "$DIDIT_WEBHOOK_SECRET"
+            printf 'DIDIT_WORKFLOW_KYC=%s\n' "$DIDIT_WORKFLOW_KYC"
+            [ -n "$DIDIT_WORKFLOW_KYB" ] && printf 'DIDIT_WORKFLOW_KYB=%s\n' "$DIDIT_WORKFLOW_KYB"
+          } > "$f"
+          remote="${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          scp -q "$f" "$remote:/tmp/didit.env.$GITHUB_RUN_ID"
+          rm -f "$f"
+          ssh "$remote" bash -s -- "$DIR" "$ENVFILE" "$COMPOSE" "/tmp/didit.env.$GITHUB_RUN_ID" << 'ENDSSH'
+          set -e
+          dir="$1"; envfile="$2"; compose="$3"; incoming="$4"
+          cd "$dir"
+          [ -f "$envfile" ] || { echo "Missing $dir/$envfile"; rm -f "$incoming"; exit 1; }
+          cp "$envfile" "$envfile.bak.$(date +%Y%m%d%H%M%S)"
+          umask 077
+          tmp="$(mktemp)"
+          cp "$envfile" "$tmp"
+          while IFS= read -r line; do
+            key="${line%%=*}"
+            grep -v "^${key}=" "$tmp" > "$tmp.n" || true
+            mv "$tmp.n" "$tmp"
+            printf '%s\n' "$line" >> "$tmp"
+          done < "$incoming"
+          cat "$tmp" > "$envfile"
+          rm -f "$tmp" "$incoming"
+          echo "Keys now set in $envfile:"
+          grep -oE '^DIDIT_[A-Z_]+' "$envfile" | sort -u
+          docker compose -f "$compose" --env-file "$envfile" up -d backend
+          ENDSSH
+
+      - name: Health check
+        run: |
+          sleep 20
+          curl -sf "$HEALTH" | grep '"status":"ok"'
