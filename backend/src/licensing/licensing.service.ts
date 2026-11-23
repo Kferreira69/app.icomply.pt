@@ -94,12 +94,13 @@ export const GOVERNANCE_SUITES = [
 // ── Add-on catalogue ──────────────────────────────────────────
 
 export const ADDON_CATALOGUE = [
-  { key: 'ai_copilot',          label: 'AI Copilot',               monthlyPrice: 49,  annualPrice: 490  },
-  { key: 'api_access',          label: 'API Access',               monthlyPrice: 99,  annualPrice: 990  },
+  // Preços alinhados com o site público (icomply.pt/precos) — decisão de 2026-11-23: prevalece o site.
+  { key: 'ai_copilot',          label: 'AI Copilot',               monthlyPrice: 99,  annualPrice: 990  },
+  { key: 'api_access',          label: 'API Access',               monthlyPrice: 79,  annualPrice: 790  },
   { key: 'white_label',         label: 'White Label',              monthlyPrice: 199, annualPrice: 1990 },
   { key: 'multi_entity',        label: 'Multi-Entity / Group',     monthlyPrice: 149, annualPrice: 1490 },
-  { key: 'advanced_reporting',  label: 'Advanced Reporting',       monthlyPrice: 29,  annualPrice: 290  },
-  { key: 'regulatory_monitoring', label: 'Regulatory Monitoring',  monthlyPrice: 49,  annualPrice: 490  },
+  { key: 'advanced_reporting',  label: 'Advanced Reporting',       monthlyPrice: 59,  annualPrice: 590  },
+  { key: 'regulatory_monitoring', label: 'Regulatory Monitoring',  monthlyPrice: 129, annualPrice: 1290 },
   { key: 'dpia_wizard',         label: 'DPIA Wizard',              monthlyPrice: 29,  annualPrice: 290  },
   { key: 'dsar_workflows',      label: 'DSAR Workflows',           monthlyPrice: 29,  annualPrice: 290  },
   { key: 'cookie_governance',   label: 'Cookie Governance',        monthlyPrice: 19,  annualPrice: 190  },
